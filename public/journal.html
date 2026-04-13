@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Movie Recs — Dev Journal, April 12 2026</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f8f8f7;
+      color: #1a1a1a;
+      padding: 48px 24px;
+    }
+    .page { max-width: 720px; margin: 0 auto; }
+
+    header { margin-bottom: 48px; }
+    header h1 { font-size: 2rem; font-weight: 700; letter-spacing: -0.03em; }
+    header .meta { margin-top: 6px; font-size: 0.875rem; color: #888; }
+
+    .section { margin-bottom: 40px; }
+    .section h2 {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #aaa;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #e8e8e6;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid #e8e8e6;
+      border-radius: 14px;
+      padding: 20px 24px;
+      margin-bottom: 12px;
+    }
+    .card h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .card p {
+      font-size: 0.875rem;
+      color: #555;
+      line-height: 1.6;
+    }
+    .card .tag {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 2px 8px;
+      border-radius: 99px;
+      margin-bottom: 10px;
+    }
+    .tag.concept  { background: #e0f2fe; color: #0369a1; }
+    .tag.ux       { background: #fef9c3; color: #854d0e; }
+    .tag.feature  { background: #dcfce7; color: #166534; }
+    .tag.fix      { background: #fee2e2; color: #991b1b; }
+
+    .insight {
+      background: #fafaf9;
+      border-left: 3px solid #a78bfa;
+      border-radius: 0 10px 10px 0;
+      padding: 14px 18px;
+      margin-bottom: 12px;
+      font-size: 0.875rem;
+      color: #444;
+      line-height: 1.6;
+    }
+    .insight strong { color: #1a1a1a; }
+
+    .file-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .file-list li {
+      font-size: 0.8rem;
+      font-family: "SF Mono", "Fira Code", monospace;
+      background: #fff;
+      border: 1px solid #e8e8e6;
+      border-radius: 8px;
+      padding: 8px 14px;
+      color: #2563eb;
+    }
+    .file-list li span {
+      float: right;
+      color: #aaa;
+      font-family: -apple-system, sans-serif;
+      font-size: 0.75rem;
+    }
+
+    footer {
+      margin-top: 60px;
+      font-size: 0.8rem;
+      color: #bbb;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <h1>Movie Recs</h1>
+    <div class="meta">Dev Journal &mdash; Sunday, April 12, 2026</div>
+  </header>
+
+  <!-- CONCEPT -->
+  <div class="section">
+    <h2>The Idea</h2>
+    <div class="insight">
+      <strong>Starting prompt (yours):</strong> TikTok doesn't ask you what you like &mdash;
+      it watches how you react. Apply the same idea to movies: an LLM picks a title, predicts
+      your rating, you rate it 0&ndash;100, and the error is revealed. Over time the AI gets
+      better. The goal is to minimize error.
+    </div>
+    <div class="card">
+      <span class="tag concept">Concept</span>
+      <h3>Core mechanic</h3>
+      <p>Each round: LLM selects a movie/TV title and makes a hidden prediction.
+      User rates 0&ndash;100. Prediction is revealed alongside the error.
+      A running-average error chart at the top tracks improvement over time.
+      No title is ever shown twice.</p>
+    </div>
+  </div>
+
+  <!-- USER CONTRIBUTIONS -->
+  <div class="section">
+    <h2>Your Design Decisions</h2>
+
+    <div class="card">
+      <span class="tag ux">UX</span>
+      <h3>Slider instead of number input</h3>
+      <p>The original number input felt like filling out a form. You asked for a slider,
+      which turned out to feel much more like a judgment &mdash; drag to where it feels right,
+      hit Submit. The live large-number display next to the label replaced the need for any
+      typed value.</p>
+    </div>
+
+    <div class="card">
+      <span class="tag ux">UX</span>
+      <h3>Remove the Next button &mdash; auto-advance after rating</h3>
+      <p>After submitting a rating, the original design paused to show a result screen with
+      a Next button. You pointed out the extra click was friction: show the result info below
+      the chart instead, and immediately load the next movie. This made the loop feel like
+      a card swipe rather than a form submission.</p>
+    </div>
+
+    <div class="card">
+      <span class="tag feature">Feature</span>
+      <h3>Movie details: poster, cast, plot</h3>
+      <p>You asked for the main actors, a plot summary, and a poster or image on each card.
+      Claude now returns cast and plot as structured JSON fields; the Serper image search API
+      fetches a poster. The card became a proper movie entry rather than a bare title.</p>
+    </div>
+
+    <div class="card">
+      <span class="tag feature">Feature</span>
+      <h3>Rotten Tomatoes score</h3>
+      <p>You wanted a professional rating to show alongside yours after the reveal.
+      Claude returns the RT Tomatometer from its training knowledge (e.g. &ldquo;91%&rdquo;).
+      A 🍅 / 💀 badge renders on the card and in the last-result panel, giving immediate
+      external context for how your taste compares to critics.</p>
+    </div>
+
+    <div class="card">
+      <span class="tag feature">Feature</span>
+      <h3>Watchlist from &ldquo;Haven&rsquo;t seen it&rdquo;</h3>
+      <p>You noticed that the app was surfacing genuinely interesting films you hadn&rsquo;t
+      seen. Rather than just skipping them, you asked that they be saved. Now clicking
+      &ldquo;Haven&rsquo;t seen it&rdquo; adds the full card (poster, cast, plot, RT score,
+      year) to a persistent watchlist page at <code>/watchlist</code>, with a count badge
+      in the header.</p>
+    </div>
+
+    <div class="card">
+      <span class="tag feature">Feature</span>
+      <h3>Release year</h3>
+      <p>A small but grounding detail &mdash; you asked to see when a film was made.
+      The year now appears inline next to the type label (&ldquo;Movie · 1994&rdquo;)
+      on both the main card and the watchlist.</p>
+    </div>
+  </div>
+
+  <!-- BUGS FIXED -->
+  <div class="section">
+    <h2>Bugs Fixed</h2>
+
+    <div class="card">
+      <span class="tag fix">Fix</span>
+      <h3>SVG NaN errors in the error chart</h3>
+      <p>On first render the chart produced <code>NaN</code> for SVG attributes
+      (<code>y</code>, <code>height</code>, path <code>d</code>). Root causes: dividing by
+      zero when <code>n&minus;1 = 0</code> (single data point), and stale localStorage entries
+      with no <code>error</code> field. Fixed by filtering invalid entries, centering the
+      single-point case, and rendering a <code>&lt;circle&gt;</code> instead of a path for
+      one data point.</p>
+    </div>
+
+    <div class="card">
+      <span class="tag fix">Fix</span>
+      <h3>&ldquo;Haven&rsquo;t seen it&rdquo; showed the same movie again</h3>
+      <p>Skipped titles were not being sent to the API, so the LLM could pick the same one
+      again. Added a separate <code>skipped</code> list in localStorage, passed alongside
+      the rating history, and merged both into the exclusion list in the prompt.</p>
+    </div>
+
+    <div class="card">
+      <span class="tag fix">Fix</span>
+      <h3>AI Predicted showed blank / Error showed NaN</h3>
+      <p>The LLM returned <code>predicted_rating</code> (snake_case) but the TypeScript
+      interface expected <code>predictedRating</code> (camelCase). A type assertion
+      (<code>as NextMovieResponse</code>) silently accepted the wrong shape. Fixed by
+      explicitly mapping the raw field to the camelCase key after parsing.</p>
+    </div>
+  </div>
+
+  <!-- CHART IMPROVEMENTS -->
+  <div class="section">
+    <h2>Chart Improvements</h2>
+
+    <div class="card">
+      <span class="tag ux">UX</span>
+      <h3>Accuracy instead of error &mdash; up is good</h3>
+      <p>You asked to flip the chart so that up means better performance, not worse.
+      The Y axis now shows accuracy (100&minus;error) rather than raw error.
+      Grid reference lines at 75 (want-to-see penalty level) and 50 (not-interested
+      penalty level) are preserved, and bar heights grow upward from the baseline.</p>
+    </div>
+
+    <div class="card">
+      <span class="tag fix">Fix</span>
+      <h3>Chart started at 100 on the first pick</h3>
+      <p>The cumulative average was inflated by early lucky guesses and never recovered
+      &mdash; the first pick happened to land well, pushing the average to ~100, and every
+      subsequent mistake looked like a regression. Switched to a rolling window of the
+      last 5 decisions (<code>WINDOW&nbsp;=&nbsp;5</code>) so the line reflects recent
+      performance rather than all-time history, making genuine improvement visible.</p>
+    </div>
+  </div>
+
+  <!-- FILES -->
+  <div class="section">
+    <h2>Files Created / Modified</h2>
+    <ul class="file-list">
+      <li>app/page.tsx <span>main UI — rating card, chart, last result, watchlist link</span></li>
+      <li>app/watchlist/page.tsx <span>watchlist page — new</span></li>
+      <li>app/api/next-movie/route.ts <span>LLM + poster API route</span></li>
+    </ul>
+  </div>
+
+  <!-- STACK -->
+  <div class="section">
+    <h2>Stack</h2>
+    <div class="card">
+      <p>
+        <strong>Framework:</strong> Next.js 16 (App Router, Turbopack)<br/>
+        <strong>LLM:</strong> Claude Opus 4.6 via Anthropic SDK &mdash; movie selection, rating prediction, cast, plot, RT score, release year<br/>
+        <strong>Poster search:</strong> Serper Images API (Google Image search)<br/>
+        <strong>Persistence:</strong> localStorage (rating history, skipped titles, watchlist)<br/>
+        <strong>Styling:</strong> Tailwind CSS v4<br/>
+        <strong>Chart:</strong> Hand-rolled SVG (no library)
+      </p>
+    </div>
+  </div>
+
+</div>
+<footer>Generated April 12, 2026</footer>
+</body>
+</html>

@@ -1,0 +1,11 @@
+TikTok does not ask you to fill out a form that lists the categories of videos you like.  Instead it selects videos for you and sees how you react.  If you watch to the end, you probably liked it.  If you skip to the next one after a few seconds, you didn't.  Slowly, it gets better and better at giving you good videos.
+
+I want to try the same thing for movies and tv using an LLM.  Instead of playing a video, we will just present the title.  Instead of monitoring how long you watch, you will just rate by giving a 0-100 number.  
+
+At each step, the LLM selects a movie or tv series and makes a prediction about the rating you will give. The UI shows the title, the expected rating which is hidden at first, a box for you to provide your rating, and a button to say that you haven't seen it.  When you provide your rating, the expected rating is reavealed, and the difference is shown as the error,
+
+The goal is to minimize error.
+
+At the top, there is a graph showing the cumulative average error and other useful stats.  
+
+The app never presents the same title twice.
