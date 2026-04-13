@@ -32,64 +32,15 @@ async function fetchPoster(title: string, type: "movie" | "tv", year: number | n
     const data = await res.json() as { images?: { imageUrl: string; width?: number; height?: number }[] };
     const images = data.images ?? [];
     const portrait = images.find((img) => !img.width || !img.height || img.height >= img.width);
-    return (portrait ?? images[0])?.imageUrl ?? null;
+    const url = (portrait ?? images[0])?.imageUrl ?? null;
+    // Upgrade http → https to avoid mixed-content blocks on HTTPS deployments
+    return url ? url.replace(/^http:\/\//i, "https://") : null;
   } catch {
     return null;
   }
 }
 
-async function callLLM(llm: string, prompt: string): Promise<string> {
-  if (llm === "deepseek") {
-    const res = await fetch("https://api.deepseek.com/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.DEEPSEEK_API_KEY}` },
-      body: JSON.stringify({ model: "deepseek-chat", max_tokens: 1024, messages: [{ role: "user", content: prompt }] }),
-    });
-    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(`DeepSeek ${res.status}: ${JSON.stringify(e)}`); }
-    const d = await res.json() as { choices: { message: { content: string } }[] };
-    return d.choices?.[0]?.message?.content?.trim() ?? "";
-  }
-
-  if (llm === "claude") {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": process.env.ANTHROPIC_API_KEY!,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({ model: "claude-opus-4-6", max_tokens: 1024, messages: [{ role: "user", content: prompt }] }),
-    });
-    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(`Claude ${res.status}: ${JSON.stringify(e)}`); }
-    const d = await res.json() as { content: { type: string; text: string }[] };
-    return d.content?.[0]?.text?.trim() ?? "";
-  }
-
-  if (llm === "gpt-4o") {
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.OPENAI_API_KEY}` },
-      body: JSON.stringify({ model: "gpt-4o", max_tokens: 1024, messages: [{ role: "user", content: prompt }] }),
-    });
-    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(`OpenAI ${res.status}: ${JSON.stringify(e)}`); }
-    const d = await res.json() as { choices: { message: { content: string } }[] };
-    return d.choices?.[0]?.message?.content?.trim() ?? "";
-  }
-
-  if (llm === "gemini") {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-    });
-    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(`Gemini ${res.status}: ${JSON.stringify(e)}`); }
-    const d = await res.json() as { candidates: { content: { parts: { text: string }[] } }[] };
-    return d.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
-  }
-
-  throw new Error(`Unknown LLM: ${llm}`);
-}
+import { callLLM } from "./llm";
 
 export async function POST(request: Request) {
   const {
@@ -119,32 +70,38 @@ export async function POST(request: Request) {
     mediaType === "tv"    ? "\nIMPORTANT: Pick only TV series (not movies). The \"type\" field must be \"tv\"." :
     "";
 
-  const prompt = `You are helping calibrate a movie/TV recommendation system. Your job is to:
-1. Select a movie or TV series title that the user has NOT already rated
-2. Predict what rating the user would give it on a 0-100 scale based on their taste
-3. Provide a brief plot summary and the top 3-4 main actors/cast members
-4. Include the Rotten Tomatoes Tomatometer score if you know it (e.g. "94%"), or null if unsure
+  // Stable instructions → system prompt (cacheable).
+  // Session-specific data (history + excluded list) → user message.
+  const systemPrompt = `You are calibrating a movie/TV recommendation system to a specific user's taste.
 
-User's rating history:
+Your job each turn:
+1. Pick a title the user has NOT already seen
+2. Predict the rating they would give it (0-100) based on their history
+3. Return title, year, director, top 3-4 actors, a 1-2 sentence plot summary, and the Rotten Tomatoes Tomatometer score
+4. Respond with ONLY valid JSON — no markdown, no explanation:
+{"title": "...", "type": "movie", "year": 1994, "director": "Frank Darabont", "predicted_rating": 75, "actors": ["Actor One", "Actor Two", "Actor Three"], "plot": "Brief summary.", "rt_score": "94%"}
+
+Rules:
+- "type" must be exactly "movie" or "tv"
+- "year" is a number; "director" is the creator/showrunner for TV
+- "rt_score" is the Tomatometer percentage (e.g. "94%") or null if unknown
+- All string values must be on a single line — no newline characters inside strings
+- Predict honestly based on taste patterns — don't always guess 70
+- Vary picks across genres, eras, and types to calibrate faster${mediaConstraint}`;
+
+  const userMessage = `User's rating history:
 ${historyText}
 
-Titles already seen (DO NOT pick any of these):
+Titles already seen — DO NOT pick any of these:
 ${seenText}
 
-Instructions:
-- If no history, pick a well-known, widely-seen film to start learning preferences
-- If there is history, analyze the patterns and pick something that will either confirm or challenge your model of their taste
-- Predict the rating honestly based on the pattern — don't just guess 70 every time
-- Vary your picks across genres, eras, and types (movie vs TV) to learn preferences faster${mediaConstraint}
-
-Respond with ONLY valid JSON, no markdown, no explanation:
-{"title": "...", "type": "movie", "year": 1994, "director": "Frank Darabont", "predicted_rating": 75, "actors": ["Actor One", "Actor Two", "Actor Three"], "plot": "A brief 1-2 sentence plot summary.", "rt_score": "94%"}
-
-The "type" field must be exactly "movie" or "tv". "year" is the release year as a number. For TV series, "director" is the creator/showrunner. Set "rt_score" to null if you don't know it. All string values must be on a single line with no newline characters.`;
+${history.length === 0
+  ? "No history yet — pick a well-known, widely-seen film to start learning preferences."
+  : "Analyze the patterns above and pick a title that will either confirm or usefully challenge your model of their taste."}`;
 
   let text: string;
   try {
-    text = await callLLM(llm, prompt);
+    text = await callLLM(llm, systemPrompt, userMessage);
   } catch (err) {
     console.error("LLM call failed:", err);
     return Response.json({ error: String(err) }, { status: 500 });

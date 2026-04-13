@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Movie Recs — Reconstruction Prompt</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 48px 24px;
+    }
+    .page { max-width: 780px; margin: 0 auto; }
+
+    header { margin-bottom: 36px; }
+    header h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; color: #f1f5f9; }
+    header .meta { margin-top: 6px; font-size: 0.85rem; color: #64748b; }
+    header .meta a { color: #818cf8; text-decoration: none; }
+    header .meta a:hover { text-decoration: underline; }
+
+    .intro {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      font-size: 0.875rem;
+      color: #94a3b8;
+      line-height: 1.6;
+    }
+    .intro strong { color: #e2e8f0; }
+
+    .copy-bar {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 10px;
+    }
+    .copy-btn {
+      background: #334155;
+      color: #cbd5e1;
+      border: none;
+      border-radius: 8px;
+      padding: 6px 16px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .copy-btn:hover { background: #475569; }
+    .copy-btn.copied { background: #166534; color: #bbf7d0; }
+
+    pre {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 28px 32px;
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 0.78rem;
+      line-height: 1.8;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: #e2e8f0;
+    }
+    .comment { color: #64748b; }
+
+    footer {
+      margin-top: 48px;
+      font-size: 0.8rem;
+      color: #334155;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <h1>Movie Recs — Reconstruction Prompt</h1>
+    <div class="meta">
+      <a href="/">← App</a>
+      &nbsp;&middot;&nbsp; <a href="/journal.html">Journal</a>
+      &nbsp;&middot;&nbsp; April 12, 2026
+    </div>
+  </header>
+
+  <div class="intro">
+    <strong>What this is:</strong> A complete specification prompt you can paste into any
+    capable coding agent (Claude, GPT-4o, Gemini, etc.) to rebuild this app from scratch.
+    It captures every feature, scoring decision, UX detail, and API integration.
+  </div>
+
+  <div class="copy-bar">
+    <button class="copy-btn" onclick="copyPrompt(this)">Copy to clipboard</button>
+  </div>
+
+  <pre id="prompt-text"><span class="comment"># Movie Recs — full spec</span>
+
+Build a Next.js 16 (App Router) web app called Movie Recs.
+Use Tailwind CSS v4 for styling. All persistence in localStorage. No database.
+
+<span class="comment">## Core concept</span>
+TikTok-style taste calibration for movies and TV. The real goal is to surface
+films the user has NOT seen but will love. Rating seen films is the training
+signal; the watchlist of unseen-but-wanted titles is the actual product.
+
+Each round:
+1. The LLM picks a movie or TV title the user has not seen before, predicts
+   the user's 0-100 rating, returns metadata as JSON.
+2. The user rates it 0-100 with a slider (or marks it as unseen).
+3. A reveal modal pops up showing: your score / AI score / error.
+4. The next title loads automatically — no Next button.
+
+<span class="comment">## LLM API route  POST /api/next-movie</span>
+Request body: { history, skipped, mediaType, llm }
+- history: array of { title, type, userRating, predictedRating, error }
+- skipped: array of title strings (rated + unseen-marked)
+- mediaType: "movie" | "tv" | "both"
+- llm: "deepseek" | "claude" | "gpt-4o" | "gemini"
+
+The LLM prompt instructs the model to return ONLY valid JSON:
+{ title, type, year, director, predicted_rating, actors[], plot, rt_score }
+type must be "movie" or "tv". rt_score is the Rotten Tomatoes % or null.
+All string values must be on one line (no newlines inside JSON strings).
+
+After getting the LLM response, parse it with a brace-depth walker that
+collects all top-level JSON objects and takes the LAST one (some LLMs emit
+reasoning text followed by a corrected JSON object). Sanitise literal newlines.
+
+Fetch a poster via the Serper Images API:
+  POST https://google.serper.dev/images
+  query: "{title} {year} film official poster"  (include year to avoid wrong version)
+Prefer portrait images. Upgrade http:// URLs to https:// before returning.
+
+<span class="comment">## Client-side duplicate prevention</span>
+Build an excluded Set from all rated titles + all skipped titles (lowercase).
+After each LLM response, check client-side. If the title is in the excluded set,
+retry — passing the duplicate back as an extra skip. Retry up to 6 times total.
+Never show a title unless it is confirmed non-duplicate.
+
+<span class="comment">## Unseen titles — two kinds</span>
+"Want to watch" (green button):
+- Accuracy score: 85/100 (LLM correctly found something appealing)
+- Saves to watchlist with full metadata
+- Triggers a streaming lookup (see below)
+- Adds to skipped list (never shown again)
+
+"Not interested" (neutral button):
+- Accuracy score: 20/100 (LLM missed entirely)
+- Does NOT save to watchlist
+- Adds to skipped list
+
+<span class="comment">## Accuracy chart</span>
+Hand-rolled SVG, no library. Shows accuracy (100 - error) so up is always good.
+- Blue vertical bars for rated titles
+- Green diamonds at y=85 for "want to watch" events
+- Red diamonds at y=20 for "not interested" events
+- Indigo line = rolling average of last 5 decisions (NOT cumulative)
+- Dashed reference lines at y=85 and y=20
+- Label: "How well the AI knows your taste"
+
+<span class="comment">## Reveal modal</span>
+Immediately after submitting a rating, show a centered fixed modal (scale-in
+animation, backdrop blur) with: Your score / AI score / Error in large type.
+Auto-dismiss when the next card loads (or Escape / tap outside to close early).
+If error === 0: gold gradient border, 🎯 icon, random congratulatory message.
+
+<span class="comment">## Main card UI</span>
+Left side: poster (w-72, click to open full-screen lightbox, Escape to close).
+Right side: type + year badge, RT badge (🍅 if ≥60%, 💀 otherwise), title,
+director, cast, plot.
+
+Below the info, two clearly labelled sections:
+  Box 1 — "I've seen it — rate it": slider 0-100, large live number, Submit button.
+  Box 2 — "Haven't seen it": "Want to watch" (green) | "Not interested" (grey).
+
+While the LLM is fetching: dim the card to 45% opacity. Show a fixed pill at
+bottom-center of the viewport: "LLM is thinking…" with bouncing dots.
+On response: fade card to 0, swap content, fade back to 1.
+
+Page max-width: max-w-3xl.
+
+<span class="comment">## Controls (above the card)</span>
+Segmented control: Movies &amp; TV | Movies | TV Series
+When type changes, if the current card doesn't match, re-fetch immediately.
+
+Segmented control for LLM: populated from GET /api/config which checks which
+of DEEPSEEK_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY exist
+in env and returns { llms: [{ id, label }] }. Only show this control if &gt;1 key.
+
+<span class="comment">## Watchlist page  /watchlist</span>
+Shows all "want to watch" entries: poster (w-24), type+year, RT badge, title,
+director, cast, plot, streaming pills (blue).
+Remove button (×) per entry.
+
+Email panel at top: text input for address + Send button.
+POST /api/send-watchlist with { to, entries } — uses Resend to send a formatted
+HTML email with posters, metadata, and streaming availability.
+
+<span class="comment">## Streaming lookup  POST /api/streaming</span>
+Request: { title, year, llm }
+Prompt: "What streaming services currently have {title} ({year}) in the US?
+Return ONLY a JSON array: ["Netflix", "Max", ...]. Return [] if unsure."
+Parse the array from the response. Called when "Want to watch" is clicked;
+result stored in the watchlist entry.
+
+<span class="comment">## Shared LLM caller  app/api/next-movie/llm.ts</span>
+export async function callLLM(llm, prompt): Promise&lt;string&gt;
+Handles: deepseek (deepseek-chat), claude (claude-opus-4-6, anthropic-version header),
+gpt-4o (openai), gemini (gemini-2.0-flash, key in query string).
+
+<span class="comment">## localStorage keys</span>
+movie-recs-history    — RatingEntry[]
+movie-recs-skipped    — string[] (all excluded titles)
+movie-recs-watchlist  — WatchlistEntry[]
+movie-recs-notseen    — NotSeenEvent[] (for chart plotting)
+
+<span class="comment">## Required env vars</span>
+SERPER_API_KEY         — Serper Images API
+RESEND_API_KEY         — Resend email
+DEEPSEEK_API_KEY       — DeepSeek (default LLM)
+ANTHROPIC_API_KEY      — Claude (optional)
+OPENAI_API_KEY         — GPT-4o (optional)
+GEMINI_API_KEY         — Gemini (optional)</pre>
+
+</div>
+
+<script>
+function copyPrompt(btn) {
+  const pre = document.getElementById('prompt-text');
+  const text = pre.innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy to clipboard'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+</script>
+
+<footer>Movie Recs &mdash; April 12, 2026</footer>
+</body>
+</html>

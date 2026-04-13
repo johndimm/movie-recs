@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import Link from "next/link";
 
 interface RatingEntry {
   title: string;
@@ -39,6 +38,7 @@ export interface WatchlistEntry {
   plot: string;
   posterUrl: string | null;
   rtScore: string | null;
+  streaming: string[];
   addedAt: string;
 }
 
@@ -47,15 +47,15 @@ const SKIPPED_KEY = "movie-recs-skipped";
 const WATCHLIST_KEY = "movie-recs-watchlist";
 const NOTSEEN_KEY = "movie-recs-notseen";
 
-const WANT_PENALTY = 25;   // saw it, want to — LLM got taste right, just unseen
-const SKIP_PENALTY = 50;   // not interested — LLM missed entirely
+const WANT_ACCURACY = 85;  // unseen but want to watch — LLM correctly identified appealing content
+const SKIP_ACCURACY = 20;  // unseen and not interested — LLM missed the mark entirely
 
 interface NotSeenEvent {
   afterRating: number;
   kind: "want" | "skip";
 }
 
-type SeqEvent = { kind: "rated"; error: number } | { kind: "not-seen"; penalty: number; want: boolean };
+type SeqEvent = { kind: "rated"; error: number } | { kind: "not-seen"; accuracy: number; want: boolean };
 
 function buildSequence(history: RatingEntry[], notSeen: NotSeenEvent[]): SeqEvent[] {
   const sorted = [...notSeen].sort((a, b) => a.afterRating - b.afterRating);
@@ -65,7 +65,7 @@ function buildSequence(history: RatingEntry[], notSeen: NotSeenEvent[]): SeqEven
   const toSeqEvent = (e: NotSeenEvent): SeqEvent => ({
     kind: "not-seen",
     want: e.kind === "want",
-    penalty: e.kind === "want" ? WANT_PENALTY : SKIP_PENALTY,
+    accuracy: e.kind === "want" ? WANT_ACCURACY : SKIP_ACCURACY,
   });
 
   while (nsIdx < sorted.length && sorted[nsIdx].afterRating === 0) {
@@ -98,23 +98,19 @@ function ErrorChart({ history, notSeen }: { history: RatingEntry[]; notSeen: Not
   const PAD = { top: 10, right: 20, bottom: 30, left: 40 };
   const chartW = W - PAD.left - PAD.right;
   const chartH = H - PAD.top - PAD.bottom;
-  const maxError = 100;
   const n = seq.length;
 
   const xScale = (i: number) =>
     n === 1 ? PAD.left + chartW / 2 : PAD.left + (i / (n - 1)) * chartW;
-  // accuracy = 100 - value; yScale maps 0→bottom, 100→top
-  const yScale = (accuracy: number) =>
-    PAD.top + chartH - (Math.min(Math.max(accuracy, 0), 100) / 100) * chartH;
+  const yScale = (acc: number) =>
+    PAD.top + chartH - (Math.min(Math.max(acc, 0), 100) / 100) * chartH;
 
-  // Accuracy per event (100 - error or 100 - penalty)
-  const accuracy = (e: SeqEvent) => 100 - (e.kind === "rated" ? e.error : e.penalty);
+  const eventAccuracy = (e: SeqEvent) => e.kind === "rated" ? 100 - e.error : e.accuracy;
 
-  // Rolling average accuracy over last WINDOW decisions
   const WINDOW = 5;
   const combinedAvgs = seq.map((_, i) => {
     const slice = seq.slice(Math.max(0, i - WINDOW + 1), i + 1);
-    return slice.reduce((s, e) => s + accuracy(e), 0) / slice.length;
+    return slice.reduce((s, e) => s + eventAccuracy(e), 0) / slice.length;
   });
 
   const avgPath =
@@ -129,16 +125,12 @@ function ErrorChart({ history, notSeen }: { history: RatingEntry[]; notSeen: Not
   const wantCount = seq.filter((e) => e.kind === "not-seen" && e.want).length;
   const skipCount = seq.filter((e) => e.kind === "not-seen" && !e.want).length;
 
-  // Reference lines in accuracy space
-  const WANT_ACC = 100 - WANT_PENALTY;  // 75
-  const SKIP_ACC = 100 - SKIP_PENALTY;  // 50
-
   return (
     <div className="w-full">
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1 mb-2 text-sm text-zinc-500">
         <span><span className="font-semibold text-zinc-800">{ratedCount}</span> rated</span>
-        {wantCount > 0 && <span><span className="font-semibold text-yellow-600">{wantCount}</span> want to see <span className="text-zinc-400 text-xs">(acc {WANT_ACC})</span></span>}
-        {skipCount > 0 && <span><span className="font-semibold text-red-600">{skipCount}</span> not interested <span className="text-zinc-400 text-xs">(acc {SKIP_ACC})</span></span>}
+        {wantCount > 0 && <span><span className="font-semibold text-green-600">{wantCount}</span> want to see <span className="text-zinc-400 text-xs">(+{WANT_ACCURACY})</span></span>}
+        {skipCount > 0 && <span><span className="font-semibold text-red-600">{skipCount}</span> not interested <span className="text-zinc-400 text-xs">({SKIP_ACCURACY})</span></span>}
         <span>Avg accuracy: <span className="font-semibold text-indigo-700">{currentAvg.toFixed(1)}</span></span>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: 130 }}>
@@ -146,25 +138,25 @@ function ErrorChart({ history, notSeen }: { history: RatingEntry[]; notSeen: Not
         {[0, 25, 50, 75, 100].map((v) => (
           <g key={v}>
             <line x1={PAD.left} y1={yScale(v)} x2={PAD.left + chartW} y2={yScale(v)}
-              stroke={v === WANT_ACC ? "#fde68a" : v === SKIP_ACC ? "#fca5a5" : "#e4e4e7"}
-              strokeWidth={v === WANT_ACC || v === SKIP_ACC ? 1.5 : 1}
-              strokeDasharray={v === WANT_ACC || v === SKIP_ACC ? "4 3" : undefined} />
+              stroke={v === WANT_ACCURACY ? "#bbf7d0" : v === SKIP_ACCURACY ? "#fca5a5" : "#e4e4e7"}
+              strokeWidth={v === WANT_ACCURACY || v === SKIP_ACCURACY ? 1.5 : 1}
+              strokeDasharray={v === WANT_ACCURACY || v === SKIP_ACCURACY ? "4 3" : undefined} />
             <text x={PAD.left - 4} y={yScale(v)} textAnchor="end" dominantBaseline="middle" fontSize="9"
-              fill={v === WANT_ACC ? "#ca8a04" : v === SKIP_ACC ? "#dc2626" : "#a1a1aa"}>{v}</text>
+              fill={v === WANT_ACCURACY ? "#16a34a" : v === SKIP_ACCURACY ? "#dc2626" : "#a1a1aa"}>{v}</text>
           </g>
         ))}
 
         {/* Bars / markers per event */}
         {seq.map((e, i) => {
           const x = xScale(i);
-          const acc = accuracy(e);
+          const acc = eventAccuracy(e);
           if (e.kind === "rated") {
             const barH = (Math.min(Math.max(acc, 0), 100) / 100) * chartH;
             return <rect key={i} x={x - 3} y={yScale(acc)} width={6} height={barH} fill="#93c5fd" opacity={0.7} rx={1} />;
           } else {
             const cy = yScale(acc);
             const r = 5;
-            const fill = e.want ? "#ca8a04" : "#dc2626";
+            const fill = e.want ? "#16a34a" : "#dc2626";
             return (
               <polygon key={i}
                 points={`${x},${cy - r} ${x + r},${cy} ${x},${cy + r} ${x - r},${cy}`}
@@ -187,8 +179,8 @@ function ErrorChart({ history, notSeen }: { history: RatingEntry[]; notSeen: Not
       {/* Legend */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-zinc-400">
         <span className="flex items-center gap-1"><span className="inline-block w-3 h-2 rounded bg-blue-300 opacity-70" /> accuracy</span>
-        <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rotate-45 bg-yellow-600 opacity-85" /> want to see (acc {WANT_ACC})</span>
-        <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rotate-45 bg-red-600 opacity-85" /> not interested (acc {SKIP_ACC})</span>
+        <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rotate-45 bg-green-600 opacity-85" /> want to see ({WANT_ACCURACY})</span>
+        <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rotate-45 bg-red-600 opacity-85" /> not interested ({SKIP_ACCURACY})</span>
         <span className="flex items-center gap-1"><span className="inline-block w-4 h-0.5 bg-indigo-600" /> avg accuracy</span>
       </div>
     </div>
@@ -292,6 +284,7 @@ export default function Home() {
   const [mediaType, setMediaType] = useState<"both" | "movie" | "tv">("both");
   const [llm, setLlm] = useState<string>("deepseek");
   const [availableLlms, setAvailableLlms] = useState<{ id: string; label: string }[]>([]);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -323,40 +316,56 @@ export default function Home() {
   const fetchNext = useCallback(async (hist: RatingEntry[], skip: string[], opts: { mediaType: string; llm: string }, isFirst = false) => {
     if (!isFirst) setCardOpacity(0.45);
 
-    const excluded = new Set([...hist.map((h) => h.title.toLowerCase()), ...skip.map((s) => s.toLowerCase())]);
+    // Build a definitive set of every title the user has already seen
+    const excluded = new Set([
+      ...hist.map((h) => h.title.toLowerCase()),
+      ...skip.map((s) => s.toLowerCase()),
+    ]);
 
-    const callApi = async (extraSkip: string[] = []): Promise<Response> => {
-      return fetch("/api/next-movie", {
+    const callApi = (extraSkip: string[]) =>
+      fetch("/api/next-movie", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ history: hist, skipped: [...skip, ...extraSkip], mediaType: opts.mediaType, llm: opts.llm }),
       });
-    };
 
+    setFetchError(null);
     try {
-      let res = await callApi();
-      if (!res.ok) {
-        console.error("API error:", res.status, await res.json().catch(() => ({})));
-        res = await callApi(); // retry once on 500
-        if (!res.ok) throw new Error(`API error ${res.status}`);
-      }
-      let data = await res.json();
-
-      // If the LLM returned a duplicate, keep retrying (up to 3 extra attempts)
+      const MAX_ATTEMPTS = 8;
       const extraSkip: string[] = [];
-      for (let attempt = 0; attempt < 3 && excluded.has(data.title?.toLowerCase()); attempt++) {
-        console.warn(`Duplicate title returned: "${data.title}" — retrying`);
-        extraSkip.push(data.title);
-        const r2 = await callApi(extraSkip);
-        if (r2.ok) data = await r2.json();
+      let data = null;
+
+      for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+        const res = await callApi(extraSkip);
+        if (!res.ok) {
+          console.error(`API error on attempt ${attempt + 1}:`, res.status);
+          continue;
+        }
+        const candidate = await res.json();
+        const titleKey = candidate.title?.toLowerCase();
+        if (titleKey && !excluded.has(titleKey)) {
+          data = candidate;
+          break;
+        }
+        console.warn(`Duplicate "${candidate.title}" on attempt ${attempt + 1} — retrying`);
+        if (candidate.title) extraSkip.push(candidate.title);
+      }
+
+      if (!data) {
+        // Graceful failure — restore card and show a retry prompt
+        setCardOpacity(1);
+        setInitialLoading(false);
+        setFetchError("Couldn't find a new title. Try again.");
+        return;
       }
 
       setCardOpacity(0);
-      setTimeout(() => { setCurrent(data); setUserRating("50"); setInitialLoading(false); setCardOpacity(1); setReveal(null); }, 150);
+      setTimeout(() => { setCurrent(data); setUserRating("50"); setInitialLoading(false); setCardOpacity(1); setReveal(null); setFetchError(null); }, 150);
     } catch (e) {
       console.error("fetchNext failed:", e);
       setCardOpacity(1);
       setInitialLoading(false);
+      setFetchError("Something went wrong. Try again.");
     }
   }, []);
 
@@ -382,6 +391,14 @@ export default function Home() {
     if (current && cardOpacity === 1) inputRef.current?.focus();
   }, [current, cardOpacity]);
 
+  // When mediaType changes, replace the current card if it doesn't match
+  useEffect(() => {
+    if (!current) return;
+    if (mediaType !== "both" && current.type !== mediaType) {
+      fetchNext(history, skipped, { mediaType, llm });
+    }
+  }, [mediaType]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleRate = () => {
     const rating = parseInt(userRating, 10) || 50;
     if (!current) return;
@@ -394,10 +411,20 @@ export default function Home() {
     fetchNext(newHistory, skipped, { mediaType, llm });
   };
 
-  const recordNotSeen = (kind: "want" | "skip") => {
+  const recordNotSeen = async (kind: "want" | "skip") => {
     if (!current) return;
 
     if (kind === "want") {
+      let streaming: string[] = [];
+      try {
+        const r = await fetch("/api/streaming", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: current.title, year: current.year, llm }),
+        });
+        if (r.ok) ({ services: streaming } = await r.json());
+      } catch {}
+
       const entry: WatchlistEntry = {
         title: current.title,
         type: current.type,
@@ -407,6 +434,7 @@ export default function Home() {
         plot: current.plot,
         posterUrl: current.posterUrl,
         rtScore: current.rtScore,
+        streaming,
         addedAt: new Date().toISOString(),
       };
       const newWatchlist = [entry, ...watchlist.filter((w) => w.title !== current.title)];
@@ -450,21 +478,14 @@ export default function Home() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-zinc-900">Movie Recs</h1>
-            <p className="text-sm text-zinc-500">Rate titles. The AI learns your taste.</p>
+            <p className="text-sm text-zinc-500">Discover films you haven&apos;t seen but will love.</p>
+            <p className="text-xs text-zinc-400">Rate what you&apos;ve seen — the AI learns your taste to find them.</p>
           </div>
-          <div className="flex items-center gap-4">
-            <Link href="/watchlist" className="text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors">
-              Watchlist {watchlist.length > 0 && <span className="ml-1 bg-blue-100 text-blue-700 text-xs font-bold px-1.5 py-0.5 rounded-full">{watchlist.length}</span>}
-            </Link>
-            <a href="/journal.html" target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-zinc-400 hover:text-zinc-700 transition-colors">
-              Journal
-            </a>
-            {history.length > 0 && (
-              <button onClick={handleReset} className="text-xs text-zinc-400 hover:text-red-500 transition-colors">
-                Reset
-              </button>
-            )}
-          </div>
+          {history.length > 0 && (
+            <button onClick={handleReset} className="text-xs text-zinc-400 hover:text-red-500 transition-colors">
+              Reset
+            </button>
+          )}
         </div>
 
         {/* Controls */}
@@ -509,7 +530,7 @@ export default function Home() {
         {/* Stats chart + last result */}
         {history.length > 0 && (
           <div className="bg-white rounded-2xl border border-zinc-200 p-4 shadow-sm space-y-4">
-            <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Prediction Accuracy Over Time</p>
+            <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">How well the AI knows your taste</p>
             <ErrorChart history={history} notSeen={notSeen} />
 
             {lastResult && (
@@ -589,40 +610,49 @@ export default function Home() {
                   )}
                 </div>
 
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-zinc-600">Your rating</label>
-                    <span className="text-3xl font-bold text-zinc-900 w-14 text-right tabular-nums">{ratingNum || 50}</span>
-                  </div>
-                  <input
-                    ref={inputRef}
-                    type="range"
-                    min={0}
-                    max={100}
-                    value={ratingNum || 50}
-                    onChange={(e) => setUserRating(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    className="w-full h-2 rounded-full appearance-none cursor-pointer accent-blue-600 bg-zinc-200"
-                  />
-                  <div className="flex justify-between text-xs text-zinc-400 px-0.5">
-                    <span>0</span><span>25</span><span>50</span><span>75</span><span>100</span>
-                  </div>
-                  <button onClick={handleRate} className="w-full py-2.5 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors">
-                    Submit Rating
-                  </button>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => recordNotSeen("want")}
-                      className="py-2 rounded-xl border border-zinc-200 text-sm text-zinc-500 hover:bg-zinc-50 transition-colors"
-                    >
-                      Want to watch
+                <div className="space-y-3">
+                  {/* Seen it — rate it */}
+                  <div className="rounded-xl bg-zinc-50 border border-zinc-200 p-3 space-y-3">
+                    <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">I&apos;ve seen it — rate it</p>
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-zinc-600">Your rating</label>
+                      <span className="text-3xl font-bold text-zinc-900 w-14 text-right tabular-nums">{ratingNum || 50}</span>
+                    </div>
+                    <input
+                      ref={inputRef}
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={ratingNum || 50}
+                      onChange={(e) => setUserRating(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      className="w-full h-2 rounded-full appearance-none cursor-pointer accent-blue-600 bg-zinc-200"
+                    />
+                    <div className="flex justify-between text-xs text-zinc-400 px-0.5">
+                      <span>0</span><span>25</span><span>50</span><span>75</span><span>100</span>
+                    </div>
+                    <button onClick={handleRate} className="w-full py-2.5 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors">
+                      Submit Rating
                     </button>
-                    <button
-                      onClick={() => recordNotSeen("skip")}
-                      className="py-2 rounded-xl border border-zinc-200 text-sm text-zinc-500 hover:bg-zinc-50 transition-colors"
-                    >
-                      Not interested
-                    </button>
+                  </div>
+
+                  {/* Haven't seen it */}
+                  <div className="rounded-xl bg-zinc-50 border border-zinc-200 p-3 space-y-2">
+                    <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Haven&apos;t seen it</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => recordNotSeen("want")}
+                        className="py-2 rounded-xl border border-green-200 bg-green-50 text-sm font-medium text-green-700 hover:bg-green-100 transition-colors"
+                      >
+                        Want to watch
+                      </button>
+                      <button
+                        onClick={() => recordNotSeen("skip")}
+                        className="py-2 rounded-xl border border-zinc-200 text-sm text-zinc-500 hover:bg-zinc-100 transition-colors"
+                      >
+                        Not interested
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -657,6 +687,19 @@ export default function Home() {
         )}
 
       </div>
+
+      {/* Fetch error with retry */}
+      {fetchError && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 px-4 py-2.5 rounded-full bg-red-900 text-white text-sm shadow-lg">
+          <span>{fetchError}</span>
+          <button
+            onClick={() => fetchNext(history, skipped, { mediaType, llm })}
+            className="font-semibold underline underline-offset-2 hover:no-underline"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Thinking indicator — fixed so it's always visible */}
       <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-zinc-900 text-white text-sm shadow-lg transition-all duration-300 ${cardOpacity < 1 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"}`}>

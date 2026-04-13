@@ -42,11 +42,13 @@
       font-weight: 600;
       margin-bottom: 6px;
     }
-    .card p {
+    .card p, .card li {
       font-size: 0.875rem;
       color: #555;
       line-height: 1.6;
     }
+    .card ul { padding-left: 1.2em; margin-top: 6px; }
+    .card li { margin-bottom: 4px; }
     .card .tag {
       display: inline-block;
       font-size: 0.7rem;
@@ -61,6 +63,7 @@
     .tag.ux       { background: #fef9c3; color: #854d0e; }
     .tag.feature  { background: #dcfce7; color: #166534; }
     .tag.fix      { background: #fee2e2; color: #991b1b; }
+    .tag.prompt   { background: #f3e8ff; color: #7e22ce; }
 
     .insight {
       background: #fafaf9;
@@ -73,6 +76,19 @@
       line-height: 1.6;
     }
     .insight strong { color: #1a1a1a; }
+
+    .prompt-block {
+      background: #0f172a;
+      color: #e2e8f0;
+      border-radius: 14px;
+      padding: 24px 28px;
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 0.78rem;
+      line-height: 1.75;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .prompt-block .comment { color: #94a3b8; }
 
     .file-list {
       list-style: none;
@@ -109,7 +125,11 @@
 
   <header>
     <h1>Movie Recs</h1>
-    <div class="meta">Dev Journal &mdash; Sunday, April 12, 2026</div>
+    <div class="meta">
+      Dev Journal &mdash; Sunday, April 12, 2026
+      &nbsp;&middot;&nbsp; <a href="/" style="color:#2563eb;text-decoration:none;">← App</a>
+      &nbsp;&middot;&nbsp; <a href="/prompt.html" style="color:#7e22ce;text-decoration:none;">Prompt →</a>
+    </div>
   </header>
 
   <!-- CONCEPT -->
@@ -121,13 +141,19 @@
       your rating, you rate it 0&ndash;100, and the error is revealed. Over time the AI gets
       better. The goal is to minimize error.
     </div>
+    <div class="insight">
+      <strong>Deeper insight (yours, later):</strong> The real aim of the app is to surface films
+      you have <em>not</em> seen but will love. Rating movies you&rsquo;ve already seen is the
+      training signal &mdash; the accuracy chart shows the work the AI is doing to get there.
+      The watchlist is the point; everything else is calibration.
+    </div>
     <div class="card">
       <span class="tag concept">Concept</span>
       <h3>Core mechanic</h3>
       <p>Each round: LLM selects a movie/TV title and makes a hidden prediction.
       User rates 0&ndash;100. Prediction is revealed alongside the error.
-      A running-average error chart at the top tracks improvement over time.
-      No title is ever shown twice.</p>
+      A rolling-window accuracy chart (last 5 decisions) tracks improvement over time.
+      No title is ever shown twice &mdash; enforced both in the prompt and client-side.</p>
     </div>
   </div>
 
@@ -154,38 +180,90 @@
     </div>
 
     <div class="card">
+      <span class="tag ux">UX</span>
+      <h3>Reveal popup after rating</h3>
+      <p>The AI prediction and error were easy to miss when they appeared above the fold.
+      A modal now pops up immediately after submitting a rating, showing your score, the AI&rsquo;s
+      prediction, and the error in large type. It auto-dismisses when the next card loads.
+      A perfect prediction (error&nbsp;=&nbsp;0) triggers a special gold celebration modal
+      with a randomised congratulatory message.</p>
+    </div>
+
+    <div class="card">
+      <span class="tag ux">UX</span>
+      <h3>Clear labeling of &ldquo;seen&rdquo; vs &ldquo;not seen&rdquo; sections</h3>
+      <p>After watching someone use the app, it was clear the two halves of the card were
+      ambiguous. The rating slider is now inside a box labeled <em>&ldquo;I&rsquo;ve seen it &mdash; rate it&rdquo;</em>
+      and the two skip buttons are in a separate box labeled <em>&ldquo;Haven&rsquo;t seen it&rdquo;</em>.
+      &ldquo;Want to watch&rdquo; is green-tinted to signal it&rsquo;s a save action.</p>
+    </div>
+
+    <div class="card">
       <span class="tag feature">Feature</span>
-      <h3>Movie details: poster, cast, plot</h3>
-      <p>You asked for the main actors, a plot summary, and a poster or image on each card.
-      Claude now returns cast and plot as structured JSON fields; the Serper image search API
-      fetches a poster. The card became a proper movie entry rather than a bare title.</p>
+      <h3>Movie details: poster, cast, plot, director, year</h3>
+      <p>You asked for the main actors, a plot summary, director, release year, and a poster
+      on each card. The LLM returns all metadata as structured JSON; the Serper image search API
+      fetches a poster (year included in the query to avoid getting a different version of the
+      same title). The card became a proper movie entry rather than a bare title.</p>
     </div>
 
     <div class="card">
       <span class="tag feature">Feature</span>
       <h3>Rotten Tomatoes score</h3>
       <p>You wanted a professional rating to show alongside yours after the reveal.
-      Claude returns the RT Tomatometer from its training knowledge (e.g. &ldquo;91%&rdquo;).
-      A 🍅 / 💀 badge renders on the card and in the last-result panel, giving immediate
-      external context for how your taste compares to critics.</p>
+      The LLM returns the RT Tomatometer from its training knowledge (e.g. &ldquo;91%&rdquo;).
+      A 🍅&nbsp;/&nbsp;💀 badge renders on the card, giving immediate external context
+      for how your taste compares to critics.</p>
     </div>
 
     <div class="card">
       <span class="tag feature">Feature</span>
-      <h3>Watchlist from &ldquo;Haven&rsquo;t seen it&rdquo;</h3>
-      <p>You noticed that the app was surfacing genuinely interesting films you hadn&rsquo;t
-      seen. Rather than just skipping them, you asked that they be saved. Now clicking
-      &ldquo;Haven&rsquo;t seen it&rdquo; adds the full card (poster, cast, plot, RT score,
-      year) to a persistent watchlist page at <code>/watchlist</code>, with a count badge
-      in the header.</p>
+      <h3>Two kinds of &ldquo;haven&rsquo;t seen it&rdquo;</h3>
+      <p>You identified two distinct signals: films you <em>want</em> to see (LLM got your
+      taste right, it&rsquo;s just new to you &mdash; a positive outcome) vs films you have
+      <em>no interest</em> in (LLM missed entirely &mdash; a failure). &ldquo;Want to watch&rdquo;
+      scores 85/100 accuracy and adds to the watchlist. &ldquo;Not interested&rdquo; scores
+      20/100 and is discarded. Both are added to the exclusion list so the title is never
+      shown again.</p>
     </div>
 
     <div class="card">
       <span class="tag feature">Feature</span>
-      <h3>Release year</h3>
-      <p>A small but grounding detail &mdash; you asked to see when a film was made.
-      The year now appears inline next to the type label (&ldquo;Movie · 1994&rdquo;)
-      on both the main card and the watchlist.</p>
+      <h3>Watchlist page with streaming info and email</h3>
+      <p>Titles marked &ldquo;Want to watch&rdquo; are saved to a persistent watchlist at
+      <code>/watchlist</code> with full metadata (poster, cast, plot, RT score, year, director).
+      On save, the selected LLM is asked which streaming services currently carry the title
+      in the US; results appear as blue pills on each card. The watchlist can be emailed to
+      any address via the Resend API &mdash; the email is a formatted HTML digest with posters
+      and streaming availability.</p>
+    </div>
+
+    <div class="card">
+      <span class="tag feature">Feature</span>
+      <h3>Smooth transitions + &ldquo;LLM is thinking&rdquo; indicator</h3>
+      <p>While the next title loads, the current card dims to 45% opacity so the layout
+      doesn&rsquo;t jump. A fixed pill at the bottom of the viewport reads &ldquo;LLM is
+      thinking&hellip;&rdquo; with bouncing dots, visible regardless of scroll position.
+      When the response arrives, the card fades to 0, content swaps, then fades back to 1.</p>
+    </div>
+
+    <div class="card">
+      <span class="tag feature">Feature</span>
+      <h3>Media type filter and LLM selector</h3>
+      <p>A segmented control lets you restrict picks to Movies, TV Series, or both. If the
+      current card doesn&rsquo;t match a newly selected type, a fresh fetch fires immediately.
+      A second control lists every LLM whose API key is present in <code>.env.local</code>
+      (DeepSeek, Claude, GPT-4o, Gemini); the selection is live and applies to the next fetch,
+      including the streaming lookup.</p>
+    </div>
+
+    <div class="card">
+      <span class="tag feature">Feature</span>
+      <h3>Poster lightbox</h3>
+      <p>You asked for the poster to be large enough to read. It renders at <code>w-72</code>
+      on the card. Clicking it opens a full-screen lightbox (black overlay, Escape to close).
+      Page max-width is <code>max-w-3xl</code> to give the poster room without making
+      the text too wide.</p>
     </div>
   </div>
 
@@ -195,64 +273,85 @@
 
     <div class="card">
       <span class="tag fix">Fix</span>
-      <h3>SVG NaN errors in the error chart</h3>
-      <p>On first render the chart produced <code>NaN</code> for SVG attributes
-      (<code>y</code>, <code>height</code>, path <code>d</code>). Root causes: dividing by
-      zero when <code>n&minus;1 = 0</code> (single data point), and stale localStorage entries
+      <h3>SVG NaN errors in the chart</h3>
+      <p>On first render the chart produced <code>NaN</code> for SVG attributes.
+      Root causes: dividing by zero on a single data point, and stale localStorage entries
       with no <code>error</code> field. Fixed by filtering invalid entries, centering the
-      single-point case, and rendering a <code>&lt;circle&gt;</code> instead of a path for
-      one data point.</p>
+      single-point case, and rendering a <code>&lt;circle&gt;</code> for one data point.</p>
     </div>
 
     <div class="card">
       <span class="tag fix">Fix</span>
-      <h3>&ldquo;Haven&rsquo;t seen it&rdquo; showed the same movie again</h3>
-      <p>Skipped titles were not being sent to the API, so the LLM could pick the same one
-      again. Added a separate <code>skipped</code> list in localStorage, passed alongside
-      the rating history, and merged both into the exclusion list in the prompt.</p>
+      <h3>Same title shown twice</h3>
+      <p>LLMs occasionally ignore the exclusion list in the prompt. The client now maintains
+      a definitive excluded set (all rated + all skipped titles, case-insensitive) and retries
+      up to 6 times, accumulating each duplicate into <code>extraSkip</code> so the LLM sees
+      explicit evidence of what it already suggested. The card is never set unless a
+      non-duplicate is confirmed.</p>
     </div>
 
     <div class="card">
       <span class="tag fix">Fix</span>
       <h3>AI Predicted showed blank / Error showed NaN</h3>
       <p>The LLM returned <code>predicted_rating</code> (snake_case) but the TypeScript
-      interface expected <code>predictedRating</code> (camelCase). A type assertion
-      (<code>as NextMovieResponse</code>) silently accepted the wrong shape. Fixed by
-      explicitly mapping the raw field to the camelCase key after parsing.</p>
-    </div>
-  </div>
-
-  <!-- CHART IMPROVEMENTS -->
-  <div class="section">
-    <h2>Chart Improvements</h2>
-
-    <div class="card">
-      <span class="tag ux">UX</span>
-      <h3>Accuracy instead of error &mdash; up is good</h3>
-      <p>You asked to flip the chart so that up means better performance, not worse.
-      The Y axis now shows accuracy (100&minus;error) rather than raw error.
-      Grid reference lines at 75 (want-to-see penalty level) and 50 (not-interested
-      penalty level) are preserved, and bar heights grow upward from the baseline.</p>
+      interface expected <code>predictedRating</code> (camelCase). A type assertion silently
+      accepted the wrong shape. Fixed by explicitly mapping the raw field after parsing.</p>
     </div>
 
     <div class="card">
       <span class="tag fix">Fix</span>
-      <h3>Chart started at 100 on the first pick</h3>
-      <p>The cumulative average was inflated by early lucky guesses and never recovered
-      &mdash; the first pick happened to land well, pushing the average to ~100, and every
-      subsequent mistake looked like a regression. Switched to a rolling window of the
-      last 5 decisions (<code>WINDOW&nbsp;=&nbsp;5</code>) so the line reflects recent
-      performance rather than all-time history, making genuine improvement visible.</p>
+      <h3>Poster showed wrong version of a film (e.g. 1930 instead of 1993)</h3>
+      <p>The Serper image search query did not include the year, so for remade titles the
+      wrong version&rsquo;s poster appeared. Fixed by appending the release year to the
+      query string.</p>
+    </div>
+
+    <div class="card">
+      <span class="tag fix">Fix</span>
+      <h3>No poster on Vercel (works on localhost)</h3>
+      <p>Serper occasionally returns <code>http://</code> image URLs. Browsers block
+      mixed content on HTTPS pages (Vercel is always HTTPS, localhost is not). Fixed by
+      upgrading all poster URLs to <code>https://</code> before returning them from the API.
+      A missing <code>SERPER_API_KEY</code> env var on Vercel was also a factor.</p>
+    </div>
+
+    <div class="card">
+      <span class="tag fix">Fix</span>
+      <h3>LLM response contained two JSON objects</h3>
+      <p>Claude sometimes &ldquo;thinks out loud&rdquo; and emits reasoning text between
+      two JSON objects. A greedy regex matched the first <code>{</code> to the last <code>}</code>,
+      capturing the reasoning. Fixed with a brace-depth walker that collects every complete
+      top-level object and takes the last one.</p>
+    </div>
+  </div>
+
+  <!-- CHART -->
+  <div class="section">
+    <h2>Chart Design</h2>
+
+    <div class="card">
+      <span class="tag ux">UX</span>
+      <h3>Accuracy, up is good, rolling window</h3>
+      <p>The chart shows accuracy (100&nbsp;&minus;&nbsp;error) so up is always better.
+      Rated titles appear as blue bars. &ldquo;Want to watch&rdquo; events appear as green
+      diamonds at y&nbsp;=&nbsp;85; &ldquo;Not interested&rdquo; as red diamonds at y&nbsp;=&nbsp;20.
+      The indigo line is a rolling average over the last 5 decisions (not cumulative &mdash;
+      a cumulative average inflates early and never recovers). Reference lines mark the two
+      not-seen thresholds. Hand-rolled SVG, no library.</p>
     </div>
   </div>
 
   <!-- FILES -->
   <div class="section">
-    <h2>Files Created / Modified</h2>
+    <h2>Files</h2>
     <ul class="file-list">
-      <li>app/page.tsx <span>main UI — rating card, chart, last result, watchlist link</span></li>
-      <li>app/watchlist/page.tsx <span>watchlist page — new</span></li>
-      <li>app/api/next-movie/route.ts <span>LLM + poster API route</span></li>
+      <li>app/page.tsx <span>main UI — card, chart, reveal modal, controls</span></li>
+      <li>app/watchlist/page.tsx <span>watchlist with email send</span></li>
+      <li>app/api/next-movie/route.ts <span>LLM pick + poster fetch</span></li>
+      <li>app/api/next-movie/llm.ts <span>shared callLLM() for all providers</span></li>
+      <li>app/api/streaming/route.ts <span>streaming availability lookup</span></li>
+      <li>app/api/send-watchlist/route.ts <span>Resend email route</span></li>
+      <li>app/api/config/route.ts <span>returns which LLM keys are configured</span></li>
     </ul>
   </div>
 
@@ -262,14 +361,160 @@
     <div class="card">
       <p>
         <strong>Framework:</strong> Next.js 16 (App Router, Turbopack)<br/>
-        <strong>LLM:</strong> Claude Opus 4.6 via Anthropic SDK &mdash; movie selection, rating prediction, cast, plot, RT score, release year<br/>
+        <strong>LLMs:</strong> DeepSeek, Claude, GPT-4o, Gemini &mdash; selectable at runtime via env keys<br/>
         <strong>Poster search:</strong> Serper Images API (Google Image search)<br/>
-        <strong>Persistence:</strong> localStorage (rating history, skipped titles, watchlist)<br/>
+        <strong>Email:</strong> Resend<br/>
+        <strong>Persistence:</strong> localStorage (history, skipped, watchlist, not-seen events)<br/>
         <strong>Styling:</strong> Tailwind CSS v4<br/>
-        <strong>Chart:</strong> Hand-rolled SVG (no library)
+        <strong>Chart:</strong> Hand-rolled SVG
       </p>
     </div>
   </div>
+
+  <!-- RECONSTRUCTION PROMPT -->
+  <div class="section">
+    <h2>Reconstruction Prompt</h2>
+    <div class="card" style="margin-bottom:0;">
+      <span class="tag prompt">Prompt</span>
+      <h3>Build this app from scratch</h3>
+      <p>A complete specification prompt — paste it into any coding agent to rebuild
+      a near-identical app from scratch.</p>
+      <p style="margin-top:10px;"><a href="/prompt.html" style="color:#7e22ce;font-weight:600;">Open prompt &rarr;</a></p>
+    </div>
+  </div>
+
+  <!-- prompt source kept in public/prompt.html
+  <div class="section" style="display:none">
+    <div class="prompt-block"><span class="comment"># Movie Recs — full spec</span>
+
+Build a Next.js 16 (App Router) web app called Movie Recs.
+Use Tailwind CSS v4 for styling. All persistence in localStorage. No database.
+
+<span class="comment">## Core concept</span>
+TikTok-style taste calibration for movies and TV. The real goal is to surface
+films the user has NOT seen but will love. Rating seen films is the training
+signal; the watchlist of unseen-but-wanted titles is the actual product.
+
+Each round:
+1. The LLM picks a movie or TV title the user has not seen before, predicts
+   the user's 0-100 rating, returns metadata as JSON.
+2. The user rates it 0-100 with a slider (or marks it as unseen).
+3. A reveal modal pops up showing: your score / AI score / error.
+4. The next title loads automatically — no Next button.
+
+<span class="comment">## LLM API route  POST /api/next-movie</span>
+Request body: { history, skipped, mediaType, llm }
+- history: array of { title, type, userRating, predictedRating, error }
+- skipped: array of title strings (rated + unseen-marked)
+- mediaType: "movie" | "tv" | "both"
+- llm: "deepseek" | "claude" | "gpt-4o" | "gemini"
+
+The LLM prompt instructs the model to return ONLY valid JSON:
+{ title, type, year, director, predicted_rating, actors[], plot, rt_score }
+type must be "movie" or "tv". rt_score is the Rotten Tomatoes % or null.
+All string values must be on one line (no newlines inside JSON strings).
+
+After getting the LLM response, parse it with a brace-depth walker that
+collects all top-level JSON objects and takes the LAST one (some LLMs emit
+reasoning text followed by a corrected JSON object). Sanitise literal newlines.
+
+Fetch a poster via the Serper Images API:
+  POST https://google.serper.dev/images
+  query: "{title} {year} film official poster"  (include year to avoid wrong version)
+Prefer portrait images. Upgrade http:// URLs to https:// before returning.
+
+<span class="comment">## Client-side duplicate prevention</span>
+Build an excluded Set from all rated titles + all skipped titles (lowercase).
+After each LLM response, check client-side. If the title is in the excluded set,
+retry — passing the duplicate back as an extra skip. Retry up to 6 times total.
+Never show a title unless it is confirmed non-duplicate.
+
+<span class="comment">## Unseen titles — two kinds</span>
+"Want to watch" (green button):
+- Accuracy score: 85/100 (LLM correctly found something appealing)
+- Saves to watchlist with full metadata
+- Triggers a streaming lookup (see below)
+- Adds to skipped list (never shown again)
+
+"Not interested" (neutral button):
+- Accuracy score: 20/100 (LLM missed entirely)
+- Does NOT save to watchlist
+- Adds to skipped list
+
+<span class="comment">## Accuracy chart</span>
+Hand-rolled SVG, no library. Shows accuracy (100 - error) so up is always good.
+- Blue vertical bars for rated titles
+- Green diamonds at y=85 for "want to watch" events
+- Red diamonds at y=20 for "not interested" events
+- Indigo line = rolling average of last 5 decisions (NOT cumulative)
+- Dashed reference lines at y=85 and y=20
+- Label: "How well the AI knows your taste"
+
+<span class="comment">## Reveal modal</span>
+Immediately after submitting a rating, show a centered fixed modal (scale-in
+animation, backdrop blur) with: Your score / AI score / Error in large type.
+Auto-dismiss when the next card loads (or Escape / tap outside to close early).
+If error === 0: gold gradient border, 🎯 icon, random congratulatory message.
+
+<span class="comment">## Main card UI</span>
+Left side: poster (w-72, click to open full-screen lightbox, Escape to close).
+Right side: type + year badge, RT badge (🍅 if ≥60%, 💀 otherwise), title,
+director, cast, plot.
+
+Below the info, two clearly labelled sections:
+  Box 1 — "I've seen it — rate it": slider 0-100, large live number, Submit button.
+  Box 2 — "Haven't seen it": "Want to watch" (green) | "Not interested" (grey).
+
+While the LLM is fetching: dim the card to 45% opacity. Show a fixed pill at
+bottom-center of the viewport: "LLM is thinking…" with bouncing dots.
+On response: fade card to 0, swap content, fade back to 1.
+
+Page max-width: max-w-3xl.
+
+<span class="comment">## Controls (above the card)</span>
+Segmented control: Movies &amp; TV | Movies | TV Series
+When type changes, if the current card doesn't match, re-fetch immediately.
+
+Segmented control for LLM: populated from GET /api/config which checks which
+of DEEPSEEK_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY exist
+in env and returns { llms: [{ id, label }] }. Only show this control if &gt;1 key.
+
+<span class="comment">## Watchlist page  /watchlist</span>
+Shows all "want to watch" entries: poster (w-24), type+year, RT badge, title,
+director, cast, plot, streaming pills (blue).
+Remove button (×) per entry.
+
+Email panel at top: text input for address + Send button.
+POST /api/send-watchlist with { to, entries } — uses Resend to send a formatted
+HTML email with posters, metadata, and streaming availability.
+
+<span class="comment">## Streaming lookup  POST /api/streaming</span>
+Request: { title, year, llm }
+Prompt: "What streaming services currently have {title} ({year}) in the US?
+Return ONLY a JSON array: ["Netflix", "Max", ...]. Return [] if unsure."
+Parse the array from the response. Called when "Want to watch" is clicked;
+result stored in the watchlist entry.
+
+<span class="comment">## Shared LLM caller  app/api/next-movie/llm.ts</span>
+export async function callLLM(llm, prompt): Promise&lt;string&gt;
+Handles: deepseek (deepseek-chat), claude (claude-opus-4-6, anthropic-version header),
+gpt-4o (openai), gemini (gemini-2.0-flash, key in query string).
+
+<span class="comment">## localStorage keys</span>
+movie-recs-history    — RatingEntry[]
+movie-recs-skipped    — string[] (all excluded titles)
+movie-recs-watchlist  — WatchlistEntry[]
+movie-recs-notseen    — NotSeenEvent[] (for chart plotting)
+
+<span class="comment">## Required env vars</span>
+SERPER_API_KEY         — Serper Images API
+RESEND_API_KEY         — Resend email
+DEEPSEEK_API_KEY       — DeepSeek (default LLM)
+ANTHROPIC_API_KEY      — Claude (optional)
+OPENAI_API_KEY         — GPT-4o (optional)
+GEMINI_API_KEY         — Gemini (optional)
+  </div>
+  -->
 
 </div>
 <footer>Generated April 12, 2026</footer>
