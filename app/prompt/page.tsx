@@ -147,8 +147,22 @@ Right/below: type + year badge, RT badge (tomato if >=60%, skull otherwise), tit
 director, cast, plot.
 
 Below the info, two clearly labelled sections:
-  Box 1 — "I've seen it — rate it": slider 0-100, large live number, Submit button.
-  Box 2 — "Haven't seen it": "Want to watch" (green) | "Not interested" (grey).
+  Box 1 — "I've seen it — rate it": custom slider 0-100 (see below), large live number.
+  Box 2 — "Haven't seen it": "Not interested" (grey, LEFT) | "Want to watch" (green, RIGHT).
+  Button order matches slider polarity: left = negative/low, right = positive/high.
+
+Custom RatingSlider component (do NOT use <input type="range"> — unusable on iOS):
+- A div with role="slider", tabIndex=0, touch-action:none, height 44px.
+- Track: absolutely positioned, inset-x by THUMB/2 (14px), height 10px, rounded, bg-zinc-200.
+  Fill bar inside the track, width = value%, bg-blue-500.
+- Thumb: absolutely positioned circle, 28×28px, white with blue border and shadow.
+  left: calc(${value/100} * (100% - 28px))  — stays fully in-bounds at 0 and 100.
+- onPointerDown: call setPointerCapture(pointerId) then compute value from clientX.
+- onPointerMove: update value only while dragging (ref flag).
+- onPointerUp: finalize value, call onCommit(v) to submit the rating.
+- valueFromClientX: (clientX - rect.left - THUMB/2) / (rect.width - THUMB), clamped 0-1.
+- Keyboard: ArrowLeft/Right ±1, PageUp/Down ±10, Home=0, End=100, Enter submits.
+- Rating auto-submits on pointer release and on each arrow-key press (no separate button).
 
 While the LLM is fetching: dim the card to 45% opacity. Show a fixed pill at
 bottom-center of the viewport: "LLM is thinking..." with bouncing dots.
@@ -169,10 +183,23 @@ Segmented control for LLM: populated from GET /api/config which checks which
 of DEEPSEEK_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY exist
 in env and returns { llms: [{ id, label }] }. Only show if >1 key configured.
 
+## Re-rate / reconsider
+The "All ratings" list and the "Not interested" list below the card are fully clickable rows
+(cursor-pointer, hover highlight). Clicking a row loads that title as the current card:
+- Rated title: remove the entry from history, reconstruct a CurrentMovie from
+  { title, type, predictedRating, rtScore } (year/director/actors/plot/posterUrl all null/empty),
+  call setCurrent(movie) and scroll to top.
+- Not-interested title: remove from the skipped list and notInterested list in localStorage
+  and state, then reconstruct and setCurrent similarly (type defaults to "movie",
+  predictedRating defaults to 50).
+In both cases the user rates or categorises it using the normal card UI; handleRate() adds
+a fresh history entry as usual.
+
 ## Watchlist page  /watchlist
 Shows all "want to watch" entries: poster (w-24), type+year, RT badge, title,
 director, cast, plot, streaming pills (blue).
-Remove button (x) per entry.
+× button per entry — removes from watchlist AND moves to not-interested:
+  writes {title, rtScore} to movie-recs-not-interested and adds title to movie-recs-skipped.
 
 ## Streaming lookup  POST /api/streaming
 Request: { title, year, llm }

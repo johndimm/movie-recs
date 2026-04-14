@@ -321,6 +321,114 @@ function ErrorChart({
 }
 
 
+const SLIDER_THUMB = 28; // px — large enough for a comfortable touch target
+
+/**
+ * Custom slider that works reliably on iOS.
+ * Uses pointer capture + touch-action:none to avoid scroll conflicts.
+ */
+function RatingSlider({
+  value,
+  sliderRef,
+  onChange,
+  onCommit,
+  onEnter,
+}: {
+  value: number;
+  sliderRef?: React.RefObject<HTMLDivElement | null>;
+  onChange: (v: number) => void;
+  onCommit: (v: number) => void;
+  onEnter: () => void;
+}) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const dragging = useRef(false);
+
+  const clamp = (n: number) => Math.round(Math.min(100, Math.max(0, n)));
+
+  const valueFromClientX = (clientX: number): number => {
+    const el = trackRef.current;
+    if (!el) return value;
+    const rect = el.getBoundingClientRect();
+    const pct = (clientX - rect.left - SLIDER_THUMB / 2) / (rect.width - SLIDER_THUMB);
+    return clamp(pct * 100);
+  };
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
+    dragging.current = true;
+    onChange(valueFromClientX(e.clientX));
+  };
+
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragging.current) return;
+    onChange(valueFromClientX(e.clientX));
+  };
+
+  const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragging.current) return;
+    dragging.current = false;
+    const v = valueFromClientX(e.clientX);
+    onChange(v);
+    onCommit(v);
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Enter") { onEnter(); return; }
+    const steps: Partial<Record<string, number>> = {
+      ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1,
+      PageUp: 10, PageDown: -10,
+    };
+    if (e.key === "Home") { e.preventDefault(); onChange(0); onCommit(0); return; }
+    if (e.key === "End")  { e.preventDefault(); onChange(100); onCommit(100); return; }
+    const delta = steps[e.key];
+    if (delta === undefined) return;
+    e.preventDefault();
+    const next = clamp(value + delta);
+    onChange(next);
+    onCommit(next);
+  };
+
+  return (
+    <div
+      ref={(node) => {
+        (trackRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+        if (sliderRef) (sliderRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+      }}
+      role="slider"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={value}
+      tabIndex={0}
+      className="relative w-full rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+      style={{ height: 44, touchAction: "none", userSelect: "none", cursor: "pointer" }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onKeyDown={onKeyDown}
+    >
+      {/* Track */}
+      <div
+        className="absolute rounded-full bg-zinc-200 overflow-hidden"
+        style={{ left: SLIDER_THUMB / 2, right: SLIDER_THUMB / 2, top: "50%", transform: "translateY(-50%)", height: 10 }}
+      >
+        <div className="h-full rounded-full bg-blue-500" style={{ width: `${value}%` }} />
+      </div>
+      {/* Thumb */}
+      <div
+        className="absolute rounded-full bg-white border-2 border-blue-500 shadow"
+        style={{
+          width: SLIDER_THUMB,
+          height: SLIDER_THUMB,
+          top: "50%",
+          transform: "translateY(-50%)",
+          left: `calc(${value / 100} * (100% - ${SLIDER_THUMB}px))`,
+          pointerEvents: "none",
+        }}
+      />
+    </div>
+  );
+}
+
 function RTBadge({ score }: { score: string }) {
   const pct = parseInt(score, 10);
   const fresh = !isNaN(pct) ? pct >= 60 : true;
@@ -349,7 +457,7 @@ export default function Home() {
   const [llm, setLlm] = useState<string>("deepseek");
   const [availableLlms, setAvailableLlms] = useState<{ id: string; label: string }[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLDivElement>(null);
   const prefetchRef = useRef<CurrentMovie[]>([]);
   const replenishInFlight = useRef(0);
   const batchYieldRef = useRef<number[]>([]); // rolling yield fractions (fresh / requested)
@@ -721,26 +829,6 @@ export default function Home() {
     fetchNext({ mediaType, llm });
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") handleRate();
-  };
-
-  const handleSliderPointerUp = (e: React.PointerEvent<HTMLInputElement>) => {
-    const v = parseInt(e.currentTarget.value, 10);
-    if (Number.isNaN(v) || !current) return;
-    setUserRating(String(v));
-    handleRate(v);
-  };
-
-  const handleSliderKeyUp = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"].includes(e.key)) {
-      return;
-    }
-    const v = parseInt(e.currentTarget.value, 10);
-    if (Number.isNaN(v) || !current) return;
-    setUserRating(String(v));
-    handleRate(v);
-  };
 
   const handleReset = () => {
     if (confirm("Clear all ratings and start over?")) {
@@ -1014,25 +1102,20 @@ export default function Home() {
                   <div className="rounded-xl bg-zinc-50 border border-zinc-200 p-3 space-y-3">
                     <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">I&apos;ve seen it — rate it</p>
                     <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium text-zinc-600">Your rating</label>
+                      <span className="text-sm font-medium text-zinc-600">Your rating</span>
                       <span className="text-3xl font-bold text-zinc-900 w-14 text-right tabular-nums">{ratingNum || 50}</span>
                     </div>
-                    <input
-                      ref={inputRef}
-                      type="range"
-                      min={0}
-                      max={100}
+                    <RatingSlider
                       value={ratingNum || 50}
-                      onChange={(e) => setUserRating(e.target.value)}
-                      onPointerUp={handleSliderPointerUp}
-                      onKeyDown={handleKeyDown}
-                      onKeyUp={handleSliderKeyUp}
-                      className="w-full h-2 rounded-full appearance-none cursor-pointer accent-blue-600 bg-zinc-200"
+                      sliderRef={inputRef}
+                      onChange={(v) => setUserRating(String(v))}
+                      onCommit={(v) => handleRate(v)}
+                      onEnter={() => handleRate()}
                     />
                     <div className="flex justify-between text-xs text-zinc-400 px-0.5">
                       <span>0</span><span>25</span><span>50</span><span>75</span><span>100</span>
                     </div>
-                    <p className="text-xs text-zinc-400 text-center">Release the slider or use arrow keys — your rating saves automatically. Press Enter to save without moving.</p>
+                    <p className="text-xs text-zinc-400 text-center">Drag the slider — rating saves on release. Arrow keys or Enter also work.</p>
                   </div>
 
                   {/* Haven't seen it */}
@@ -1040,16 +1123,16 @@ export default function Home() {
                     <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Haven&apos;t seen it</p>
                     <div className="grid grid-cols-2 gap-2">
                       <button
-                        onClick={() => recordNotSeen("want")}
-                        className="py-2 rounded-xl border border-green-200 bg-green-50 text-sm font-medium text-green-700 hover:bg-green-100 active:bg-green-200 active:border-green-400 active:scale-95 transition-all"
-                      >
-                        Want to watch
-                      </button>
-                      <button
                         onClick={() => recordNotSeen("skip")}
                         className="py-2 rounded-xl border border-zinc-200 text-sm text-zinc-500 hover:bg-zinc-100 active:bg-zinc-200 active:border-zinc-400 active:scale-95 transition-all"
                       >
                         Not interested
+                      </button>
+                      <button
+                        onClick={() => recordNotSeen("want")}
+                        className="py-2 rounded-xl border border-green-200 bg-green-50 text-sm font-medium text-green-700 hover:bg-green-100 active:bg-green-200 active:border-green-400 active:scale-95 transition-all"
+                      >
+                        Want to watch
                       </button>
                     </div>
                   </div>
