@@ -2,6 +2,37 @@
 
 import { useState } from "react";
 
+const NATURAL_PROMPT = `Build a web app for discovering movies and TV shows I'll love.
+
+TikTok doesn't ask you what you like — it watches how you react and figures it out.
+I want something like that for movies. Show me a title, I'll rate it 0–100, and you
+reveal what you predicted. Over many rounds the AI should get better at knowing my taste.
+
+The real goal isn't rating films I've already seen — it's finding films I haven't seen
+but will love. The watchlist of "want to watch" titles is the actual product. Rating
+seen films is just the training signal to get there.
+
+Each round: show me a movie or TV title with its poster, director, cast, plot summary,
+and Rotten Tomatoes score. If I've seen it, I rate it with a slider. If I haven't, I
+can either save it to my watchlist (which means the AI got it right) or dismiss it
+(which means the AI missed). Either way, that title never comes up again.
+
+After I submit a rating, load the next title automatically — no Next button, keep it
+moving. Show my score, the AI's prediction, and the error in the chart area.
+
+Show an accuracy chart over time so I can see the AI improving. Rolling window, not
+cumulative — I want to see recent performance, not a lifetime average dragged down by
+early misses.
+
+When I save something to my watchlist, also look up which streaming services have it
+so I know where to watch it.
+
+Let me filter to movies only, TV only, or both. Let me switch between different LLMs
+(DeepSeek, Claude, GPT-4o, Gemini) if I have API keys for them, so I can compare how
+well each one knows my taste.
+
+Keep all data in localStorage — no accounts, no server database.`;
+
 const PROMPT = `# Movie Recs — full spec
 
 Build a Next.js 16 (App Router) web app called Movie Recs.
@@ -13,39 +44,59 @@ films the user has NOT seen but will love. Rating seen films is the training
 signal; the watchlist of unseen-but-wanted titles is the actual product.
 
 Each round:
-1. The LLM picks a movie or TV title the user has not seen before, predicts
-   the user's 0-100 rating, returns metadata as JSON.
+1. The next card is served instantly from a prefetch queue (see below).
 2. The user rates it 0-100 with a slider (or marks it as unseen).
-3. A reveal modal pops up showing: your score / AI score / error.
-4. The next title loads automatically — no Next button.
+3. The next title loads automatically — no Next button.
+4. The last result (your score / AI score / error) is shown inline in the chart panel.
 
 ## LLM API route  POST /api/next-movie
-Request body: { history, skipped, mediaType, llm }
-- history: array of { title, type, userRating, predictedRating, error }
-- skipped: array of title strings (rated + unseen-marked)
+Request body includes skipped, watchlistTitles, notInterestedItems, mediaType, llm, count? — always.
+
+Rating history (server keeps a full copy in memory per sessionId so the client does not resend it every time):
+- sessionId: UUID from localStorage; identifies an in-memory session on the server (TTL ~24h; lost on cold start)
+- historySync: "full" | "delta" | "reuse"
+  - full + history[]: replace session (first load, after reset, or resync after 409)
+  - delta + baseLength + historyAppend: append when the user added ratings since last successful sync
+  - reuse + baseLength: no new ratings; server uses stored list (skipped/watchlist still updated every request)
+- Legacy: omit session fields and send history[] only — treated as full sync
+
+Skipped: title strings from unseen flow (both "want to watch" and "not interested" append here)
+watchlistTitles: array of { title, rtScore } (and notInterestedItems for high-RT dismissals) — unioned with rated titles and skipped for exclusion on the server.
 - mediaType: "movie" | "tv" | "both"
 - llm: "deepseek" | "claude" | "gpt-4o" | "gemini"
+- count: optional number of titles to request in one generation (default ~24, max 28; limited so JSON fits model output caps)
 
-The LLM prompt instructs the model to return ONLY valid JSON:
-{ title, type, year, director, predicted_rating, actors[], plot, rt_score }
-type must be "movie" or "tv". rt_score is the Rotten Tomatoes % or null.
+The LLM user message is intentionally small: rated history is truncated to the highest |user−RT| divergence lines (fallback |user−AI| if no RT); want-to-watch lists only low-RT saves; not-interested lists only high-RT dismissals. Full exclusion title lists are not sent — counts only; the client dedupes.
+
+One HTTP request asks the LLM for many titles at once. The model returns ONLY valid JSON:
+{ "items": [ { title, type, year, director, predicted_rating, actors[], plot, rt_score }, ... ] }
+type must be "movie" or "tv" on each item. rt_score is the Rotten Tomatoes % or null.
 All string values must be on one line (no newlines inside JSON strings).
 
-After getting the LLM response, parse it with a brace-depth walker that
-collects all top-level JSON objects and takes the LAST one (some LLMs emit
-reasoning text followed by a corrected JSON object). Sanitise literal newlines.
+After the LLM responds, parse JSON (with fallbacks: top-level array, or legacy single-object).
+Sanitise literal newlines in string fields when needed.
 
-Fetch a poster via the Serper Images API:
+Response body: { movies: CurrentMovie[] } — one entry per accepted item (posters attached).
+
+Fetch posters via the Serper Images API (one image request per item, in parallel):
   POST https://google.serper.dev/images
   query: "{title} {year} film official poster"  (include year to avoid wrong version)
 Prefer portrait images. Upgrade http:// URLs to https:// before returning.
 
-## Client-side duplicate prevention
-Build an excluded Set from all rated titles + all skipped titles (lowercase).
-After each LLM response, check client-side. If the title is in the excluded set,
-retry — passing the duplicate back as an extra skip. Retry up to 8 times total.
-Never show a title unless it is confirmed non-duplicate.
-On failure, show a friendly error with a Retry button rather than crashing.
+## Prefetch queue
+Maintain a client-side prefetch queue (ref, not state) of pre-fetched CurrentMovie objects.
+On advance, pop instantly from the queue; trigger a background replenish when remaining cards are at or below half the nominal LLM batch (~ceil(LLM_BATCH_SIZE/2)), so the next LLM request overlaps the user's pace. Up to two replenishes may run concurrently.
+If the queue is empty, await the replenish before showing the next card.
+
+Replenish issues a single POST /api/next-movie (LLM_BATCH_SIZE titles per call). The client
+retries the POST once on failure. Titles returned by the model that are already excluded
+(history + skipped + prefetch queue) are dropped; yield = freshAdded / LLM_BATCH_SIZE is
+kept in a rolling window for diagnostics.
+
+Limit to two in-flight replenishes (incrementing a counter); if both slots are busy, additional
+replenish callers spin briefly until a slot frees so the empty-queue path never dead-locks.
+
+On failure after all retries, show a friendly error pill with a Retry button.
 
 ## Unseen titles — two kinds
 "Want to watch" (green button):
@@ -68,15 +119,10 @@ Hand-rolled SVG, no library. Shows accuracy (100 - error) so up is always good.
 - Dashed reference lines at y=85 and y=20
 - Label: "How well the AI knows your taste"
 
-## Reveal modal
-Immediately after submitting a rating, show a centered fixed modal (scale-in
-animation, backdrop blur) with: Your score / AI score / Error in large type.
-Auto-dismiss when the next card loads (or Escape / tap outside to close early).
-If error === 0: gold gradient border, target emoji, random congratulatory message.
-
 ## Main card UI
-Left side: poster (w-72, click to open full-screen lightbox, Escape to close).
-Right side: type + year badge, RT badge (tomato if >=60%, skull otherwise), title,
+On mobile (< sm): poster stacks above metadata as a full-width banner (h-52, object-cover).
+On sm+: poster (w-56) sits to the left of the metadata. Click poster for full-screen lightbox (Escape to close).
+Right/below: type + year badge, RT badge (tomato if >=60%, skull otherwise), title,
 director, cast, plot.
 
 Below the info, two clearly labelled sections:
@@ -139,58 +185,71 @@ OPENAI_API_KEY         — GPT-4o (optional)
 GEMINI_API_KEY         — Gemini (optional)`;
 
 export default function PromptPage() {
-  const [copied, setCopied] = useState(false);
+  const [copiedNatural, setCopiedNatural] = useState(false);
+  const [copiedSpec, setCopiedSpec] = useState(false);
 
-  const copy = () => {
-    navigator.clipboard.writeText(PROMPT).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+  const copyNatural = () => {
+    navigator.clipboard.writeText(NATURAL_PROMPT).then(() => {
+      setCopiedNatural(true);
+      setTimeout(() => setCopiedNatural(false), 2000);
     });
+  };
+
+  const copySpec = () => {
+    navigator.clipboard.writeText(PROMPT).then(() => {
+      setCopiedSpec(true);
+      setTimeout(() => setCopiedSpec(false), 2000);
+    });
+  };
+
+  const preStyle: React.CSSProperties = {
+    background: "#1e293b",
+    border: "1px solid #334155",
+    borderRadius: 12,
+    padding: "28px 32px",
+    fontFamily: '"SF Mono","Fira Code",monospace',
+    fontSize: "0.78rem",
+    lineHeight: 1.8,
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+    color: "#e2e8f0",
   };
 
   return (
     <div className="min-h-screen bg-[#0f172a] py-12 px-6">
       <div style={{ maxWidth: 780, margin: "0 auto" }}>
 
+        {/* Natural language prompt */}
         <div style={{ marginBottom: 28 }}>
           <h1 style={{ fontSize: "1.4rem", fontWeight: 700, color: "#f1f5f9", letterSpacing: "-0.02em" }}>
-            Reconstruction Prompt
+            Idea Prompt
           </h1>
           <p style={{ marginTop: 6, fontSize: "0.875rem", color: "#64748b" }}>
-            Paste into any coding agent to rebuild a near-identical app from scratch.
+            The original concept in plain English — no implementation details.
           </p>
         </div>
-
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
-          <button
-            onClick={copy}
-            style={{
-              background: copied ? "#166534" : "#334155",
-              color: copied ? "#bbf7d0" : "#cbd5e1",
-              border: "none",
-              borderRadius: 8,
-              padding: "6px 16px",
-              fontSize: "0.8rem",
-              cursor: "pointer",
-              transition: "background 0.15s",
-            }}
-          >
-            {copied ? "Copied!" : "Copy to clipboard"}
+          <button onClick={copyNatural} style={{ background: copiedNatural ? "#166534" : "#334155", color: copiedNatural ? "#bbf7d0" : "#cbd5e1", border: "none", borderRadius: 8, padding: "6px 16px", fontSize: "0.8rem", cursor: "pointer", transition: "background 0.15s" }}>
+            {copiedNatural ? "Copied!" : "Copy to clipboard"}
           </button>
         </div>
+        <pre style={preStyle}>{NATURAL_PROMPT}</pre>
 
-        <pre style={{
-          background: "#1e293b",
-          border: "1px solid #334155",
-          borderRadius: 12,
-          padding: "28px 32px",
-          fontFamily: '"SF Mono","Fira Code",monospace',
-          fontSize: "0.78rem",
-          lineHeight: 1.8,
-          whiteSpace: "pre-wrap",
-          wordBreak: "break-word",
-          color: "#e2e8f0",
-        }}>
+        {/* Technical spec */}
+        <div style={{ marginTop: 56, marginBottom: 28 }}>
+          <h2 style={{ fontSize: "1.4rem", fontWeight: 700, color: "#f1f5f9", letterSpacing: "-0.02em" }}>
+            Full Technical Spec
+          </h2>
+          <p style={{ marginTop: 6, fontSize: "0.875rem", color: "#64748b" }}>
+            Detailed spec for rebuilding the app from scratch.
+          </p>
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+          <button onClick={copySpec} style={{ background: copiedSpec ? "#166534" : "#334155", color: copiedSpec ? "#bbf7d0" : "#cbd5e1", border: "none", borderRadius: 8, padding: "6px 16px", fontSize: "0.8rem", cursor: "pointer", transition: "background 0.15s" }}>
+            {copiedSpec ? "Copied!" : "Copy to clipboard"}
+          </button>
+        </div>
+        <pre style={preStyle}>
           {PROMPT.split("\n").map((line, i) =>
             line.startsWith("#") ? (
               <span key={i} style={{ color: "#64748b" }}>{line}{"\n"}</span>
@@ -199,6 +258,7 @@ export default function PromptPage() {
             )
           )}
         </pre>
+
       </div>
     </div>
   );

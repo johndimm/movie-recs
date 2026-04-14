@@ -3,7 +3,9 @@ export interface RatingEntry {
   type: "movie" | "tv";
   userRating: number;
   predictedRating: number;
+  rtScore?: string | null;
 }
+
 
 export interface NextMovieResponse {
   title: string;
@@ -17,148 +19,441 @@ export interface NextMovieResponse {
   rtScore: string | null;
 }
 
-async function fetchPoster(title: string, type: "movie" | "tv", year: number | null): Promise<string | null> {
+/** One entry inside the LLM "items" array — snake_case from model output */
+interface RawItem {
+  title?: string;
+  type?: "movie" | "tv";
+  year?: number | null;
+  director?: string | null;
+  predicted_rating?: number;
+  actors?: string[];
+  plot?: string;
+  rt_score?: string | null;
+}
+
+/**
+ * Items per LLM response — 5 items ≈ 750 output tokens ≈ ~10–15s on DeepSeek.
+ * Smaller + parallel beats larger + sequential for keeping the prefetch queue full.
+ */
+const DEFAULT_BATCH = 5;
+const MAX_BATCH = 8;
+/** Max rated lines in prompt — highest |user−RT| first (then |user−AI| if no RT). */
+const MAX_HISTORY_DIVERGENCE_LINES = 32;
+/** Curated unseen signals (low-RT saves, high-RT dismissals). */
+const MAX_LOW_RT_WANT_LINES = 28;
+const MAX_HIGH_RT_SKIP_LINES = 28;
+const LOW_RT_THRESHOLD = 60; // want-to-watch: RT below this is a strong signal
+const HIGH_RT_THRESHOLD = 70; // not interested: RT at/above this is a strong signal
+/** 5 items × ~200 tokens each + overhead. */
+const LLM_OUTPUT_MAX_TOKENS = 1500;
+
+/** Official posters — free key at https://www.themoviedb.org/settings/api (preferred over image search). */
+async function fetchPosterFromTmdb(title: string, type: "movie" | "tv", year: number | null): Promise<string | null> {
+  const apiKey = process.env.TMDB_API_KEY;
+  if (!apiKey) return null;
+  const base = "https://api.themoviedb.org/3";
+  const path = type === "tv" ? "search/tv" : "search/movie";
+  try {
+    const params = new URLSearchParams({ api_key: apiKey, query: title });
+    if (year !== null && year !== undefined) {
+      if (type === "tv") params.set("first_air_date_year", String(year));
+      else params.set("year", String(year));
+    }
+    let res = await fetch(`${base}/${path}?${params.toString()}`);
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => "");
+      console.error("[next-movie] TMDB search HTTP", res.status, errBody.slice(0, 200));
+      return null;
+    }
+    let data = (await res.json()) as { results?: { poster_path: string | null }[] };
+    let results = data.results ?? [];
+    if (results.length === 0 && year !== null) {
+      const p2 = new URLSearchParams({ api_key: apiKey, query: title });
+      res = await fetch(`${base}/${path}?${p2.toString()}`);
+      if (res.ok) {
+        data = (await res.json()) as { results?: { poster_path: string | null }[] };
+        results = data.results ?? [];
+      }
+    }
+    const withPoster = results.find((r) => r.poster_path);
+    if (!withPoster?.poster_path) return null;
+    return `https://image.tmdb.org/t/p/w500${withPoster.poster_path}`;
+  } catch (e) {
+    console.error("[next-movie] TMDB poster fetch failed:", e);
+    return null;
+  }
+}
+
+/** Google Images via Serper — optional fallback when TMDB has no match or no TMDB key. */
+async function fetchPosterFromSerper(title: string, type: "movie" | "tv", year: number | null): Promise<string | null> {
+  if (!process.env.SERPER_API_KEY) return null;
   const yearStr = year ? ` ${year}` : "";
   const query = `${title}${yearStr} ${type === "tv" ? "TV series" : "film"} official poster`;
   try {
     const res = await fetch("https://google.serper.dev/images", {
       method: "POST",
       headers: {
-        "X-API-KEY": process.env.SERPER_API_KEY!,
+        "X-API-KEY": process.env.SERPER_API_KEY,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ q: query, num: 3 }),
     });
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => "");
+      console.error("[next-movie] Serper images HTTP", res.status, errBody.slice(0, 200));
+      return null;
+    }
     const data = await res.json() as { images?: { imageUrl: string; width?: number; height?: number }[] };
     const images = data.images ?? [];
     const portrait = images.find((img) => !img.width || !img.height || img.height >= img.width);
     const url = (portrait ?? images[0])?.imageUrl ?? null;
-    // Upgrade http → https to avoid mixed-content blocks on HTTPS deployments
     return url ? url.replace(/^http:\/\//i, "https://") : null;
-  } catch {
+  } catch (e) {
+    console.error("[next-movie] Serper images fetch failed:", e);
     return null;
   }
 }
 
+async function fetchPoster(title: string, type: "movie" | "tv", year: number | null): Promise<string | null> {
+  const tmdb = await fetchPosterFromTmdb(title, type, year);
+  if (tmdb) return tmdb;
+  const serper = await fetchPosterFromSerper(title, type, year);
+  if (serper) return serper;
+  if (!process.env.TMDB_API_KEY && !process.env.SERPER_API_KEY) {
+    console.warn("[next-movie] Set TMDB_API_KEY (recommended) or SERPER_API_KEY — poster lookup disabled");
+  }
+  return null;
+}
+
+/** First balanced `{ ... }` with string-aware brace tracking */
+function extractRootJsonObject(text: string): string | null {
+  const start = text.indexOf("{");
+  if (start < 0) return null;
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (ch === "\\" && inString) {
+      escape = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
+function parseLlmResponse(text: string, fallbackSingleObjectWalker: string): { items: RawItem[]; tasteSummary: string | null } {
+  let stripped = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+  let jsonText = stripped.replace(/[\r\n]+/g, " ");
+  let root: unknown;
+  try {
+    root = JSON.parse(jsonText);
+  } catch {
+    const extracted = extractRootJsonObject(stripped) ?? extractRootJsonObject(fallbackSingleObjectWalker);
+    if (!extracted) throw new Error("no JSON");
+    jsonText = extracted.replace(/[\r\n]+/g, " ");
+    root = JSON.parse(jsonText);
+  }
+
+  let items: RawItem[];
+  let tasteSummary: string | null = null;
+
+  if (Array.isArray(root)) {
+    items = root as RawItem[];
+  } else if (root && typeof root === "object" && root !== null) {
+    const o = root as Record<string, unknown>;
+    if (typeof o.taste_summary === "string") tasteSummary = o.taste_summary.trim() || null;
+    if (Array.isArray(o.items)) items = o.items as RawItem[];
+    else if (Array.isArray(o.titles)) items = o.titles as RawItem[];
+    else if (typeof o.title === "string" && (o.type === "movie" || o.type === "tv")) items = [o as RawItem];
+    else items = [];
+  } else {
+    items = [];
+  }
+
+  return { items, tasteSummary };
+}
+
+/** Parse "91%" → 91, returns null if unparseable */
+function parseRtPercent(rtScore: string | null | undefined): number | null {
+  if (!rtScore) return null;
+  const n = parseInt(rtScore, 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Taste information density: prefer |user − RT|; if no RT, use |user − AI prediction| as fallback.
+ */
+function divergenceScore(entry: RatingEntry): number {
+  const rt = parseRtPercent(entry.rtScore);
+  if (rt !== null) return Math.abs(entry.userRating - rt);
+  return Math.abs(entry.userRating - entry.predictedRating);
+}
+
+function selectInformativeHistory(history: RatingEntry[], maxEntries: number): RatingEntry[] {
+  if (history.length <= maxEntries) return history;
+  // Reserve ~1/4 of slots for recency signal; fill the rest with highest-divergence entries.
+  const recentCount = Math.min(Math.floor(maxEntries / 4), 10);
+  const recentEntries = history.slice(-recentCount);
+  const recentKeys = new Set(recentEntries.map((e) => e.title.toLowerCase()));
+  const olderEntries = history.slice(0, -recentCount).filter((e) => !recentKeys.has(e.title.toLowerCase()));
+  const remainingSlots = maxEntries - recentEntries.length;
+  const scored = olderEntries.map((entry) => ({ entry, divergence: divergenceScore(entry) }));
+  scored.sort((a, b) => b.divergence - a.divergence);
+  const divergentEntries = scored.slice(0, remainingSlots).map((s) => s.entry);
+  // Divergent first (context), recent last (freshest signal)
+  return [...divergentEntries, ...recentEntries];
+}
+
 import { callLLM } from "./llm";
+import { resolveHistoryForPrompt } from "./historySessionStore";
 
 export async function POST(request: Request) {
-  const {
-    history,
-    skipped = [],
-    mediaType = "both",
-    llm = "deepseek",
-  }: { history: RatingEntry[]; skipped: string[]; mediaType: "movie" | "tv" | "both"; llm: string } = await request.json();
+  const raw = (await request.json()) as {
+    sessionId?: string;
+    historySync?: "full" | "delta" | "reuse";
+    history?: RatingEntry[];
+    baseLength?: number;
+    historyAppend?: RatingEntry[];
+    skipped?: string[];
+    watchlistTitles?: Array<string | { title: string; rtScore?: string | null }>;
+    notInterestedItems?: Array<{ title: string; rtScore?: string | null }>;
+    tasteSummary?: string;
+    diversityLens?: string;
+    mediaType?: "movie" | "tv" | "both";
+    llm?: string;
+    count?: number;
+  };
+
+  const skipped = raw.skipped ?? [];
+  // Support both legacy string[] and new {title, rtScore}[] formats
+  const rawWatchlistItems = raw.watchlistTitles ?? [];
+  const watchlistItems: { title: string; rtScore?: string | null }[] = rawWatchlistItems.map((item) =>
+    typeof item === "string" ? { title: item } : item
+  );
+  const watchlistTitles = watchlistItems.map((w) => w.title);
+  const notInterestedItems: { title: string; rtScore?: string | null }[] = raw.notInterestedItems ?? [];
+  const existingTasteSummary = raw.tasteSummary?.trim() || null;
+  const diversityLens = raw.diversityLens?.trim() || null;
+  const mediaType = raw.mediaType ?? "both";
+  const llm = raw.llm ?? "deepseek";
+  const countRaw = raw.count;
+
+  const merged = resolveHistoryForPrompt(raw.sessionId, raw.historySync, {
+    history: raw.history,
+    baseLength: raw.baseLength,
+    historyAppend: raw.historyAppend,
+  });
+
+  if (!merged.ok) {
+    return Response.json(
+      { error: "session_resync", reason: merged.reason, message: "Send historySync full with complete history" },
+      { status: 409 }
+    );
+  }
+
+  const history = merged.history;
+
+  const batchCount = Math.min(MAX_BATCH, Math.max(1, Math.floor(Number(countRaw) || DEFAULT_BATCH)));
 
   const ratedTitles = history.map((h) => h.title);
-  const allExcluded = [...ratedTitles, ...skipped];
+  const allExcluded = [...new Set([...ratedTitles, ...skipped, ...watchlistTitles])];
+
+  // --- Informative taste-signal sections (token-efficient; full exclusion lists not sent) ---
+
+  const informativeHistory = selectInformativeHistory(history, MAX_HISTORY_DIVERGENCE_LINES);
+  const historyTrimmed = history.length > informativeHistory.length;
 
   const historyText =
-    history.length === 0
+    informativeHistory.length === 0
       ? "No ratings yet."
-      : history
-          .map((h) => `- "${h.title}" (${h.type}): user rated ${h.userRating}/100`)
+      : informativeHistory
+          .map((h) => {
+            const rt = h.rtScore ? ` RT:${h.rtScore}` : "";
+            const rt_n = parseRtPercent(h.rtScore);
+            const gap =
+              rt_n !== null
+                ? ` |user−RT|=${Math.abs(h.userRating - rt_n)}`
+                : ` |user−AI|=${Math.abs(h.userRating - h.predictedRating)} (no RT)`;
+            return `- "${h.title}" (${h.type}): user ${h.userRating}/100, AI predicted ${h.predictedRating}/100${rt}${gap}`;
+          })
           .join("\n");
 
-  const seenText =
-    allExcluded.length === 0
-      ? "None yet."
-      : allExcluded.map((t) => `"${t}"`).join(", ");
+  const historyNote = historyTrimmed
+    ? `[Subset: ${informativeHistory.length} of ${history.length} rated — kept those with largest divergence from RT (or from AI if RT missing)]`
+    : "";
+
+  const lowRtCandidates = watchlistItems
+    .map((w) => ({ ...w, rtN: parseRtPercent(w.rtScore) }))
+    .filter((w): w is typeof w & { rtN: number } => w.rtN !== null && w.rtN < LOW_RT_THRESHOLD)
+    .sort((a, b) => a.rtN - b.rtN)
+    .slice(0, MAX_LOW_RT_WANT_LINES);
+
+  const lowRtWantText =
+    lowRtCandidates.length === 0
+      ? "None."
+      : lowRtCandidates.map((w) => `"${w.title}" (RT:${w.rtScore})`).join(", ");
+
+  const highRtCandidates = notInterestedItems
+    .map((n) => ({ ...n, rtN: parseRtPercent(n.rtScore) }))
+    .filter((n): n is typeof n & { rtN: number } => n.rtN !== null && n.rtN >= HIGH_RT_THRESHOLD)
+    .sort((a, b) => b.rtN - a.rtN)
+    .slice(0, MAX_HIGH_RT_SKIP_LINES);
+
+  const highRtSkipText =
+    highRtCandidates.length === 0
+      ? "None."
+      : highRtCandidates.map((n) => `"${n.title}" (RT:${n.rtScore})`).join(", ");
 
   const mediaConstraint =
-    mediaType === "movie" ? "\nIMPORTANT: Pick only movies (not TV series). The \"type\" field must be \"movie\"." :
-    mediaType === "tv"    ? "\nIMPORTANT: Pick only TV series (not movies). The \"type\" field must be \"tv\"." :
-    "";
+    mediaType === "movie"
+      ? '\nIMPORTANT: Every item must be a movie only (not TV). Each "type" field must be "movie".'
+      : mediaType === "tv"
+        ? '\nIMPORTANT: Every item must be a TV series only (not movies). Each "type" field must be "tv".'
+        : "";
 
-  // Stable instructions → system prompt (cacheable).
-  // Session-specific data (history + excluded list) → user message.
   const systemPrompt = `You are calibrating a movie/TV recommendation system to a specific user's taste.
 
+Many cards have no Rotten Tomatoes score in the data — that is normal. When RT is missing from a rating line, the |user−AI| gap is used instead of |user−RT|.
+
 Your job each turn:
-1. Pick a title the user has NOT already seen
-2. Predict the rating they would give it (0-100) based on their history
-3. Return title, year, director, top 3-4 actors, a 1-2 sentence plot summary, and the Rotten Tomatoes Tomatometer score
+1. Propose ${batchCount} titles (aim for variety). The client removes duplicates against a large exclusion set you do not receive in full — repeats are OK; the app will filter.
+2. For each title, predict the rating they would give (0–100) from the taste signals below
+3. Return title, year, director, top 3-4 actors, a 1-2 sentence plot summary, and Rotten Tomatoes Tomatometer score for each
 4. Respond with ONLY valid JSON — no markdown, no explanation:
-{"title": "...", "type": "movie", "year": 1994, "director": "Frank Darabont", "predicted_rating": 75, "actors": ["Actor One", "Actor Two", "Actor Three"], "plot": "Brief summary.", "rt_score": "94%"}
+{"items":[{"title":"...","type":"movie","year":1994,"director":"...","predicted_rating":75,"actors":["...","..."],"plot":"...","rt_score":"94%"}]}
 
 Rules:
+- Return exactly ${batchCount} objects in "items" (unless absolutely impossible — then return as many distinct valid picks as you can)
+- Avoid duplicate titles within "items". Do not worry about overlap with the user's full past list — the app enforces that separately
 - "type" must be exactly "movie" or "tv"
 - "year" is a number; "director" is the creator/showrunner for TV
 - "rt_score" is the Tomatometer percentage (e.g. "94%") or null if unknown
 - All string values must be on a single line — no newline characters inside strings
-- Predict honestly based on taste patterns — don't always guess 70
-- Vary picks across genres, eras, and types to calibrate faster${mediaConstraint}`;
+- Vary genres, eras, and (if media allows) movie vs TV to calibrate faster
+- Predict honestly — don't always guess 70
+- Taste data below is intentionally small: high-divergence ratings, low-RT wants, high-RT dismissals. Full exclusion is not listed.${mediaConstraint}${diversityLens ? `\nDIVERSITY LENS FOR THIS BATCH: ${diversityLens}. Every item must fit this lens. This is how the app explores beyond the obvious — treat it as a hard constraint.` : ""}`;
 
-  const userMessage = `User's rating history:
+  const tasteSummarySection = existingTasteSummary
+    ? `RUNNING TASTE PROFILE (your summary from the previous session — treat as primary signal, refine it):
+${existingTasteSummary}
+
+`
+    : "";
+
+  const userMessage = `${tasteSummarySection}RATED TITLES — selected for largest |user−RT| divergence, plus most recent (most informative per token):
 ${historyText}
+${historyNote}
 
-Titles already seen — DO NOT pick any of these:
-${seenText}
+UNSEEN SIGNALS — where this user disagrees with critics (curated, strongest first):
+Want to watch despite LOW RT (below ${LOW_RT_THRESHOLD}%): ${lowRtWantText}
+Not interested despite HIGH RT (${HIGH_RT_THRESHOLD}%+): ${highRtSkipText}
 
-${history.length === 0
-  ? "No history yet — pick a well-known, widely-seen film to start learning preferences."
-  : "Analyze the patterns above and pick a title that will either confirm or usefully challenge your model of their taste."}`;
+EXCLUSION (counts only — the app drops any repeat client-side):
+${allExcluded.length} titles already decided (${ratedTitles.length} rated, ${watchlistTitles.length} on watchlist, ${skipped.length} skipped/dismissed). Suggest ${batchCount} diverse candidates.
+
+${history.length === 0 && allExcluded.length === 0
+  ? `No history yet — suggest ${batchCount} well-known, widely-seen titles to start learning preferences (varied mix of genres helps).`
+  : `Analyze all signals above and pick ${batchCount} titles that will confirm or usefully challenge your model of their taste.`}`;
+
+
+  // Set NEXT_MOVIE_LOG_LLM_PROMPTS=1 in .env.local to re-enable prompt logging when debugging.
+  const logLlmPrompts = process.env.NEXT_MOVIE_LOG_LLM_PROMPTS === "1" || process.env.NEXT_MOVIE_LOG_LLM_PROMPTS === "true";
+  if (logLlmPrompts) {
+    console.log(
+      `[next-movie] LLM submit (${llm}): ${batchCount} titles requested. sync=${raw.historySync ?? "legacy"} rated=${ratedTitles.length} promptLines=${informativeHistory.length} skipped=${skipped.length} watchlist=${watchlistTitles.length} notInterested=${notInterestedItems.length} excluded=${allExcluded.length}`
+    );
+    console.log("[next-movie] --- system prompt ---\n" + systemPrompt);
+    console.log("[next-movie] --- user message ---\n" + userMessage);
+  }
 
   let text: string;
+  const llmStart = Date.now();
   try {
-    text = await callLLM(llm, systemPrompt, userMessage);
+    text = await callLLM(llm, systemPrompt, userMessage, { maxTokens: LLM_OUTPUT_MAX_TOKENS });
+    const llmMs = Date.now() - llmStart;
+    console.log(`[next-movie] LLM done (${llm}) in ${(llmMs / 1000).toFixed(1)}s — output ${text.length} chars`);
   } catch (err) {
-    console.error("LLM call failed:", err);
+    const llmMs = Date.now() - llmStart;
+    console.error(`[next-movie] LLM failed (${llm}) after ${(llmMs / 1000).toFixed(1)}s:`, err);
     return Response.json({ error: String(err) }, { status: 500 });
   }
 
-  // Strip markdown fences
-  let jsonText = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
-
-  // Walk brace depth to collect all top-level JSON objects; take the last one
+  // Fallback: legacy walker that collected inner JSON objects (last wins) — reuse for parseItems second arg
+  let legacyWalker = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
   const candidates: string[] = [];
-  let depth = 0, start = -1;
-  for (let i = 0; i < jsonText.length; i++) {
-    const ch = jsonText[i];
-    if (ch === "{") { if (depth === 0) start = i; depth++; }
-    else if (ch === "}") { depth--; if (depth === 0 && start !== -1) { candidates.push(jsonText.slice(start, i + 1)); start = -1; } }
+  let depth = 0,
+    start = -1;
+  for (let i = 0; i < legacyWalker.length; i++) {
+    const ch = legacyWalker[i];
+    if (ch === "{") {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (ch === "}") {
+      depth--;
+      if (depth === 0 && start !== -1) {
+        candidates.push(legacyWalker.slice(start, i + 1));
+        start = -1;
+      }
+    }
   }
-  if (candidates.length > 0) jsonText = candidates[candidates.length - 1];
+  if (candidates.length > 0) legacyWalker = candidates[candidates.length - 1];
 
-  // Replace literal newlines inside strings (invalid JSON)
-  jsonText = jsonText.replace(/[\r\n]+/g, " ");
-
-  let raw: {
-    title: string;
-    type: "movie" | "tv";
-    year: number | null;
-    director: string | null;
-    predicted_rating: number;
-    actors: string[];
-    plot: string;
-    rt_score: string | null;
-  };
-
+  let rawItems: RawItem[];
   try {
-    raw = JSON.parse(jsonText);
-  } catch {
-    console.error("Failed to parse LLM response:", text);
+    rawItems = parseLlmResponse(text, legacyWalker).items;
+  } catch (e) {
+    console.error("Failed to parse LLM response as JSON:", text, e);
     return Response.json({ error: "Failed to parse response", raw: text }, { status: 500 });
   }
 
-  if (!raw.title || !raw.type) {
-    console.error("LLM response missing required fields:", raw);
-    return Response.json({ error: "Missing required fields", raw }, { status: 500 });
+  const seenKeys = new Set<string>();
+  const normalized: NextMovieResponse[] = [];
+
+  for (const raw of rawItems) {
+    if (!raw?.title || (raw.type !== "movie" && raw.type !== "tv")) continue;
+    const key = raw.title.toLowerCase();
+    if (seenKeys.has(key)) continue;
+    seenKeys.add(key);
+
+    normalized.push({
+      title: raw.title,
+      type: raw.type,
+      year: raw.year ?? null,
+      director: raw.director ?? null,
+      predictedRating: raw.predicted_rating ?? 70,
+      actors: raw.actors ?? [],
+      plot: raw.plot ?? "",
+      posterUrl: null,
+      rtScore: raw.rt_score ?? null,
+    });
   }
 
-  const posterUrl = await fetchPoster(raw.title, raw.type, raw.year ?? null);
+  if (normalized.length === 0) {
+    console.error("LLM returned no valid items:", text);
+    return Response.json({ error: "No valid titles in response", raw: text }, { status: 500 });
+  }
 
-  const result: NextMovieResponse = {
-    title: raw.title,
-    type: raw.type,
-    year: raw.year ?? null,
-    director: raw.director ?? null,
-    predictedRating: raw.predicted_rating,
-    actors: raw.actors ?? [],
-    plot: raw.plot ?? "",
-    posterUrl,
-    rtScore: raw.rt_score ?? null,
-  };
+  const posterUrls = await Promise.all(
+    normalized.map((m) => fetchPoster(m.title, m.type, m.year))
+  );
+  for (let i = 0; i < normalized.length; i++) {
+    normalized[i] = { ...normalized[i], posterUrl: posterUrls[i] };
+  }
 
-  return Response.json(result);
+  return Response.json({ movies: normalized });
 }

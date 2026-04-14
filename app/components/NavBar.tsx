@@ -32,7 +32,7 @@ export default function NavBar() {
   return (
     <nav className="w-full border-b border-zinc-200 bg-white/80 backdrop-blur-sm sticky top-0 z-40">
       <div className="max-w-3xl mx-auto px-4 flex items-center gap-1 h-11">
-        <span className="font-bold text-zinc-900 mr-3 text-sm tracking-tight">Movie Recs</span>
+        <span className="font-bold text-zinc-900 mr-3 text-sm tracking-tight hidden sm:inline">Movie Recs</span>
         {LINKS.map(({ href, label }) => {
           const active = pathname === href;
           return (

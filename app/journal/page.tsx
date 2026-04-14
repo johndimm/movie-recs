@@ -25,7 +25,7 @@ export default function JournalPage() {
 
         <div style={{ marginBottom: 40 }}>
           <h1 style={{ fontSize: "2rem", fontWeight: 700, letterSpacing: "-0.03em", color: "#1a1a1a" }}>Movie Recs</h1>
-          <p style={{ marginTop: 6, fontSize: "0.875rem", color: "#888" }}>Dev Journal &mdash; Sunday, April 12, 2026</p>
+          <p style={{ marginTop: 6, fontSize: "0.875rem", color: "#888" }}>Dev Journal &mdash; Monday, April 13, 2026</p>
         </div>
 
         {/* THE IDEA */}
@@ -59,7 +59,6 @@ export default function JournalPage() {
           {[
             { tag: "ux", title: "Slider instead of number input", body: "The original number input felt like filling out a form. You asked for a slider, which turned out to feel much more like a judgment — drag to where it feels right, hit Submit. The live large-number display next to the label replaced the need for any typed value." },
             { tag: "ux", title: "Remove the Next button — auto-advance after rating", body: "After submitting a rating, the original design paused to show a result screen with a Next button. You pointed out the extra click was friction: show the result info below the chart instead, and immediately load the next movie. This made the loop feel like a card swipe rather than a form submission." },
-            { tag: "ux", title: "Reveal popup after rating", body: "The AI prediction and error were easy to miss when they appeared above the fold. A modal now pops up immediately after submitting a rating, showing your score, the AI's prediction, and the error in large type. It auto-dismisses when the next card loads. A perfect prediction (error = 0) triggers a special gold celebration modal with a randomised congratulatory message." },
             { tag: "ux", title: "Clear labeling of \"seen\" vs \"not seen\" sections", body: "After watching someone use the app, it was clear the two halves of the card were ambiguous. The rating slider is now inside a box labeled \"I've seen it — rate it\" and the two skip buttons are in a separate box labeled \"Haven't seen it\". \"Want to watch\" is green-tinted to signal it's a save action." },
             { tag: "feature", title: "Movie details: poster, cast, plot, director, year", body: "You asked for the main actors, a plot summary, director, release year, and a poster on each card. The LLM returns all metadata as structured JSON; the Serper image search API fetches a poster (year included in the query to avoid getting a different version). The card became a proper movie entry rather than a bare title." },
             { tag: "feature", title: "Rotten Tomatoes score", body: "You wanted a professional rating to show alongside yours after the reveal. The LLM returns the RT Tomatometer from its training knowledge (e.g. \"91%\"). A 🍅 / 💀 badge renders on the card, giving immediate external context for how your taste compares to critics." },
@@ -67,7 +66,10 @@ export default function JournalPage() {
             { tag: "feature", title: "Watchlist with streaming info", body: "Titles marked \"Want to watch\" are saved to a persistent watchlist with full metadata. On save, the selected LLM is asked which streaming services carry the title in the US; results appear as blue pills on the watchlist page." },
             { tag: "feature", title: "Shared navigation bar", body: "A sticky nav bar at the top of every page (rendered in app/layout.tsx) links to App, Watchlist, Journal, and Prompt. The watchlist link shows a live count badge read from localStorage. The active page is highlighted. All navigation stays in the same tab — no target=_blank needed." },
             { tag: "feature", title: "System/user prompt split with Anthropic caching", body: "callLLM() was refactored from a single prompt argument to (systemPrompt, userMessage). The stable instruction block goes in the system prompt with cache_control: { type: 'ephemeral' } and the anthropic-beta: prompt-caching-2024-07-31 header — Anthropic only re-bills the system prompt on cache miss. OpenAI caches prefixes ≥1024 tokens automatically. Gemini uses the systemInstruction field. The split also makes the per-request payload smaller." },
-            { tag: "feature", title: "Smooth transitions + \"LLM is thinking\" indicator", body: "While the next title loads, the current card dims to 45% opacity so the layout doesn't jump. A fixed pill at the bottom reads \"LLM is thinking…\" with bouncing dots, visible regardless of scroll position. When the response arrives, the card fades out, content swaps, then fades back in." },
+            { tag: "feature", title: "Prefetch queue with adaptive batch sizing", body: "The app pre-fetches the next 5 titles in parallel so advancing to the next card is nearly instant. A background replenish fires whenever the queue drops below a low-water mark. Batch size adapts automatically: after each replenish, the yield fraction (valid results / requested) is recorded. If recent batches return fewer valid results — which happens as the exclusion list grows long — the next batch requests proportionally more. The formula is ceil(TARGET_FRESH / avgYield), capped at 20 parallel requests." },
+            { tag: "feature", title: "Smooth transitions + \"LLM is thinking\" indicator", body: "While the next title loads, the current card dims to 45% opacity so the layout doesn't jump. A fixed pill at the bottom reads \"LLM is thinking…\" with bouncing dots, visible regardless of scroll position. When the response arrives, the card fades out, content swaps, then fades back in. With the prefetch queue in place, the indicator almost never appears after the first load." },
+            { tag: "ux", title: "Removed reveal popup", body: "After adding the prefetch queue, advancing to the next card became nearly instant — the modal that showed your score / AI score / error flashed for only a few milliseconds before disappearing, which felt worse than nothing. Removed it. The last result is still shown inline in the chart panel." },
+            { tag: "ux", title: "Mobile-responsive layout", body: "On small screens the movie card now stacks vertically: the poster becomes a full-width banner image (cropped to a fixed height) above the metadata and rating controls. The nav bar hides the brand name on xs to give the four links room. Long movie titles in the recent ratings list truncate with ellipsis rather than overflowing." },
             { tag: "feature", title: "Media type filter and LLM selector", body: "A segmented control restricts picks to Movies, TV Series, or both. If the current card doesn't match a newly selected type, a fresh fetch fires immediately. A second control lists every LLM whose API key is present in .env (DeepSeek, Claude, GPT-4o, Gemini); the selection is live." },
             { tag: "feature", title: "Poster lightbox", body: "The poster renders at w-72 on the card. Clicking it opens a full-screen lightbox (black overlay, Escape to close). Page max-width is max-w-3xl to give the poster room without making the text too wide." },
           ].map(({ tag, title, body }) => (
@@ -117,13 +119,13 @@ export default function JournalPage() {
           <h2>Files</h2>
           <ul className="j-file-list">
             {[
-              ["app/page.tsx", "main UI — card, chart, reveal modal, controls"],
+              ["app/page.tsx", "main UI — card, chart, prefetch queue, controls"],
               ["app/layout.tsx", "root layout — renders shared NavBar above all pages"],
               ["app/components/NavBar.tsx", "sticky nav bar with live watchlist count"],
               ["app/watchlist/page.tsx", "watchlist — poster, metadata, streaming pills, remove"],
               ["app/journal/page.tsx", "this page"],
               ["app/prompt/page.tsx", "reconstruction prompt with copy button"],
-              ["app/api/next-movie/route.ts", "LLM pick + poster fetch"],
+              ["app/api/next-movie/route.ts", "batch LLM pick + parallel poster fetches"],
               ["app/api/next-movie/llm.ts", "callLLM(llm, systemPrompt, userMessage) for all providers"],
               ["app/api/streaming/route.ts", "streaming availability lookup"],
               ["app/api/config/route.ts", "returns which LLM keys are configured"],

@@ -1,6 +1,59 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+
+/** Server merges full rating list in memory; client avoids resending it every request (delta / reuse). */
+const LS_LLM_SESSION = "movie-recs-llm-session-id";
+const LS_LLM_SYNCED = "movie-recs-llm-history-synced";
+
+function getLlmSessionId(): string {
+  let id = localStorage.getItem(LS_LLM_SESSION);
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(LS_LLM_SESSION, id);
+  }
+  return id;
+}
+
+function getSyncedRatingCount(): number {
+  const n = Number.parseInt(localStorage.getItem(LS_LLM_SYNCED) || "0", 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function setSyncedRatingCount(n: number) {
+  localStorage.setItem(LS_LLM_SYNCED, String(n));
+}
+
+function clearLlmSessionSync() {
+  localStorage.removeItem(LS_LLM_SESSION);
+  localStorage.removeItem(LS_LLM_SYNCED);
+}
+
+function buildHistorySyncPayload(hist: RatingEntry[]): Record<string, unknown> {
+  const sessionId = getLlmSessionId();
+  let synced = getSyncedRatingCount();
+  if (synced > hist.length) synced = 0;
+
+  if (hist.length === 0) {
+    return { sessionId, historySync: "full", history: [] };
+  }
+  if (synced === 0) {
+    return { sessionId, historySync: "full", history: hist };
+  }
+  if (synced < hist.length) {
+    return {
+      sessionId,
+      historySync: "delta",
+      baseLength: synced,
+      historyAppend: hist.slice(synced),
+    };
+  }
+  return {
+    sessionId,
+    historySync: "reuse",
+    baseLength: hist.length,
+  };
+}
 
 interface RatingEntry {
   title: string;
@@ -8,6 +61,7 @@ interface RatingEntry {
   userRating: number;
   predictedRating: number;
   error: number;
+  rtScore?: string | null;
 }
 
 interface CurrentMovie {
@@ -42,10 +96,61 @@ export interface WatchlistEntry {
   addedAt: string;
 }
 
+/** How many titles the LLM returns per single POST — 5 items ≈ 750 output tokens ≈ 10–15s on DeepSeek. */
+const LLM_BATCH_SIZE = 5;
+/** Max concurrent LLM fetches. With daisy-chaining, this many batches run continuously until HIGH_WATER_MARK is reached. */
+const MAX_REPLENISH_IN_FLIGHT = 3;
+/** Stop queuing new batches once the prefetch queue has this many items ready. */
+const HIGH_WATER_MARK = 12;
+
+/**
+ * Rotating lenses that force the LLM to explore different corners of cinema on each batch.
+ * Without this it defaults to the same few hundred popular titles.
+ */
+const DIVERSITY_LENSES = [
+  "films from the 1940s or 1950s",
+  "films from the 1960s or 1970s",
+  "films from the 1980s",
+  "films from the 1990s",
+  "films from the 2000s",
+  "films from the 2010s or 2020s",
+  "non-English language films (French, Italian, Spanish, German, etc.)",
+  "Japanese cinema (anime or live-action)",
+  "South Korean cinema",
+  "Scandinavian or Eastern European cinema",
+  "Latin American or Middle Eastern or African cinema",
+  "British cinema",
+  "documentary films",
+  "horror or psychological thriller",
+  "science fiction or speculative fiction",
+  "comedy or satire",
+  "animation (any country, any era)",
+  "cult classics or midnight movies",
+  "festival darlings (Cannes, Venice, Sundance, TIFF)",
+  "overlooked or underseen gems with low name recognition",
+  "director-driven auteur films",
+  "crime, noir, or heist films",
+  "war films or historical epics",
+  "romance or coming-of-age stories",
+];
+
 const STORAGE_KEY = "movie-recs-history";
 const SKIPPED_KEY = "movie-recs-skipped";
 const WATCHLIST_KEY = "movie-recs-watchlist";
 const NOTSEEN_KEY = "movie-recs-notseen";
+const NOT_INTERESTED_KEY = "movie-recs-not-interested"; // {title, rtScore}[] for high-RT taste signal
+const TASTE_SUMMARY_KEY = "movie-recs-taste-summary";   // string: LLM's running taste profile
+
+/** Collapse common spellings so the same film is not shown twice (e.g. Se7en vs Seven). */
+function canonicalTitleKey(title: string): string {
+  const s = title
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "");
+  if (s === "se7en" || s === "seven") return "seven";
+  return s;
+}
 
 const WANT_ACCURACY = 85;  // unseen but want to watch — LLM correctly identified appealing content
 const SKIP_ACCURACY = 20;  // unseen and not interested — LLM missed the mark entirely
@@ -89,7 +194,19 @@ function buildSequence(history: RatingEntry[], notSeen: NotSeenEvent[]): SeqEven
   return events;
 }
 
-function ErrorChart({ history, notSeen }: { history: RatingEntry[]; notSeen: NotSeenEvent[] }) {
+function ErrorChart({
+  history,
+  notSeen,
+  watchlistCount,
+  dontSeeCount,
+}: {
+  history: RatingEntry[];
+  notSeen: NotSeenEvent[];
+  /** Saved watchlist size — source of truth (may exceed decision-log events if notSeen drifted). */
+  watchlistCount: number;
+  /** Not-interested titles (skipped, not on watchlist) — matches dont-see list. */
+  dontSeeCount: number;
+}) {
   const seq = buildSequence(history, notSeen);
   if (seq.length === 0) return null;
 
@@ -122,15 +239,31 @@ function ErrorChart({ history, notSeen }: { history: RatingEntry[]; notSeen: Not
 
   const currentAvg = combinedAvgs[combinedAvgs.length - 1];
   const ratedCount = seq.filter((e) => e.kind === "rated").length;
-  const wantCount = seq.filter((e) => e.kind === "not-seen" && e.want).length;
-  const skipCount = seq.filter((e) => e.kind === "not-seen" && !e.want).length;
+  const wantMarkers = seq.filter((e) => e.kind === "not-seen" && e.want).length;
+  const skipMarkers = seq.filter((e) => e.kind === "not-seen" && !e.want).length;
 
   return (
     <div className="w-full">
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1 mb-2 text-sm text-zinc-500">
         <span><span className="font-semibold text-zinc-800">{ratedCount}</span> rated</span>
-        {wantCount > 0 && <span><span className="font-semibold text-green-600">{wantCount}</span> want to see <span className="text-zinc-400 text-xs">(+{WANT_ACCURACY})</span></span>}
-        {skipCount > 0 && <span><span className="font-semibold text-red-600">{skipCount}</span> not interested <span className="text-zinc-400 text-xs">({SKIP_ACCURACY})</span></span>}
+        {watchlistCount > 0 && (
+          <span title="Titles on your watchlist (saved). Green markers on the chart are from the decision log when each was added; counts can differ if the log was cleared or from older sessions.">
+            <span className="font-semibold text-green-600">{watchlistCount}</span> on watchlist{" "}
+            <span className="text-zinc-400 text-xs">(+{WANT_ACCURACY})</span>
+            {wantMarkers !== watchlistCount && (
+              <span className="text-zinc-400 text-xs"> · {wantMarkers} on chart</span>
+            )}
+          </span>
+        )}
+        {dontSeeCount > 0 && (
+          <span title="Titles marked not interested (saved). Red markers follow the decision log; may differ for the same reasons.">
+            <span className="font-semibold text-red-600">{dontSeeCount}</span> not interested{" "}
+            <span className="text-zinc-400 text-xs">({SKIP_ACCURACY})</span>
+            {skipMarkers !== dontSeeCount && (
+              <span className="text-zinc-400 text-xs"> · {skipMarkers} on chart</span>
+            )}
+          </span>
+        )}
         <span>Avg accuracy: <span className="font-semibold text-indigo-700">{currentAvg.toFixed(1)}</span></span>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: 130 }}>
@@ -187,76 +320,6 @@ function ErrorChart({ history, notSeen }: { history: RatingEntry[]; notSeen: Not
   );
 }
 
-const PERFECT_MESSAGES = [
-  "The AI read your mind!",
-  "Absolute telepathy.",
-  "Zero error. Perfection.",
-  "The AI knows you better than you know yourself.",
-  "Statistically impossible. Yet here we are.",
-];
-
-function RevealModal({
-  reveal,
-  onDismiss,
-}: {
-  reveal: { title: string; userRating: number; predictedRating: number; error: number };
-  onDismiss: () => void;
-}) {
-  const perfect = reveal.error === 0;
-  const great = reveal.error <= 5;
-  const msg = perfect ? PERFECT_MESSAGES[Math.floor(Math.random() * PERFECT_MESSAGES.length)] : null;
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-      onClick={onDismiss}
-    >
-      <div
-        className={`relative mx-4 w-full max-w-sm rounded-3xl shadow-2xl p-8 text-center animate-[fadeScaleIn_0.2s_ease-out] ${
-          perfect
-            ? "bg-gradient-to-br from-yellow-50 via-amber-50 to-orange-50 border-2 border-amber-300"
-            : "bg-white border border-zinc-200"
-        }`}
-        onClick={(e) => e.stopPropagation()}
-        style={{ animationFillMode: "both" }}
-      >
-        {perfect && (
-          <div className="text-4xl mb-3 leading-none select-none">🎯</div>
-        )}
-        <p className="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-1">
-          {reveal.title}
-        </p>
-        {perfect && msg && (
-          <p className="text-sm font-semibold text-amber-700 mb-4">{msg}</p>
-        )}
-
-        <div className="grid grid-cols-3 gap-3 my-4">
-          <div className="bg-zinc-50 rounded-2xl py-3">
-            <div className="text-xs text-zinc-400 mb-1">You</div>
-            <div className="text-3xl font-bold text-zinc-900">{reveal.userRating}</div>
-          </div>
-          <div className="bg-blue-50 rounded-2xl py-3">
-            <div className="text-xs text-zinc-400 mb-1">AI</div>
-            <div className="text-3xl font-bold text-blue-600">{reveal.predictedRating}</div>
-          </div>
-          <div className={`rounded-2xl py-3 ${perfect ? "bg-amber-100" : great ? "bg-green-50" : reveal.error <= 25 ? "bg-yellow-50" : "bg-red-50"}`}>
-            <div className="text-xs text-zinc-400 mb-1">Error</div>
-            <div className={`text-3xl font-bold ${perfect ? "text-amber-600" : great ? "text-green-700" : reveal.error <= 25 ? "text-yellow-700" : "text-red-700"}`}>
-              {reveal.error}
-            </div>
-          </div>
-        </div>
-
-        <button
-          onClick={onDismiss}
-          className="mt-2 text-xs text-zinc-400 hover:text-zinc-600 transition-colors"
-        >
-          tap anywhere to dismiss
-        </button>
-      </div>
-    </div>
-  );
-}
 
 function RTBadge({ score }: { score: string }) {
   const pct = parseInt(score, 10);
@@ -274,22 +337,40 @@ export default function Home() {
   const [skipped, setSkipped] = useState<string[]>([]);
   const [watchlist, setWatchlist] = useState<WatchlistEntry[]>([]);
   const [notSeen, setNotSeen] = useState<NotSeenEvent[]>([]);
+  const [notInterested, setNotInterested] = useState<{ title: string; rtScore?: string | null }[]>([]);
+  const [tasteSummary, setTasteSummary] = useState<string | null>(null);
   const [current, setCurrent] = useState<CurrentMovie | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const [cardOpacity, setCardOpacity] = useState(1);
   const [userRating, setUserRating] = useState("50");
   const [lastResult, setLastResult] = useState<LastResult | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
-  const [reveal, setReveal] = useState<{ title: string; userRating: number; predictedRating: number; error: number } | null>(null);
   const [mediaType, setMediaType] = useState<"both" | "movie" | "tv">("both");
   const [llm, setLlm] = useState<string>("deepseek");
   const [availableLlms, setAvailableLlms] = useState<{ id: string; label: string }[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const prefetchRef = useRef<CurrentMovie[]>([]);
+  const replenishInFlight = useRef(0);
+  const batchYieldRef = useRef<number[]>([]); // rolling yield fractions (fresh / requested)
+
+  const historyRef = useRef(history);
+  const skippedRef = useRef(skipped);
+  const watchlistRef = useRef(watchlist);
+  const notInterestedRef = useRef(notInterested);
+  const tasteSummaryRef = useRef(tasteSummary);
+  const replenishOptsRef = useRef<{ mediaType: string; llm: string }>({ mediaType: "both", llm: "deepseek" });
+  const zeroYieldStreakRef = useRef(0); // consecutive batches with 0 fresh items — stop daisy-chaining when high
+  const lensIndexRef = useRef(0);       // rotates through DIVERSITY_LENSES so each batch explores a different area
+  historyRef.current = history;
+  skippedRef.current = skipped;
+  watchlistRef.current = watchlist;
+  notInterestedRef.current = notInterested;
+  tasteSummaryRef.current = tasteSummary;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { setLightboxUrl(null); setReveal(null); }
+      if (e.key === "Escape") { setLightboxUrl(null); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -305,76 +386,232 @@ export default function Home() {
       if (storedWatchlist) setWatchlist(JSON.parse(storedWatchlist));
       const storedNotSeen = localStorage.getItem(NOTSEEN_KEY);
       if (storedNotSeen) setNotSeen(JSON.parse(storedNotSeen));
+      const storedNotInterested = localStorage.getItem(NOT_INTERESTED_KEY);
+      if (storedNotInterested) setNotInterested(JSON.parse(storedNotInterested));
+      const storedTasteSummary = localStorage.getItem(TASTE_SUMMARY_KEY);
+      if (storedTasteSummary) { setTasteSummary(storedTasteSummary); tasteSummaryRef.current = storedTasteSummary; }
     } catch {}
   }, []);
 
   const saveHistory = (h: RatingEntry[]) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(h));
+    historyRef.current = h;
     setHistory(h);
   };
 
-  const fetchNext = useCallback(async (hist: RatingEntry[], skip: string[], opts: { mediaType: string; llm: string }, isFirst = false) => {
-    if (!isFirst) setCardOpacity(0.45);
+  /** Fire-and-forget: ask the LLM to summarize taste. Called after ratings hit 1, 5, 10, 15 ... */
+  const updateTasteSummary = useCallback((hist: RatingEntry[], currentLlm: string) => {
+    const wl = watchlistRef.current;
+    const ni = notInterestedRef.current;
+    fetch("/api/taste-summary", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        history: hist,
+        watchlistSignals: wl.map((w) => ({ title: w.title, rtScore: w.rtScore })),
+        notInterestedSignals: ni,
+        existingSummary: tasteSummaryRef.current ?? undefined,
+        llm: currentLlm,
+      }),
+    })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d: { tasteSummary?: string | null } | null) => {
+        if (d?.tasteSummary) {
+          localStorage.setItem(TASTE_SUMMARY_KEY, d.tasteSummary);
+          tasteSummaryRef.current = d.tasteSummary;
+          setTasteSummary(d.tasteSummary);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
-    // Build a definitive set of every title the user has already seen
-    const excluded = new Set([
-      ...hist.map((h) => h.title.toLowerCase()),
-      ...skip.map((s) => s.toLowerCase()),
-    ]);
-
-    const callApi = (extraSkip: string[]) =>
-      fetch("/api/next-movie", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ history: hist, skipped: [...skip, ...extraSkip], mediaType: opts.mediaType, llm: opts.llm }),
-      });
-
-    setFetchError(null);
-    try {
-      const MAX_ATTEMPTS = 8;
-      const extraSkip: string[] = [];
-      let data = null;
-
-      for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-        const res = await callApi(extraSkip);
-        if (!res.ok) {
-          console.error(`API error on attempt ${attempt + 1}:`, res.status);
+  // Single POST: LLM returns many titles; duplicate filtering happens here.
+  // Reads history/watchlist from refs at request time so in-flight calls stay aligned with the latest ratings.
+  const fetchMovieBatch = useCallback(async (opts: {
+    mediaType: string;
+    llm: string;
+    /** Merged skip list (base skipped + prefetch queue titles + retry dupes). */
+    skipped: string[];
+  }): Promise<CurrentMovie[] | null> => {
+    const timeoutMs = 180_000;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const hist = historyRef.current;
+        const wl = watchlistRef.current;
+        const ni = notInterestedRef.current;
+        const res = await fetch("/api/next-movie", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({
+            ...buildHistorySyncPayload(hist),
+            skipped: opts.skipped,
+            watchlistTitles: wl.map((w) => ({ title: w.title, rtScore: w.rtScore })),
+            notInterestedItems: ni,
+            tasteSummary: tasteSummaryRef.current ?? undefined,
+            diversityLens: DIVERSITY_LENSES[lensIndexRef.current % DIVERSITY_LENSES.length],
+            mediaType: opts.mediaType,
+            llm: opts.llm,
+            count: LLM_BATCH_SIZE,
+          }),
+        });
+        if (res.status === 409) {
+          setSyncedRatingCount(0);
           continue;
         }
-        const candidate = await res.json();
-        const titleKey = candidate.title?.toLowerCase();
-        if (titleKey && !excluded.has(titleKey)) {
-          data = candidate;
-          break;
+        if (!res.ok) continue;
+        setSyncedRatingCount(historyRef.current.length);
+        const data = (await res.json()) as { movies?: CurrentMovie[] };
+        const movies = data.movies?.filter((m) => m?.title) ?? [];
+        if (movies.length > 0) return movies;
+      } catch (e) {
+        if (e instanceof Error && e.name === "AbortError") {
+          console.warn("next-movie request timed out after", timeoutMs, "ms");
         }
-        console.warn(`Duplicate "${candidate.title}" on attempt ${attempt + 1} — retrying`);
-        if (candidate.title) extraSkip.push(candidate.title);
+      } finally {
+        window.clearTimeout(timer);
+      }
+    }
+    return null;
+  }, []);
+
+  // LLM round-trip. Daisy-chains: after each batch completes, immediately starts another
+  // if the queue is below HIGH_WATER_MARK, so the queue is continuously filled.
+  const replenish = useCallback(async (
+    opts: { mediaType: string; llm: string },
+    extraRetrySkips: string[] = []
+  ): Promise<Set<string>> => {
+    if (replenishInFlight.current >= MAX_REPLENISH_IN_FLIGHT) return new Set();
+    replenishOptsRef.current = opts;
+
+    replenishInFlight.current++;
+    lensIndexRef.current++; // advance lens so concurrent batches each explore a different area
+    const seenThisBatch = new Set<string>();
+
+    try {
+      const skippedForApi = [
+        ...skippedRef.current,
+        ...extraRetrySkips,
+        ...prefetchRef.current.map((m) => m.title),
+      ];
+
+      const movies = await fetchMovieBatch({
+        mediaType: opts.mediaType,
+        llm: opts.llm,
+        skipped: skippedForApi,
+      });
+
+      let freshCount = 0;
+
+      if (movies) {
+        // After await, re-check against latest refs — avoids a slower in-flight request
+        // re-adding a title the user just rated while another replenish was in flight.
+        const excluded = new Set<string>();
+        for (const h of historyRef.current) excluded.add(canonicalTitleKey(h.title));
+        for (const s of skippedRef.current) excluded.add(canonicalTitleKey(s));
+        for (const w of watchlistRef.current) excluded.add(canonicalTitleKey(w.title));
+        for (const m of prefetchRef.current) excluded.add(canonicalTitleKey(m.title));
+
+        for (const movie of movies) {
+          const key = canonicalTitleKey(movie.title);
+          seenThisBatch.add(key);
+          if (prefetchRef.current.some((m) => canonicalTitleKey(m.title) === key)) continue;
+          if (excluded.has(key)) continue;
+          excluded.add(key);
+          prefetchRef.current = [...prefetchRef.current, movie];
+          freshCount++;
+        }
       }
 
-      if (!data) {
-        // Graceful failure — restore card and show a retry prompt
-        setCardOpacity(1);
-        setInitialLoading(false);
+      batchYieldRef.current = [...batchYieldRef.current.slice(-4), freshCount / LLM_BATCH_SIZE];
+      zeroYieldStreakRef.current = freshCount > 0 ? 0 : zeroYieldStreakRef.current + 1;
+    } finally {
+      replenishInFlight.current--;
+      // Daisy-chain: keep filling until high-water mark, but stop if recent batches are all dupes.
+      // zeroYieldStreak >= 3 means the LLM is stuck — no point hammering it further.
+      if (
+        prefetchRef.current.length < HIGH_WATER_MARK &&
+        replenishInFlight.current < MAX_REPLENISH_IN_FLIGHT &&
+        zeroYieldStreakRef.current < 3
+      ) {
+        replenish(replenishOptsRef.current);
+      }
+    }
+
+    return seenThisBatch;
+  }, [fetchMovieBatch]);
+
+  // Pop instantly from prefetch queue; if empty, wait for replenish first
+  const fetchNext = useCallback(async (
+    opts: { mediaType: string; llm: string },
+    isFirst = false
+  ) => {
+    setFetchError(null);
+
+    // Drain the queue, skipping any title the user already decided on (guards against stale prefetch entries).
+    while (prefetchRef.current.length > 0) {
+      const [next, ...rest] = prefetchRef.current;
+      prefetchRef.current = rest;
+      const excluded = new Set<string>();
+      for (const h of historyRef.current) excluded.add(canonicalTitleKey(h.title));
+      for (const s of skippedRef.current) excluded.add(canonicalTitleKey(s));
+      for (const w of watchlistRef.current) excluded.add(canonicalTitleKey(w.title));
+      if (excluded.has(canonicalTitleKey(next.title))) continue; // already seen — discard silently
+      if (!isFirst) {
+        setCardOpacity(0);
+        await new Promise<void>(r => setTimeout(r, 150));
+      }
+      setCurrent(next); setUserRating("50"); setInitialLoading(false); setCardOpacity(1);
+      // Always keep MAX_REPLENISH_IN_FLIGHT batches running so the queue never drains while waiting.
+      if (replenishInFlight.current < MAX_REPLENISH_IN_FLIGHT) replenish(opts);
+      return;
+    }
+
+    // Queue empty — show loading indicator and wait for a batch
+    if (!isFirst) setCardOpacity(0.45);
+    try {
+      // Queue is empty — wait for whatever is already in-flight, or start a fresh batch.
+      // Poll until a card arrives or we've waited long enough (up to ~90s total).
+      zeroYieldStreakRef.current = 0; // reset so the daisy-chain can run
+      if (replenishInFlight.current === 0) replenish(opts); // nothing running — kick one off
+      const deadline = Date.now() + 90_000;
+      while (prefetchRef.current.length === 0 && replenishInFlight.current > 0 && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 200));
+      }
+      const next = prefetchRef.current.shift();
+      if (!next) {
+        setCardOpacity(1); setInitialLoading(false);
         setFetchError("Couldn't find a new title. Try again.");
         return;
       }
-
-      setCardOpacity(0);
-      setTimeout(() => { setCurrent(data); setUserRating("50"); setInitialLoading(false); setCardOpacity(1); setReveal(null); setFetchError(null); }, 150);
+      if (!isFirst) {
+        setCardOpacity(0);
+        await new Promise<void>(r => setTimeout(r, 150));
+      }
+      setCurrent(next); setUserRating("50"); setInitialLoading(false); setCardOpacity(1); setFetchError(null);
     } catch (e) {
       console.error("fetchNext failed:", e);
-      setCardOpacity(1);
-      setInitialLoading(false);
+      setCardOpacity(1); setInitialLoading(false);
       setFetchError("Something went wrong. Try again.");
     }
-  }, []);
+  }, [replenish]);
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     const hist: RatingEntry[] = stored ? JSON.parse(stored) : [];
     const storedSkipped = localStorage.getItem(SKIPPED_KEY);
     const skip: string[] = storedSkipped ? JSON.parse(storedSkipped) : [];
-    fetchNext(hist, skip, { mediaType, llm }, true);
+    const storedWl = localStorage.getItem(WATCHLIST_KEY);
+    const wl: WatchlistEntry[] = storedWl ? JSON.parse(storedWl) : [];
+    const storedNi = localStorage.getItem(NOT_INTERESTED_KEY);
+    const ni: { title: string; rtScore?: string | null }[] = storedNi ? JSON.parse(storedNi) : [];
+    historyRef.current = hist;
+    skippedRef.current = skip;
+    watchlistRef.current = wl;
+    notInterestedRef.current = ni;
+    fetchNext({ mediaType, llm }, true);
   }, [fetchNext]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -395,51 +632,68 @@ export default function Home() {
   useEffect(() => {
     if (!current) return;
     if (mediaType !== "both" && current.type !== mediaType) {
-      fetchNext(history, skipped, { mediaType, llm });
+      prefetchRef.current = [];
+      batchYieldRef.current = [];
+      fetchNext({ mediaType, llm });
     }
   }, [mediaType]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleRate = () => {
-    const rating = parseInt(userRating, 10) || 50;
+  const handleRate = (overrideRating?: number) => {
+    const rating =
+      overrideRating !== undefined
+        ? Math.min(100, Math.max(0, Math.round(overrideRating)))
+        : parseInt(userRating, 10) || 50;
     if (!current) return;
     const error = Math.abs(rating - current.predictedRating);
-    const entry: RatingEntry = { title: current.title, type: current.type, userRating: rating, predictedRating: current.predictedRating, error };
+    const entry: RatingEntry = { title: current.title, type: current.type, userRating: rating, predictedRating: current.predictedRating, error, rtScore: current.rtScore };
     setLastResult({ ...entry, actors: current.actors, plot: current.plot, posterUrl: current.posterUrl, rtScore: current.rtScore });
-    setReveal({ title: current.title, userRating: rating, predictedRating: current.predictedRating, error });
     const newHistory = [...history, entry];
     saveHistory(newHistory);
-    fetchNext(newHistory, skipped, { mediaType, llm });
+    zeroYieldStreakRef.current = 0; // new exclusion may unblock the LLM
+    // Update taste profile after 1st rating, then every 5 (1, 5, 10, 15 …)
+    const n = newHistory.length;
+    if (n === 1 || n % 5 === 0) updateTasteSummary(newHistory, llm);
+    fetchNext({ mediaType, llm });
   };
 
-  const recordNotSeen = async (kind: "want" | "skip") => {
+  const recordNotSeen = (kind: "want" | "skip") => {
     if (!current) return;
+    const snapshot = current;
 
+    let newWatchlist = watchlist;
     if (kind === "want") {
-      let streaming: string[] = [];
-      try {
-        const r = await fetch("/api/streaming", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: current.title, year: current.year, llm }),
-        });
-        if (r.ok) ({ services: streaming } = await r.json());
-      } catch {}
-
+      // Save immediately with empty streaming so the card advances without waiting
       const entry: WatchlistEntry = {
-        title: current.title,
-        type: current.type,
-        year: current.year,
-        director: current.director,
-        actors: current.actors,
-        plot: current.plot,
-        posterUrl: current.posterUrl,
-        rtScore: current.rtScore,
-        streaming,
+        title: snapshot.title,
+        type: snapshot.type,
+        year: snapshot.year,
+        director: snapshot.director,
+        actors: snapshot.actors,
+        plot: snapshot.plot,
+        posterUrl: snapshot.posterUrl,
+        rtScore: snapshot.rtScore,
+        streaming: [],
         addedAt: new Date().toISOString(),
       };
-      const newWatchlist = [entry, ...watchlist.filter((w) => w.title !== current.title)];
+      newWatchlist = [entry, ...watchlist.filter((w) => w.title !== snapshot.title)];
       localStorage.setItem(WATCHLIST_KEY, JSON.stringify(newWatchlist));
       setWatchlist(newWatchlist);
+
+      // Patch streaming in the background
+      fetch("/api/streaming", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: snapshot.title, year: snapshot.year, llm }),
+      }).then(r => r.ok ? r.json() : { services: [] })
+        .then(({ services }: { services: string[] }) => {
+          if (!services.length) return;
+          setWatchlist(prev => {
+            const updated = prev.map(w => w.title === snapshot.title ? { ...w, streaming: services } : w);
+            localStorage.setItem(WATCHLIST_KEY, JSON.stringify(updated));
+            return updated;
+          });
+        })
+        .catch(() => {});
     }
 
     const nsEvent: NotSeenEvent = { afterRating: history.length, kind };
@@ -447,14 +701,45 @@ export default function Home() {
     localStorage.setItem(NOTSEEN_KEY, JSON.stringify(newNotSeen));
     setNotSeen(newNotSeen);
 
-    const newSkipped = [...skipped, current.title];
+    const newSkipped = [...skipped, snapshot.title];
     localStorage.setItem(SKIPPED_KEY, JSON.stringify(newSkipped));
     setSkipped(newSkipped);
-    fetchNext(history, newSkipped, { mediaType, llm });
+
+    // For "not interested" items, store with RT score so the server can surface high-RT dismissals
+    // as a taste signal (user diverges from critical consensus).
+    let newNotInterested = notInterested;
+    if (kind === "skip") {
+      newNotInterested = [...notInterested, { title: snapshot.title, rtScore: snapshot.rtScore }];
+      localStorage.setItem(NOT_INTERESTED_KEY, JSON.stringify(newNotInterested));
+      setNotInterested(newNotInterested);
+    }
+
+    skippedRef.current = newSkipped;
+    watchlistRef.current = newWatchlist;
+    notInterestedRef.current = newNotInterested;
+    zeroYieldStreakRef.current = 0; // new exclusion may unblock the LLM
+    fetchNext({ mediaType, llm });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") handleRate();
+  };
+
+  const handleSliderPointerUp = (e: React.PointerEvent<HTMLInputElement>) => {
+    const v = parseInt(e.currentTarget.value, 10);
+    if (Number.isNaN(v) || !current) return;
+    setUserRating(String(v));
+    handleRate(v);
+  };
+
+  const handleSliderKeyUp = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"].includes(e.key)) {
+      return;
+    }
+    const v = parseInt(e.currentTarget.value, 10);
+    if (Number.isNaN(v) || !current) return;
+    setUserRating(String(v));
+    handleRate(v);
   };
 
   const handleReset = () => {
@@ -462,24 +747,59 @@ export default function Home() {
       saveHistory([]);
       localStorage.removeItem(SKIPPED_KEY);
       localStorage.removeItem(NOTSEEN_KEY);
+      localStorage.removeItem(WATCHLIST_KEY);
+      localStorage.removeItem(NOT_INTERESTED_KEY);
+      localStorage.removeItem(TASTE_SUMMARY_KEY);
+      clearLlmSessionSync();
       setSkipped([]);
       setNotSeen([]);
-      fetchNext([], [], { mediaType, llm });
+      setWatchlist([]);
+      setNotInterested([]);
+      setTasteSummary(null);
+      tasteSummaryRef.current = null;
+      skippedRef.current = [];
+      watchlistRef.current = [];
+      notInterestedRef.current = [];
+      prefetchRef.current = [];
+      batchYieldRef.current = [];
+      fetchNext({ mediaType, llm });
     }
   };
 
   const ratingNum = parseInt(userRating, 10);
 
+  /** Haven’t-seen titles you didn’t add to the watchlist (not interested), newest first — includes legacy rows stored only in `skipped`. */
+  const dontSeeRows = useMemo(() => {
+    const wl = new Set(watchlist.map((w) => canonicalTitleKey(w.title)));
+    const rtByKey = new Map<string, string | null | undefined>();
+    for (const n of notInterested) {
+      rtByKey.set(canonicalTitleKey(n.title), n.rtScore);
+    }
+    const out: { title: string; rtScore: string | null | undefined }[] = [];
+    const seen = new Set<string>();
+    for (let i = skipped.length - 1; i >= 0; i--) {
+      const s = skipped[i];
+      const k = canonicalTitleKey(s);
+      if (wl.has(k) || seen.has(k)) continue;
+      seen.add(k);
+      out.push({
+        title: s,
+        rtScore: rtByKey.has(k) ? rtByKey.get(k) : null,
+      });
+    }
+    return out;
+  }, [skipped, watchlist, notInterested]);
+
   return (
-    <div className="min-h-screen bg-zinc-50 flex flex-col items-center py-10 px-4">
-      <div className="w-full max-w-3xl space-y-6">
+    <div className="min-h-screen bg-zinc-50 flex flex-col items-center py-6 sm:py-10 px-4">
+      <div className="w-full max-w-3xl space-y-4 sm:space-y-6">
 
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-start justify-between gap-2">
           <div>
-            <h1 className="text-2xl font-bold text-zinc-900">Movie Recs</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-zinc-900">Movie Recs</h1>
             <p className="text-sm text-zinc-500">Discover films you haven&apos;t seen but will love.</p>
-            <p className="text-xs text-zinc-400">Rate what you&apos;ve seen — the AI learns your taste to find them.</p>
+            <p className="text-xs text-zinc-400 hidden sm:block">Rate what you&apos;ve seen — the AI learns your taste to find them.</p>
           </div>
           {history.length > 0 && (
             <button onClick={handleReset} className="text-xs text-zinc-400 hover:text-red-500 transition-colors">
@@ -531,7 +851,12 @@ export default function Home() {
         {history.length > 0 && (
           <div className="bg-white rounded-2xl border border-zinc-200 p-4 shadow-sm space-y-4">
             <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">How well the AI knows your taste</p>
-            <ErrorChart history={history} notSeen={notSeen} />
+            <ErrorChart
+              history={history}
+              notSeen={notSeen}
+              watchlistCount={watchlist.length}
+              dontSeeCount={dontSeeRows.length}
+            />
 
             {lastResult && (
               <div className="border-t border-zinc-100 pt-4 space-y-2">
@@ -563,6 +888,16 @@ export default function Home() {
         )}
 
 
+        {/* Taste profile card */}
+        {tasteSummary && (
+          <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm p-4">
+            <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">AI&apos;s model of your taste</p>
+            <p className="text-sm text-zinc-700 leading-relaxed" style={{ borderLeft: "3px solid #a78bfa", paddingLeft: "12px" }}>
+              {tasteSummary}
+            </p>
+          </div>
+        )}
+
         {/* Movie card */}
         <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
           {initialLoading ? (
@@ -575,18 +910,34 @@ export default function Home() {
             </div>
           ) : current ? (
             <div
-              className="flex gap-4 p-6"
+              className="flex flex-col sm:flex-row gap-4 p-4 sm:p-6"
               style={{ opacity: cardOpacity, transition: "opacity 150ms ease" }}
             >
-              {current.posterUrl && (
-                <button
-                  onClick={() => setLightboxUrl(current.posterUrl)}
-                  className="flex-shrink-0 self-start rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-zoom-in"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={current.posterUrl} alt={`${current.title} poster`} className="w-72 object-cover" />
-                </button>
-              )}
+              <div className="sm:flex-shrink-0 sm:self-start w-full sm:w-56">
+                {current.posterUrl ? (
+                  <button
+                    type="button"
+                    onClick={() => setLightboxUrl(current.posterUrl)}
+                    className="w-full rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-zoom-in block"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={current.posterUrl}
+                      alt={`${current.title} poster`}
+                      referrerPolicy="no-referrer"
+                      className="w-full sm:w-56 h-52 sm:h-auto object-cover object-center sm:object-top"
+                    />
+                  </button>
+                ) : (
+                  <div
+                    className="w-full sm:w-56 h-52 sm:min-h-[14rem] rounded-xl bg-zinc-100 border border-zinc-200 flex flex-col items-center justify-center gap-2 text-zinc-400 text-sm px-3 text-center"
+                    title="Posters: TMDB (TMDB_API_KEY) first, then Serper (SERPER_API_KEY). Add TMDB for free official posters."
+                  >
+                    <span className="text-3xl" aria-hidden>🎬</span>
+                    <span>No poster yet</span>
+                  </div>
+                )}
+              </div>
               <div className="flex-1 min-w-0 space-y-4">
                 <div>
                   <div className="flex items-center gap-2">
@@ -625,15 +976,15 @@ export default function Home() {
                       max={100}
                       value={ratingNum || 50}
                       onChange={(e) => setUserRating(e.target.value)}
+                      onPointerUp={handleSliderPointerUp}
                       onKeyDown={handleKeyDown}
+                      onKeyUp={handleSliderKeyUp}
                       className="w-full h-2 rounded-full appearance-none cursor-pointer accent-blue-600 bg-zinc-200"
                     />
                     <div className="flex justify-between text-xs text-zinc-400 px-0.5">
                       <span>0</span><span>25</span><span>50</span><span>75</span><span>100</span>
                     </div>
-                    <button onClick={handleRate} className="w-full py-2.5 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors">
-                      Submit Rating
-                    </button>
+                    <p className="text-xs text-zinc-400 text-center">Release the slider or use arrow keys — your rating saves automatically. Press Enter to save without moving.</p>
                   </div>
 
                   {/* Haven't seen it */}
@@ -642,13 +993,13 @@ export default function Home() {
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={() => recordNotSeen("want")}
-                        className="py-2 rounded-xl border border-green-200 bg-green-50 text-sm font-medium text-green-700 hover:bg-green-100 transition-colors"
+                        className="py-2 rounded-xl border border-green-200 bg-green-50 text-sm font-medium text-green-700 hover:bg-green-100 active:bg-green-200 active:border-green-400 active:scale-95 transition-all"
                       >
                         Want to watch
                       </button>
                       <button
                         onClick={() => recordNotSeen("skip")}
-                        className="py-2 rounded-xl border border-zinc-200 text-sm text-zinc-500 hover:bg-zinc-100 transition-colors"
+                        className="py-2 rounded-xl border border-zinc-200 text-sm text-zinc-500 hover:bg-zinc-100 active:bg-zinc-200 active:border-zinc-400 active:scale-95 transition-all"
                       >
                         Not interested
                       </button>
@@ -660,26 +1011,49 @@ export default function Home() {
           ) : null}
         </div>
 
-        {/* Recent history */}
+        {/* Full rating history */}
         {history.length > 0 && (
           <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm">
-            <div className="px-4 py-3 border-b border-zinc-100">
-              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Recent Ratings</p>
+            <div className="px-4 py-3 border-b border-zinc-100 flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">All ratings</p>
+              <span className="text-xs text-zinc-400 tabular-nums">{history.length}</span>
             </div>
-            <ul className="divide-y divide-zinc-50">
-              {[...history].reverse().slice(0, 10).map((e, i) => (
-                <li key={i} className="px-4 py-2.5 flex items-center justify-between text-sm">
-                  <div>
-                    <span className="font-medium text-zinc-800">{e.title}</span>
-                    <span className="ml-2 text-xs text-zinc-400">{e.type === "tv" ? "TV" : "Film"}</span>
+            <ul className="divide-y divide-zinc-50 max-h-[min(50vh,28rem)] overflow-y-auto overscroll-contain">
+              {[...history].reverse().map((e, i) => (
+                <li key={`${e.title}-${history.length - 1 - i}`} className="px-4 py-2 flex items-center justify-between gap-3 text-sm min-w-0">
+                  <div className="min-w-0 flex items-baseline gap-1.5">
+                    <span className="font-medium text-zinc-800 truncate">{e.title}</span>
+                    <span className="text-xs text-zinc-400 flex-shrink-0">{e.type === "tv" ? "TV" : "Film"}</span>
                   </div>
-                  <div className="flex items-center gap-3 text-xs">
+                  <div className="flex items-center gap-2 text-xs flex-shrink-0">
                     <span className="text-zinc-600">You: <strong>{e.userRating}</strong></span>
                     <span className="text-blue-500">AI: <strong>{e.predictedRating}</strong></span>
                     <span className={`font-bold ${e.error <= 10 ? "text-green-600" : e.error <= 25 ? "text-yellow-600" : "text-red-600"}`}>
                       ±{e.error}
                     </span>
                   </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* All “not interested” (haven’t seen — didn’t want to watch) */}
+        {dontSeeRows.length > 0 && (
+          <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm">
+            <div className="px-4 py-3 border-b border-zinc-100 flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Not interested</p>
+              <span className="text-xs text-zinc-400 tabular-nums">{dontSeeRows.length}</span>
+            </div>
+            <ul className="divide-y divide-zinc-50 max-h-[min(40vh,22rem)] overflow-y-auto overscroll-contain">
+              {dontSeeRows.map((e, i) => (
+                <li key={`${e.title}-${i}`} className="px-4 py-2 flex items-center justify-between gap-3 text-sm min-w-0">
+                  <span className="font-medium text-zinc-800 truncate">{e.title}</span>
+                  {e.rtScore != null && e.rtScore !== "" ? (
+                    <span className="text-xs text-zinc-500 flex-shrink-0 tabular-nums">RT {e.rtScore}</span>
+                  ) : (
+                    <span className="text-xs text-zinc-400 flex-shrink-0">—</span>
+                  )}
                 </li>
               ))}
             </ul>
@@ -693,7 +1067,7 @@ export default function Home() {
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 px-4 py-2.5 rounded-full bg-red-900 text-white text-sm shadow-lg">
           <span>{fetchError}</span>
           <button
-            onClick={() => fetchNext(history, skipped, { mediaType, llm })}
+            onClick={() => fetchNext({ mediaType, llm })}
             className="font-semibold underline underline-offset-2 hover:no-underline"
           >
             Retry
@@ -710,9 +1084,6 @@ export default function Home() {
         </div>
         LLM is thinking…
       </div>
-
-      {/* Reveal modal */}
-      {reveal && <RevealModal reveal={reveal} onDismiss={() => setReveal(null)} />}
 
       {/* Lightbox */}
       {lightboxUrl && (

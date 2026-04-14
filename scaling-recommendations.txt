@@ -1,0 +1,18 @@
+It does not scale to feed my entire history to the LLM for recommendations.  That will overflow the token limit.  Two problems:
+
+- how to represent my taste without full history?
+- how to avoid presenting the same items a second time?
+
+For the second, we have to ask for more items than we will actually use and filter out the dups locally.  As history piles up, we will have to ask for more and more to get the same number of new items.  So this will have its limits.  When the app is playing music, it's not so bad to have some dups.  
+
+For the first, ask the LLM to summarize my taste in its response.  Keep it locally and submit it with the next request.  This is also shown to the user.  
+
+Add to it a set of ratings selected from history.  Two criteria:
+
+- recent ratings
+- ratings that differ most from the norm
+  - norm is either critic score from Rotten Tomatoes or audience score, or something else
+
+The number of ratings selected from history can be variable.  For the first one, it's zero.  Might have a constant limit of 50.  
+
+Our goal will be for the app to pull 10 new items from the LLM response.

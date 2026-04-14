@@ -1,11 +1,19 @@
-export async function callLLM(llm: string, systemPrompt: string, userMessage: string): Promise<string> {
+export async function callLLM(
+  llm: string,
+  systemPrompt: string,
+  userMessage: string,
+  opts?: { maxTokens?: number }
+): Promise<string> {
+  const maxTokens = opts?.maxTokens ?? 1024;
   if (llm === "deepseek") {
+    // API cap: "valid range of max_tokens is [1, 8192]"
+    const deepseekMax = Math.min(maxTokens, 8192);
     const res = await fetch("https://api.deepseek.com/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.DEEPSEEK_API_KEY}` },
       body: JSON.stringify({
         model: "deepseek-chat",
-        max_tokens: 1024,
+        max_tokens: deepseekMax,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user",   content: userMessage },
@@ -30,7 +38,7 @@ export async function callLLM(llm: string, systemPrompt: string, userMessage: st
       },
       body: JSON.stringify({
         model: "claude-opus-4-6",
-        max_tokens: 1024,
+        max_tokens: maxTokens,
         system: [
           {
             type: "text",
@@ -53,7 +61,7 @@ export async function callLLM(llm: string, systemPrompt: string, userMessage: st
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.OPENAI_API_KEY}` },
       body: JSON.stringify({
         model: "gpt-4o",
-        max_tokens: 1024,
+        max_tokens: maxTokens,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user",   content: userMessage },
@@ -73,6 +81,7 @@ export async function callLLM(llm: string, systemPrompt: string, userMessage: st
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: systemPrompt }] },
         contents: [{ role: "user", parts: [{ text: userMessage }] }],
+        generationConfig: { maxOutputTokens: maxTokens },
       }),
     });
     if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(`Gemini ${res.status}: ${JSON.stringify(e)}`); }
