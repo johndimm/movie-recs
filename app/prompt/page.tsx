@@ -156,7 +156,7 @@ Custom RatingSlider component (do NOT use <input type="range"> — unusable on i
 - Track: absolutely positioned, inset-x by THUMB/2 (14px), height 10px, rounded, bg-zinc-200.
   Fill bar inside the track, width = value%, bg-blue-500.
 - Thumb: absolutely positioned circle, 28×28px, white with blue border and shadow.
-  left: calc(${value/100} * (100% - 28px))  — stays fully in-bounds at 0 and 100.
+  left: calc(\${value/100} * (100% - 28px))  — stays fully in-bounds at 0 and 100.
 - onPointerDown: call setPointerCapture(pointerId) then compute value from clientX.
 - onPointerMove: update value only while dragging (ref flag).
 - onPointerUp: finalize value, call onCommit(v) to submit the rating.
