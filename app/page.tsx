@@ -766,6 +766,54 @@ export default function Home() {
     }
   };
 
+  /** Remove a rated entry from history and show it as the current card for re-rating. */
+  const reconsiderHistoryEntry = (entry: RatingEntry) => {
+    const newHistory = history.filter((h) => h.title !== entry.title);
+    saveHistory(newHistory);
+    const movie: CurrentMovie = {
+      title: entry.title,
+      type: entry.type,
+      year: null,
+      director: null,
+      predictedRating: entry.predictedRating,
+      actors: [],
+      plot: "",
+      posterUrl: null,
+      rtScore: entry.rtScore ?? null,
+    };
+    setUserRating("50");
+    setCurrent(movie);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  /** Remove a not-interested entry from skipped/not-interested lists and show it as the current card. */
+  const reconsiderNotInterested = (item: { title: string; rtScore?: string | null }) => {
+    const newSkipped = skipped.filter((s) => s !== item.title);
+    localStorage.setItem(SKIPPED_KEY, JSON.stringify(newSkipped));
+    setSkipped(newSkipped);
+    skippedRef.current = newSkipped;
+
+    const newNotInterested = notInterested.filter((n) => n.title !== item.title);
+    localStorage.setItem(NOT_INTERESTED_KEY, JSON.stringify(newNotInterested));
+    setNotInterested(newNotInterested);
+    notInterestedRef.current = newNotInterested;
+
+    const movie: CurrentMovie = {
+      title: item.title,
+      type: "movie",
+      year: null,
+      director: null,
+      predictedRating: 50,
+      actors: [],
+      plot: "",
+      posterUrl: null,
+      rtScore: item.rtScore ?? null,
+    };
+    setUserRating("50");
+    setCurrent(movie);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const ratingNum = parseInt(userRating, 10);
 
   /** Haven’t-seen titles you didn’t add to the watchlist (not interested), newest first — includes legacy rows stored only in `skipped`. */
@@ -1020,7 +1068,12 @@ export default function Home() {
             </div>
             <ul className="divide-y divide-zinc-50 max-h-[min(50vh,28rem)] overflow-y-auto overscroll-contain">
               {[...history].reverse().map((e, i) => (
-                <li key={`${e.title}-${history.length - 1 - i}`} className="px-4 py-2 flex items-center justify-between gap-3 text-sm min-w-0">
+                <li
+                  key={`${e.title}-${history.length - 1 - i}`}
+                  onClick={() => reconsiderHistoryEntry(e)}
+                  className="px-4 py-2 flex items-center justify-between gap-3 text-sm min-w-0 cursor-pointer hover:bg-zinc-50 active:bg-zinc-100 transition-colors"
+                  title="Click to re-rate"
+                >
                   <div className="min-w-0 flex items-baseline gap-1.5">
                     <span className="font-medium text-zinc-800 truncate">{e.title}</span>
                     <span className="text-xs text-zinc-400 flex-shrink-0">{e.type === "tv" ? "TV" : "Film"}</span>
@@ -1047,7 +1100,12 @@ export default function Home() {
             </div>
             <ul className="divide-y divide-zinc-50 max-h-[min(40vh,22rem)] overflow-y-auto overscroll-contain">
               {dontSeeRows.map((e, i) => (
-                <li key={`${e.title}-${i}`} className="px-4 py-2 flex items-center justify-between gap-3 text-sm min-w-0">
+                <li
+                  key={`${e.title}-${i}`}
+                  onClick={() => reconsiderNotInterested(e)}
+                  className="px-4 py-2 flex items-center justify-between gap-3 text-sm min-w-0 cursor-pointer hover:bg-zinc-50 active:bg-zinc-100 transition-colors"
+                  title="Click to reconsider"
+                >
                   <span className="font-medium text-zinc-800 truncate">{e.title}</span>
                   {e.rtScore != null && e.rtScore !== "" ? (
                     <span className="text-xs text-zinc-500 flex-shrink-0 tabular-nums">RT {e.rtScore}</span>

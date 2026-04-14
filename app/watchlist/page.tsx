@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import type { WatchlistEntry } from "../page";
 
 const WATCHLIST_KEY = "movie-recs-watchlist";
+const SKIPPED_KEY = "movie-recs-skipped";
+const NOT_INTERESTED_KEY = "movie-recs-not-interested";
 
 function RTBadge({ score }: { score: string }) {
   const pct = parseInt(score, 10);
@@ -26,10 +28,31 @@ export default function WatchlistPage() {
     } catch {}
   }, []);
 
-  const remove = (title: string) => {
-    const updated = watchlist.filter((e) => e.title !== title);
+  const moveToNotInterested = (entry: WatchlistEntry) => {
+    // Remove from watchlist
+    const updated = watchlist.filter((e) => e.title !== entry.title);
     localStorage.setItem(WATCHLIST_KEY, JSON.stringify(updated));
     setWatchlist(updated);
+
+    // Add to not-interested
+    try {
+      const stored = localStorage.getItem(NOT_INTERESTED_KEY);
+      const ni: { title: string; rtScore?: string | null }[] = stored ? JSON.parse(stored) : [];
+      if (!ni.some((n) => n.title === entry.title)) {
+        ni.push({ title: entry.title, rtScore: entry.rtScore });
+        localStorage.setItem(NOT_INTERESTED_KEY, JSON.stringify(ni));
+      }
+    } catch {}
+
+    // Add to skipped
+    try {
+      const stored = localStorage.getItem(SKIPPED_KEY);
+      const skipped: string[] = stored ? JSON.parse(stored) : [];
+      if (!skipped.includes(entry.title)) {
+        skipped.push(entry.title);
+        localStorage.setItem(SKIPPED_KEY, JSON.stringify(skipped));
+      }
+    } catch {}
   };
 
 
@@ -76,9 +99,9 @@ export default function WatchlistPage() {
                           <h2 className="text-lg font-bold text-zinc-900 mt-0.5 leading-tight">{entry.title}</h2>
                         </div>
                         <button
-                          onClick={() => remove(entry.title)}
+                          onClick={() => moveToNotInterested(entry)}
                           className="text-zinc-300 hover:text-red-400 transition-colors flex-shrink-0 text-lg leading-none"
-                          title="Remove from watchlist"
+                          title="Remove and mark as not interested"
                         >
                           ×
                         </button>

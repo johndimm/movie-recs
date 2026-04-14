@@ -50,53 +50,74 @@ Each round:
 4. The last result (your score / AI score / error) is shown inline in the chart panel.
 
 ## LLM API route  POST /api/next-movie
-Request body includes skipped, watchlistTitles, notInterestedItems, mediaType, llm, count? — always.
-
-Rating history (server keeps a full copy in memory per sessionId so the client does not resend it every time):
-- sessionId: UUID from localStorage; identifies an in-memory session on the server (TTL ~24h; lost on cold start)
-- historySync: "full" | "delta" | "reuse"
-  - full + history[]: replace session (first load, after reset, or resync after 409)
-  - delta + baseLength + historyAppend: append when the user added ratings since last successful sync
-  - reuse + baseLength: no new ratings; server uses stored list (skipped/watchlist still updated every request)
-- Legacy: omit session fields and send history[] only — treated as full sync
-
-Skipped: title strings from unseen flow (both "want to watch" and "not interested" append here)
-watchlistTitles: array of { title, rtScore } (and notInterestedItems for high-RT dismissals) — unioned with rated titles and skipped for exclusion on the server.
+Request body:
+- sessionId / historySync / history / baseLength / historyAppend — server-side session cache
+  (historySync: "full" | "delta" | "reuse"; avoids resending full history every request)
+- skipped: string[] — all titles the user has decided on (rated + watchlist + not-interested)
+- watchlistTitles: { title, rtScore }[] — want-to-watch entries with RT score
+- notInterestedItems: { title, rtScore }[] — not-interested entries with RT score
+- tasteSummary?: string — the running taste profile (used as primary signal context)
+- diversityLens?: string — e.g. "films from the 1970s" or "South Korean cinema"
 - mediaType: "movie" | "tv" | "both"
 - llm: "deepseek" | "claude" | "gpt-4o" | "gemini"
-- count: optional number of titles to request in one generation (default ~24, max 28; limited so JSON fits model output caps)
+- count?: number (default 5, max 8)
 
-The LLM user message is intentionally small: rated history is truncated to the highest |user−RT| divergence lines (fallback |user−AI| if no RT); want-to-watch lists only low-RT saves; not-interested lists only high-RT dismissals. Full exclusion title lists are not sent — counts only; the client dedupes.
+RatingEntry stores { title, type, userRating, predictedRating, error, rtScore? }.
 
-One HTTP request asks the LLM for many titles at once. The model returns ONLY valid JSON:
+Token-efficient user message: rated history is truncated to the top ~32 entries by
+|user−RT| divergence (fallback |user−AI| if RT missing), blended with the most recent
+entries for freshness. Want-to-watch lists only low-RT saves (<60%). Not-interested lists
+only high-RT dismissals (≥70%). Full exclusion title lists are NOT sent — counts only.
+The client dedupes returned titles against its own excluded set.
+
+Diversity lens: each batch carries a hard constraint ("DIVERSITY LENS FOR THIS BATCH: …")
+that forces the LLM to explore a specific corner of cinema — a decade, world region, or
+genre. 24 lenses rotate across batches so concurrent requests explore different areas.
+This prevents the LLM from defaulting to the same ~300 popular titles.
+
+The model returns ONLY valid JSON:
 { "items": [ { title, type, year, director, predicted_rating, actors[], plot, rt_score }, ... ] }
-type must be "movie" or "tv" on each item. rt_score is the Rotten Tomatoes % or null.
+type must be "movie" or "tv". rt_score is the Tomatometer % or null.
 All string values must be on one line (no newlines inside JSON strings).
 
-After the LLM responds, parse JSON (with fallbacks: top-level array, or legacy single-object).
-Sanitise literal newlines in string fields when needed.
-
+Parse JSON with fallbacks (top-level array, legacy single-object, brace-depth walker).
 Response body: { movies: CurrentMovie[] } — one entry per accepted item (posters attached).
 
-Fetch posters via the Serper Images API (one image request per item, in parallel):
-  POST https://google.serper.dev/images
-  query: "{title} {year} film official poster"  (include year to avoid wrong version)
-Prefer portrait images. Upgrade http:// URLs to https:// before returning.
+Fetch posters via TMDB API first (TMDB_API_KEY), fall back to Serper Images API (SERPER_API_KEY).
+Upgrade http:// poster URLs to https:// before returning.
 
-## Prefetch queue
+## Taste summary  POST /api/taste-summary
+Separate lightweight endpoint. Request: { history, watchlistSignals, notInterestedSignals,
+existingSummary, llm }. Returns { tasteSummary: string | null }.
+Generates a 2–4 sentence profile of the user's taste written in second person
+("You tend to prefer…"). max_tokens: 256. Called by the client in the background after
+the 1st rating and every 5 ratings thereafter (1, 5, 10, 15 …). Stored in localStorage
+under movie-recs-taste-summary. Displayed as a card with a purple left border below the
+accuracy chart. The existing summary is sent back as context each call so it refines
+incrementally rather than starting from scratch.
+
+## Prefetch queue with daisy-chain replenishment
 Maintain a client-side prefetch queue (ref, not state) of pre-fetched CurrentMovie objects.
-On advance, pop instantly from the queue; trigger a background replenish when remaining cards are at or below half the nominal LLM batch (~ceil(LLM_BATCH_SIZE/2)), so the next LLM request overlaps the user's pace. Up to two replenishes may run concurrently.
-If the queue is empty, await the replenish before showing the next card.
+LLM_BATCH_SIZE = 5. MAX_REPLENISH_IN_FLIGHT = 3. HIGH_WATER_MARK = 12.
 
-Replenish issues a single POST /api/next-movie (LLM_BATCH_SIZE titles per call). The client
-retries the POST once on failure. Titles returned by the model that are already excluded
-(history + skipped + prefetch queue) are dropped; yield = freshAdded / LLM_BATCH_SIZE is
-kept in a rolling window for diagnostics.
+On card pop: show the card instantly; if replenishInFlight < MAX_REPLENISH_IN_FLIGHT, start
+a background replenish immediately (don't wait for the queue to run low).
 
-Limit to two in-flight replenishes (incrementing a counter); if both slots are busy, additional
-replenish callers spin briefly until a slot frees so the empty-queue path never dead-locks.
+Daisy-chain: when any replenish completes, if queue < HIGH_WATER_MARK and a slot is free,
+immediately start another. This keeps MAX_REPLENISH_IN_FLIGHT fetches running continuously
+so the queue is always being filled. Stop the chain if zeroYieldStreak >= 3 (3 consecutive
+batches with 0 fresh items — LLM is stuck). Reset the streak on any user action.
 
-On failure after all retries, show a friendly error pill with a Retry button.
+Pre-display check: before showing a card popped from the queue, verify the title is not
+already in the excluded set (race condition: user could rate/skip a title while it was
+queued). Silently discard stale entries; drain the queue until a fresh title is found.
+
+Empty-queue fallback: reset zeroYieldStreak, kick off a replenish if nothing is in-flight,
+then poll every 200ms until a card arrives or 90s elapse. Show error pill if nothing found.
+
+On failure, show a friendly error pill with a Retry button.
+
+lensIndexRef increments on every replenish call so concurrent batches get different lenses.
 
 ## Unseen titles — two kinds
 "Want to watch" (green button):
@@ -172,17 +193,23 @@ OpenAI automatically caches prompt prefixes ≥1024 tokens. Gemini uses the syst
 field. DeepSeek uses the standard system/user message array.
 
 ## localStorage keys
-movie-recs-history    — RatingEntry[]
-movie-recs-skipped    — string[] (all excluded titles)
-movie-recs-watchlist  — WatchlistEntry[]
-movie-recs-notseen    — NotSeenEvent[] (for chart plotting)
+movie-recs-history        — RatingEntry[] (includes rtScore per entry)
+movie-recs-skipped        — string[] (all excluded titles)
+movie-recs-watchlist      — WatchlistEntry[]
+movie-recs-notseen        — NotSeenEvent[] (for chart plotting)
+movie-recs-not-interested — { title, rtScore }[] (for high-RT taste signal)
+movie-recs-taste-summary  — string (LLM-generated taste profile, second person)
+movie-recs-llm-session-id — UUID for server-side history session
+movie-recs-llm-history-synced — number of ratings confirmed synced to server
 
 ## Required env vars
-SERPER_API_KEY         — Serper Images API
 DEEPSEEK_API_KEY       — DeepSeek (default LLM)
 ANTHROPIC_API_KEY      — Claude (optional)
 OPENAI_API_KEY         — GPT-4o (optional)
-GEMINI_API_KEY         — Gemini (optional)`;
+GEMINI_API_KEY         — Gemini (optional)
+TMDB_API_KEY           — TMDB poster lookup (recommended)
+SERPER_API_KEY         — Serper Images fallback for posters (optional)
+NEXT_MOVIE_LOG_LLM_PROMPTS — set to "1" to log full prompts to server console (debug only)`;
 
 export default function PromptPage() {
   const [copiedNatural, setCopiedNatural] = useState(false);

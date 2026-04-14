@@ -25,7 +25,7 @@ export default function JournalPage() {
 
         <div style={{ marginBottom: 40 }}>
           <h1 style={{ fontSize: "2rem", fontWeight: 700, letterSpacing: "-0.03em", color: "#1a1a1a" }}>Movie Recs</h1>
-          <p style={{ marginTop: 6, fontSize: "0.875rem", color: "#888" }}>Dev Journal &mdash; Monday, April 13, 2026</p>
+          <p style={{ marginTop: 6, fontSize: "0.875rem", color: "#888" }}>Dev Journal &mdash; Monday, April 13, 2026 (updated same day)</p>
         </div>
 
         {/* THE IDEA */}
@@ -72,6 +72,12 @@ export default function JournalPage() {
             { tag: "ux", title: "Mobile-responsive layout", body: "On small screens the movie card now stacks vertically: the poster becomes a full-width banner image (cropped to a fixed height) above the metadata and rating controls. The nav bar hides the brand name on xs to give the four links room. Long movie titles in the recent ratings list truncate with ellipsis rather than overflowing." },
             { tag: "feature", title: "Media type filter and LLM selector", body: "A segmented control restricts picks to Movies, TV Series, or both. If the current card doesn't match a newly selected type, a fresh fetch fires immediately. A second control lists every LLM whose API key is present in .env (DeepSeek, Claude, GPT-4o, Gemini); the selection is live." },
             { tag: "feature", title: "Poster lightbox", body: "The poster renders at w-72 on the card. Clicking it opens a full-screen lightbox (black overlay, Escape to close). Page max-width is max-w-3xl to give the poster room without making the text too wide." },
+            { tag: "feature", title: "Scaling: informative history selection", body: "As ratings accumulate, sending the full history to the LLM overflows the context budget. Instead, the server selects the most informative subset: ratings where |user score − RT score| is largest (divergence from critic consensus reveals the most about taste per token), plus the most recent entries for freshness. The LLM still receives the full exclusion count but not the full title lists." },
+            { tag: "feature", title: "RT-divergence taste signals", body: "RatingEntry now stores rtScore. The server curates two extra taste signals beyond raw ratings: want-to-watch items with low RT scores (user liked what critics didn't), and not-interested items with high RT scores (user dismissed what critics loved). Both are stored in localStorage and sent with each request. These are the most informative signals the LLM can receive about how this user's taste differs from the mainstream." },
+            { tag: "feature", title: "Taste profile card (second person)", body: "A separate /api/taste-summary endpoint generates a 2–4 sentence taste profile addressed directly to the viewer in second person ('You tend to prefer…'). It runs in the background after the first rating and every 5 thereafter — decoupled from the movie batch so it doesn't slow down recommendations. The profile is stored in localStorage and displayed as a card with a purple left border between the accuracy chart and the movie card." },
+            { tag: "feature", title: "Diversity lenses — the key to scaling", body: "Without explicit direction the LLM defaults to the same ~300 culturally visible titles. The fix: each batch request carries a rotating 'diversity lens' — a hard constraint like 'films from the 1970s' or 'South Korean cinema' or 'overlooked gems with low name recognition'. 24 lenses cycle through decades, world regions, and genres. With 3 concurrent batches running, three different corners of cinema are explored simultaneously. This unlocked the full breadth of the LLM's knowledge." },
+            { tag: "feature", title: "Daisy-chain replenishment — always filling", body: "The old approach triggered replenishment only when the queue dropped below a threshold. If LLM latency spiked or yield was low, the queue drained to empty and the user waited. The new approach daisy-chains: each completed batch immediately starts another if the queue is below the high-water mark (12 items) and a slot is free. Up to 3 concurrent fetches run continuously. A zero-yield streak counter (resets on any user action) stops the chain after 3 consecutive zero-yield batches to avoid an infinite loop when the LLM is stuck." },
+            { tag: "fix", title: "Pre-display exclusion check", body: "A race condition could allow a title to sit in the prefetch queue and then be rated or skipped before it was displayed. The fetchNext pop loop now checks each candidate against the live excluded set (history + skipped + watchlist) and silently discards any stale entry before showing it." },
           ].map(({ tag, title, body }) => (
             <div className="j-card" key={title}>
               <span className={`j-tag ${tag}`}>{tag === "ux" ? "UX" : "Feature"}</span>
@@ -125,8 +131,10 @@ export default function JournalPage() {
               ["app/watchlist/page.tsx", "watchlist — poster, metadata, streaming pills, remove"],
               ["app/journal/page.tsx", "this page"],
               ["app/prompt/page.tsx", "reconstruction prompt with copy button"],
-              ["app/api/next-movie/route.ts", "batch LLM pick + parallel poster fetches"],
+              ["app/api/next-movie/route.ts", "batch LLM pick + diversity lens + poster fetches"],
               ["app/api/next-movie/llm.ts", "callLLM(llm, systemPrompt, userMessage) for all providers"],
+              ["app/api/next-movie/historySessionStore.ts", "server-side session cache so history isn't resent every request"],
+              ["app/api/taste-summary/route.ts", "background taste profile generation (2nd person, ~256 tokens)"],
               ["app/api/streaming/route.ts", "streaming availability lookup"],
               ["app/api/config/route.ts", "returns which LLM keys are configured"],
             ].map(([file, desc]) => (
