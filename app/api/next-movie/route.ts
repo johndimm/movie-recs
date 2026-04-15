@@ -376,7 +376,7 @@ Rules:
 - All string values must be on a single line — no newline characters inside strings
 - Vary genres, eras, and (if media allows) movie vs TV to calibrate faster
 - Predict honestly — don't always guess 70
-- Taste data below is intentionally small: high-divergence ratings, low-RT wants, high-RT dismissals. Full exclusion is not listed.${mediaConstraint}${diversityLens ? `\nDIVERSITY LENS FOR THIS BATCH: ${diversityLens}. Every item must fit this lens. This is how the app explores beyond the obvious — treat it as a hard constraint.` : ""}${userRequest ? `\nUSER REQUEST: The user has specifically asked for: "${userRequest}". Prioritize titles matching this request — it overrides the diversity lens but must still respect the taste profile.` : ""}`;
+- Taste data below is intentionally small: high-divergence ratings, low-RT wants, high-RT dismissals. Full exclusion is not listed.${mediaConstraint}${userRequest ? `\nUSER REQUEST — HARD CONSTRAINT: The user has asked for "${userRequest}". Every single item you return MUST match this request. Do not return anything outside this category. This overrides the diversity lens entirely.` : diversityLens ? `\nDIVERSITY LENS FOR THIS BATCH: ${diversityLens}. Every item must fit this lens. This is how the app explores beyond the obvious — treat it as a hard constraint.` : ""}`;
 
   const tasteSummarySection = existingTasteSummary
     ? `RUNNING TASTE PROFILE (your summary from the previous session — treat as primary signal, refine it):
