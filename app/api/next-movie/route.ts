@@ -262,6 +262,7 @@ export async function POST(request: Request) {
     notInterestedItems?: Array<{ title: string; rtScore?: string | null }>;
     tasteSummary?: string;
     diversityLens?: string;
+    userRequest?: string;
     mediaType?: "movie" | "tv" | "both";
     llm?: string;
     count?: number;
@@ -277,6 +278,7 @@ export async function POST(request: Request) {
   const notInterestedItems: { title: string; rtScore?: string | null }[] = raw.notInterestedItems ?? [];
   const existingTasteSummary = raw.tasteSummary?.trim() || null;
   const diversityLens = raw.diversityLens?.trim() || null;
+  const userRequest = raw.userRequest?.trim() || null;
   const mediaType = raw.mediaType ?? "both";
   const llm = raw.llm ?? "deepseek";
   const countRaw = raw.count;
@@ -374,7 +376,7 @@ Rules:
 - All string values must be on a single line — no newline characters inside strings
 - Vary genres, eras, and (if media allows) movie vs TV to calibrate faster
 - Predict honestly — don't always guess 70
-- Taste data below is intentionally small: high-divergence ratings, low-RT wants, high-RT dismissals. Full exclusion is not listed.${mediaConstraint}${diversityLens ? `\nDIVERSITY LENS FOR THIS BATCH: ${diversityLens}. Every item must fit this lens. This is how the app explores beyond the obvious — treat it as a hard constraint.` : ""}`;
+- Taste data below is intentionally small: high-divergence ratings, low-RT wants, high-RT dismissals. Full exclusion is not listed.${mediaConstraint}${diversityLens ? `\nDIVERSITY LENS FOR THIS BATCH: ${diversityLens}. Every item must fit this lens. This is how the app explores beyond the obvious — treat it as a hard constraint.` : ""}${userRequest ? `\nUSER REQUEST: The user has specifically asked for: "${userRequest}". Prioritize titles matching this request — it overrides the diversity lens but must still respect the taste profile.` : ""}`;
 
   const tasteSummarySection = existingTasteSummary
     ? `RUNNING TASTE PROFILE (your summary from the previous session — treat as primary signal, refine it):

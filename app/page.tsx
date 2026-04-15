@@ -609,6 +609,9 @@ export default function Home() {
   const trailerWatchPctRef = useRef<number>(0);
   const trailerCommittedRef = useRef<boolean>(false);
   const [seenItExpanded, setSeenItExpanded] = useState(false);
+  const [userRequest, setUserRequest] = useState("");
+  const userRequestRef = useRef("");
+  userRequestRef.current = userRequest;
   const replenishOptsRef = useRef<{ mediaType: string; llm: string }>({ mediaType: "both", llm: "deepseek" });
   const zeroYieldStreakRef = useRef(0); // consecutive batches with 0 fresh items — stop daisy-chaining when high
   const lensIndexRef = useRef(0);       // rotates through DIVERSITY_LENSES so each batch explores a different area
@@ -702,6 +705,7 @@ export default function Home() {
             notInterestedItems: ni,
             tasteSummary: tasteSummaryRef.current ?? undefined,
             diversityLens: DIVERSITY_LENSES[lensIndexRef.current % DIVERSITY_LENSES.length],
+            userRequest: userRequestRef.current.trim() || undefined,
             mediaType: opts.mediaType,
             llm: opts.llm,
             count: LLM_BATCH_SIZE,
@@ -894,6 +898,17 @@ export default function Home() {
       fetchNext({ mediaType, llm });
     }
   }, [mediaType]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // When userRequest changes (debounced 600ms), flush the prefetch queue so
+  // upcoming cards reflect the new request rather than stale pre-fetched batches.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      prefetchRef.current = [];
+      batchYieldRef.current = [];
+      zeroYieldStreakRef.current = 0;
+    }, 600);
+    return () => clearTimeout(t);
+  }, [userRequest]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRate = (overrideRating?: number) => {
     const rating =
@@ -1138,6 +1153,26 @@ export default function Home() {
                 </button>
               ))}
             </div>
+          )}
+        </div>
+
+        {/* User request */}
+        <div className="flex items-center gap-2 mt-2">
+          <input
+            type="text"
+            value={userRequest}
+            onChange={(e) => setUserRequest(e.target.value)}
+            placeholder={'Request something specific\u2026 e.g. \u201cFrench cinema\u201d or \u201cslow-burn thrillers\u201d'}
+            className="flex-1 rounded-xl border border-zinc-200 bg-white px-3 py-1.5 text-sm text-zinc-700 placeholder-zinc-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+          />
+          {userRequest && (
+            <button
+              onClick={() => setUserRequest("")}
+              className="text-zinc-400 hover:text-zinc-600 text-lg leading-none"
+              title="Clear request"
+            >
+              ×
+            </button>
           )}
         </div>
 
