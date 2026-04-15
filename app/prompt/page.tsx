@@ -58,6 +58,7 @@ Request body:
 - notInterestedItems: { title, rtScore }[] — not-interested entries with RT score
 - tasteSummary?: string — the running taste profile (used as primary signal context)
 - diversityLens?: string — e.g. "films from the 1970s" or "South Korean cinema"
+- userRequest?: string — free-text user request appended to system prompt as a hard steer
 - mediaType: "movie" | "tv" | "both"
 - llm: "deepseek" | "claude" | "gpt-4o" | "gemini"
 - count?: number (default 5, max 8)
@@ -75,6 +76,12 @@ that forces the LLM to explore a specific corner of cinema — a decade, world r
 genre. 24 lenses rotate across batches so concurrent requests explore different areas.
 This prevents the LLM from defaulting to the same ~300 popular titles.
 
+User request: if userRequest is non-empty, append to the system prompt:
+"USER REQUEST: The user has specifically asked for: '<request>'. Prioritize titles
+matching this request — it overrides the diversity lens but must still respect the
+taste profile." When userRequest changes on the client, flush the prefetch queue
+(debounced 600ms) so upcoming cards reflect the new request.
+
 The model returns ONLY valid JSON:
 { "items": [ { title, type, year, director, predicted_rating, actors[], plot, rt_score }, ... ] }
 type must be "movie" or "tv". rt_score is the Tomatometer % or null.
@@ -83,8 +90,13 @@ All string values must be on one line (no newlines inside JSON strings).
 Parse JSON with fallbacks (top-level array, legacy single-object, brace-depth walker).
 Response body: { movies: CurrentMovie[] } — one entry per accepted item (posters attached).
 
-Fetch posters via TMDB API first (TMDB_API_KEY), fall back to Serper Images API (SERPER_API_KEY).
+Fetch posters AND trailer keys via TMDB (TMDB_API_KEY):
+- Search for the title to get its TMDB id and poster_path.
+- Call /movie/{id}/videos (or /tv/{id}/videos) and pick the first YouTube result
+  with type "Trailer" or "Teaser". Return its key as trailerKey.
+- Fall back to Serper Images API (SERPER_API_KEY) for poster only when TMDB absent.
 Upgrade http:// poster URLs to https:// before returning.
+CurrentMovie interface includes trailerKey: string | null.
 
 ## Taste summary  POST /api/taste-summary
 Separate lightweight endpoint. Request: { history, watchlistSignals, notInterestedSignals,
@@ -140,7 +152,44 @@ Hand-rolled SVG, no library. Shows accuracy (100 - error) so up is always good.
 - Dashed reference lines at y=85 and y=20
 - Label: "How well the AI knows your taste"
 
-## Main card UI
+## Trailer card (when trailerKey is present)
+Use the YouTube IFrame API to embed and auto-play the trailer.
+
+TrailerPlayer component:
+- Declare a global Window.YT type shim (Player constructor + PlayerState enum + isMuted/
+  getVolume/setVolume/unMute methods on YTPlayer interface).
+- Load the IFrame API script exactly once via a module-level singleton
+  (loadYouTubeApi(): Promise<void> backed by _ytApiLoaded / _ytApiReady flags and a
+  resolve-queue). Never add the script tag twice.
+- In useEffect([videoId]): create a fresh inner mountEl div, append to wrapperRef.
+  Pass mountEl (NOT wrapperRef.current) to new window.YT.Player(mountEl, ...).
+  YT replaces its argument element with an iframe — passing a React-owned ref directly
+  causes a React removeChild crash on unmount. Only the inner element is YT-managed;
+  React owns the wrapper.
+- playerVars: { autoplay:1, mute:1, controls:1, rel:0, modestbranding:1, playsinline:1 }
+  (mute:1 is required for autoplay; unmute in onReady).
+- onReady: restore _lastVolume (module-level var) if set, then call unMute().
+- Poll getCurrentTime()/getDuration() every 500ms; report watch% via onPctChange.
+- onStateChange ENDED: call onPctChange(100) then onEnd() (guarded by endedRef).
+- Cleanup: save volume to _lastVolume if !isMuted(), then destroy(). Remove mountEl
+  if still connected. This persists volume across cards for the session.
+- Return <div ref={wrapperRef} className="w-full aspect-video rounded-xl overflow-hidden bg-black" />.
+
+Trailer layout (card has trailerKey):
+- Full-width TrailerPlayer at the top.
+- Thin watch-progress bar below it (bg-blue-500, width = watchPct%).
+- Metadata (type/year badge, RT badge, title, director, cast, plot) below.
+- Three-button row: "Not interested" (left) | "Next →" (centre, neutral) | "Want to watch" (right).
+  "Next →" commits the current watch% as the rating and advances.
+- Collapsible "I've seen it — rate it" section below the buttons (collapsed by default).
+  Expanding it shows the RatingSlider. Rating auto-submits on release.
+- Watch-time → rating: watchPctToRating(pct) = Math.min(95, Math.round(pct)).
+  Committed via trailerCommittedRef guard (prevents double-submit from trailer-end + button).
+- Reset trailerWatchPctRef and trailerCommittedRef on each new card (useEffect on title).
+- recordNotSeen sets trailerCommittedRef.current = true at the top to prevent trailer-end
+  from firing a second submission after the user clicks Not interested / Want to watch.
+
+## Main card UI (poster layout, when trailerKey is null)
 On mobile (< sm): poster stacks above metadata as a full-width banner (h-52, object-cover).
 On sm+: poster (w-56) sits to the left of the metadata. Click poster for full-screen lightbox (Escape to close).
 Right/below: type + year badge, RT badge (tomato if >=60%, skull otherwise), title,
@@ -182,6 +231,13 @@ When type changes, if the current card doesn't match, re-fetch immediately.
 Segmented control for LLM: populated from GET /api/config which checks which
 of DEEPSEEK_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY exist
 in env and returns { llms: [{ id, label }] }. Only show if >1 key configured.
+
+User request text input: full-width input below the segmented controls.
+Placeholder: 'Request something specific… e.g. "French cinema" or "slow-burn thrillers"'.
+Shows a × clear button when non-empty. Value is read from a ref (userRequestRef) at
+fetch time so background replenish calls always use the latest text.
+When the value changes, flush the prefetch queue after a 600ms debounce so upcoming
+cards come from a batch that knew about the request.
 
 ## Re-rate / reconsider
 The "All ratings" list and the "Not interested" list below the card are fully clickable rows
