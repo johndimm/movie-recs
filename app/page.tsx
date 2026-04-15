@@ -10,6 +10,8 @@ declare global {
         el: HTMLElement,
         opts: {
           videoId: string;
+          width?: string | number;
+          height?: string | number;
           playerVars?: Record<string, unknown>;
           events?: {
             onReady?: (e: { target: YTPlayer }) => void;
@@ -524,7 +526,10 @@ function TrailerPlayer({
 
     // Create a fresh child element for YouTube to replace with its iframe.
     // React keeps ownership of wrapperRef's div; YT only manages this inner el.
+    // Stretch the mount point to fill the wrapper so the iframe inherits 100%×100%.
     const mountEl = document.createElement("div");
+    mountEl.style.position = "absolute";
+    mountEl.style.inset = "0";
     wrapperRef.current?.appendChild(mountEl);
 
     let cancelled = false;
@@ -533,6 +538,8 @@ function TrailerPlayer({
       if (cancelled || !mountEl.isConnected) return;
       const player = new window.YT.Player(mountEl, {
         videoId,
+        width: "100%",
+        height: "100%",
         playerVars: { autoplay: 1, mute: 1, controls: 1, rel: 0, modestbranding: 1, playsinline: 1 },
         events: {
           onReady: (e: { target: YTPlayer }) => {
@@ -576,7 +583,7 @@ function TrailerPlayer({
     };
   }, [videoId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return <div ref={wrapperRef} className="w-full aspect-video rounded-xl overflow-hidden bg-black" />;
+  return <div ref={wrapperRef} className="relative w-full aspect-video rounded-xl overflow-hidden bg-black" />;
 }
 
 export default function Home() {
@@ -597,6 +604,7 @@ export default function Home() {
   const [availableLlms, setAvailableLlms] = useState<{ id: string; label: string }[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const inputRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const prefetchRef = useRef<CurrentMovie[]>([]);
   const replenishInFlight = useRef(0);
   const batchYieldRef = useRef<number[]>([]); // rolling yield fractions (fresh / requested)
@@ -887,6 +895,15 @@ export default function Home() {
     trailerWatchPctRef.current = 0;
     trailerCommittedRef.current = false;
     setSeenItExpanded(false);
+  }, [current?.title]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // On mobile, scroll the card into view when a new one loads so it's never below the fold
+  const isFirstCard = useRef(true);
+  useEffect(() => {
+    if (!current?.title) return;
+    if (isFirstCard.current) { isFirstCard.current = false; return; }
+    if (window.innerWidth >= 640) return; // desktop handles itself
+    cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [current?.title]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // When mediaType changes, replace the current card if it doesn't match
@@ -1228,7 +1245,7 @@ export default function Home() {
         )}
 
         {/* Movie card */}
-        <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
+        <div ref={cardRef} className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden scroll-mt-14">
           {initialLoading ? (
             <div className="p-10 flex items-center justify-center">
               <div className="flex gap-1">
@@ -1334,42 +1351,44 @@ export default function Home() {
                 </div>
               ) : (
                 /* ── POSTER LAYOUT (no trailer) ── */
-                <div className="flex flex-col sm:flex-row gap-4 p-4 sm:p-6">
-                  <div className="sm:flex-shrink-0 sm:self-start w-full sm:w-56">
-                    {current.posterUrl ? (
-                      <button
-                        type="button"
-                        onClick={() => setLightboxUrl(current.posterUrl)}
-                        className="w-full rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-zoom-in block"
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={current.posterUrl}
-                          alt={`${current.title} poster`}
-                          referrerPolicy="no-referrer"
-                          className="w-full sm:w-56 h-52 sm:h-auto object-cover object-center sm:object-top"
-                        />
-                      </button>
-                    ) : (
-                      <div
-                        className="w-full sm:w-56 h-52 sm:min-h-[14rem] rounded-xl bg-zinc-100 border border-zinc-200 flex flex-col items-center justify-center gap-2 text-zinc-400 text-sm px-3 text-center"
-                        title="Posters: TMDB (TMDB_API_KEY) first, then Serper (SERPER_API_KEY). Add TMDB for free official posters."
-                      >
-                        <span className="text-3xl" aria-hidden>🎬</span>
-                        <span>No poster yet</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0 space-y-4">
-                    <div>
-                      <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-4 p-4 sm:p-6">
+                  {/* Top row: thumbnail (mobile) or wide poster (desktop) + metadata */}
+                  <div className="flex gap-4 sm:items-start">
+                    {/* Poster: small portrait thumbnail on mobile, wide column on desktop */}
+                    <div className="flex-shrink-0 self-start">
+                      {current.posterUrl ? (
+                        <button
+                          type="button"
+                          onClick={() => setLightboxUrl(current.posterUrl)}
+                          className="rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-zoom-in block"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={current.posterUrl}
+                            alt={`${current.title} poster`}
+                            referrerPolicy="no-referrer"
+                            className="w-28 sm:w-48 h-[10.5rem] sm:h-auto object-cover object-center sm:object-top"
+                          />
+                        </button>
+                      ) : (
+                        <div
+                          className="w-28 sm:w-48 h-[10.5rem] sm:h-[18rem] rounded-xl bg-zinc-100 border border-zinc-200 flex flex-col items-center justify-center gap-1 text-zinc-400 text-xs px-2 text-center"
+                        >
+                          <span className="text-2xl" aria-hidden>🎬</span>
+                          <span>No poster</span>
+                        </div>
+                      )}
+                    </div>
+                    {/* Metadata */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
                           {current.type === "tv" ? "TV Series" : "Movie"}
                           {current.year && <span className="ml-1 font-normal">· {current.year}</span>}
                         </span>
                         {current.rtScore && <RTBadge score={current.rtScore} />}
                       </div>
-                      <h2 className="text-2xl font-bold text-zinc-900 mt-1 leading-tight">{current.title}</h2>
+                      <h2 className="text-xl sm:text-2xl font-bold text-zinc-900 mt-0.5 leading-tight">{current.title}</h2>
                       {current.director && (
                         <p className="mt-1 text-sm text-zinc-500">
                           <span className="text-zinc-400">{current.type === "tv" ? "Created by" : "Dir."}</span> {current.director}
@@ -1379,44 +1398,45 @@ export default function Home() {
                         <p className="mt-0.5 text-sm text-zinc-500">{current.actors.join(" · ")}</p>
                       )}
                       {current.plot && (
-                        <p className="mt-2 text-sm text-zinc-600 leading-relaxed">{current.plot}</p>
+                        <p className="mt-2 text-sm text-zinc-600 leading-relaxed line-clamp-3 sm:line-clamp-none">{current.plot}</p>
                       )}
                     </div>
-                    <div className="space-y-3">
-                      <div className="rounded-xl bg-zinc-50 border border-zinc-200 p-3 space-y-3">
-                        <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">I&apos;ve seen it — rate it</p>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-zinc-600">Your rating</span>
-                          <span className="text-3xl font-bold text-zinc-900 w-14 text-right tabular-nums">{ratingNum || 50}</span>
-                        </div>
-                        <RatingSlider
-                          value={ratingNum || 50}
-                          sliderRef={inputRef}
-                          onChange={(v) => setUserRating(String(v))}
-                          onCommit={(v) => handleRate(v)}
-                          onEnter={() => handleRate()}
-                        />
-                        <div className="flex justify-between text-xs text-zinc-400 px-0.5">
-                          <span>0</span><span>25</span><span>50</span><span>75</span><span>100</span>
-                        </div>
-                        <p className="text-xs text-zinc-400 text-center">Drag the slider — rating saves on release. Arrow keys or Enter also work.</p>
+                  </div>
+                  {/* Rating controls — full width below */}
+                  <div className="space-y-3">
+                    <div className="rounded-xl bg-zinc-50 border border-zinc-200 p-3 space-y-3">
+                      <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">I&apos;ve seen it — rate it</p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-zinc-600">Your rating</span>
+                        <span className="text-3xl font-bold text-zinc-900 w-14 text-right tabular-nums">{ratingNum || 50}</span>
                       </div>
-                      <div className="rounded-xl bg-zinc-50 border border-zinc-200 p-3 space-y-2">
-                        <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Haven&apos;t seen it</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            onClick={() => recordNotSeen("skip")}
-                            className="py-2 rounded-xl border border-zinc-200 text-sm text-zinc-500 hover:bg-zinc-100 active:bg-zinc-200 active:border-zinc-400 active:scale-95 transition-all"
-                          >
-                            Not interested
-                          </button>
-                          <button
-                            onClick={() => recordNotSeen("want")}
-                            className="py-2 rounded-xl border border-green-200 bg-green-50 text-sm font-medium text-green-700 hover:bg-green-100 active:bg-green-200 active:border-green-400 active:scale-95 transition-all"
-                          >
-                            Want to watch
-                          </button>
-                        </div>
+                      <RatingSlider
+                        value={ratingNum || 50}
+                        sliderRef={inputRef}
+                        onChange={(v) => setUserRating(String(v))}
+                        onCommit={(v) => handleRate(v)}
+                        onEnter={() => handleRate()}
+                      />
+                      <div className="flex justify-between text-xs text-zinc-400 px-0.5">
+                        <span>0</span><span>25</span><span>50</span><span>75</span><span>100</span>
+                      </div>
+                      <p className="text-xs text-zinc-400 text-center">Drag the slider — rating saves on release. Arrow keys or Enter also work.</p>
+                    </div>
+                    <div className="rounded-xl bg-zinc-50 border border-zinc-200 p-3 space-y-2">
+                      <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Haven&apos;t seen it</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => recordNotSeen("skip")}
+                          className="py-2 rounded-xl border border-zinc-200 text-sm text-zinc-500 hover:bg-zinc-100 active:bg-zinc-200 active:border-zinc-400 active:scale-95 transition-all"
+                        >
+                          Not interested
+                        </button>
+                        <button
+                          onClick={() => recordNotSeen("want")}
+                          className="py-2 rounded-xl border border-green-200 bg-green-50 text-sm font-medium text-green-700 hover:bg-green-100 active:bg-green-200 active:border-green-400 active:scale-95 transition-all"
+                        >
+                          Want to watch
+                        </button>
                       </div>
                     </div>
                   </div>
