@@ -76,11 +76,11 @@ that forces the LLM to explore a specific corner of cinema — a decade, world r
 genre. 24 lenses rotate across batches so concurrent requests explore different areas.
 This prevents the LLM from defaulting to the same ~300 popular titles.
 
-User request: if userRequest is non-empty, append to the system prompt:
-"USER REQUEST: The user has specifically asked for: '<request>'. Prioritize titles
-matching this request — it overrides the diversity lens but must still respect the
-taste profile." When userRequest changes on the client, flush the prefetch queue
-(debounced 600ms) so upcoming cards reflect the new request.
+User request: if userRequest is non-empty, replace the diversity lens entirely with:
+"USER REQUEST — HARD CONSTRAINT: The user has asked for '<request>'. Every single
+item you return MUST match this request. Do not return anything outside this category."
+When userRequest is empty, the diversity lens is used as normal.
+When userRequest changes on the client, flush the prefetch queue (debounced 600ms).
 
 The model returns ONLY valid JSON:
 { "items": [ { title, type, year, director, predicted_rating, actors[], plot, rt_score }, ... ] }
@@ -131,17 +131,24 @@ On failure, show a friendly error pill with a Retry button.
 
 lensIndexRef increments on every replenish call so concurrent batches get different lenses.
 
-## Unseen titles — two kinds
-"Want to watch" (green button):
-- Accuracy score: 85/100 (LLM correctly found something appealing)
-- Saves to watchlist with full metadata
-- Triggers a streaming lookup (see below)
-- Adds to skipped list (never shown again)
+## Star rating system
+Every card shows two rows of 5 stars. Clicking any star submits immediately and advances.
 
-"Not interested" (neutral button):
-- Accuracy score: 20/100 (LLM missed entirely)
-- Does NOT save to watchlist
-- Adds to skipped list
+Red stars — "Seen it" (1–5):
+- Treated as an explicit rating. Stored in history. Maps to 0–100: stars × 20.
+- Contributes to the accuracy chart as a blue vertical bar.
+
+Blue stars — "Haven't seen it / interest level" (1–5):
+- 4–5 stars: adds to watchlist (same as old "Want to watch"), accuracy 85.
+- 1–3 stars: logged as not-interested taste signal (same as old "Not interested"), accuracy 20.
+- Both add to skipped list (never shown again).
+
+StarRow component:
+- Props: filled (number 1–5), color ("red"|"blue"), label (string), onRate(n: number).
+- Internal hover state shows a preview as the user moves over stars.
+- key prop tied to current movie title forces a full remount on each new card,
+  resetting hover state so the previous card's highlight doesn't bleed through.
+- touchAction: "manipulation" on each star button for responsive mobile taps.
 
 ## Accuracy chart
 Hand-rolled SVG, no library. Shows accuracy (100 - error) so up is always good.
@@ -179,39 +186,30 @@ Trailer layout (card has trailerKey):
 - Full-width TrailerPlayer at the top.
 - Thin watch-progress bar below it (bg-blue-500, width = watchPct%).
 - Metadata (type/year badge, RT badge, title, director, cast, plot) below.
-- Three-button row: "Not interested" (left) | "Next →" (centre, neutral) | "Want to watch" (right).
-  "Next →" commits the current watch% as the rating and advances.
-- Collapsible "I've seen it — rate it" section below the buttons (collapsed by default).
-  Expanding it shows the RatingSlider. Rating auto-submits on release.
-- Watch-time → rating: watchPctToRating(pct) = Math.min(95, Math.round(pct)).
-  Committed via trailerCommittedRef guard (prevents double-submit from trailer-end + button).
-- Reset trailerWatchPctRef and trailerCommittedRef on each new card (useEffect on title).
-- recordNotSeen sets trailerCommittedRef.current = true at the top to prevent trailer-end
-  from firing a second submission after the user clicks Not interested / Want to watch.
+- Two StarRow components in a rounded box:
+    red  row — "Seen it"      — filled = trailerStars (live, driven by watch%)
+    blue row — "Haven't seen" — filled = trailerStars (same live count)
+  Hint text: "Stars fill as you watch · click red = seen, blue = interest"
+- Watch-time → stars: pctToStars(pct) = Math.min(5, Math.floor(pct / 20) + 1).
+  trailerStars is React state updated via onPctChange every 500ms.
+- Video ends → commitTrailerRating() auto-submits as red (seen) at current trailerStars
+  (will be 5). Guarded by trailerCommittedRef to prevent double-submit.
+- Clicking any star calls submitRating(n, mode) which sets trailerCommittedRef = true.
+- Reset trailerWatchPctRef, trailerCommittedRef, trailerStars(1) on each new card.
 
-## Main card UI (poster layout, when trailerKey is null)
-On mobile (< sm): poster stacks above metadata as a full-width banner (h-52, object-cover).
-On sm+: poster (w-56) sits to the left of the metadata. Click poster for full-screen lightbox (Escape to close).
-Right/below: type + year badge, RT badge (tomato if >=60%, skull otherwise), title,
+## Main card UI (poster layout, when trailerKey is null or displayMode = "posters")
+On mobile: small portrait thumbnail (w-28 h-[10.5rem]) on the LEFT, metadata on the RIGHT.
+  Plot line-clamped to 3 lines on mobile (sm:line-clamp-none).
+On sm+: thumbnail widens to w-48 with natural height.
+Click poster for full-screen lightbox (Escape to close).
+Metadata: type + year badge, RT badge (tomato if >=60%, skull otherwise), title,
 director, cast, plot.
 
-Below the info, two clearly labelled sections:
-  Box 1 — "I've seen it — rate it": custom slider 0-100 (see below), large live number.
-  Box 2 — "Haven't seen it": "Not interested" (grey, LEFT) | "Want to watch" (green, RIGHT).
-  Button order matches slider polarity: left = negative/low, right = positive/high.
-
-Custom RatingSlider component (do NOT use <input type="range"> — unusable on iOS):
-- A div with role="slider", tabIndex=0, touch-action:none, height 44px.
-- Track: absolutely positioned, inset-x by THUMB/2 (14px), height 10px, rounded, bg-zinc-200.
-  Fill bar inside the track, width = value%, bg-blue-500.
-- Thumb: absolutely positioned circle, 28×28px, white with blue border and shadow.
-  left: calc(\${value/100} * (100% - 28px))  — stays fully in-bounds at 0 and 100.
-- onPointerDown: call setPointerCapture(pointerId) then compute value from clientX.
-- onPointerMove: update value only while dragging (ref flag).
-- onPointerUp: finalize value, call onCommit(v) to submit the rating.
-- valueFromClientX: (clientX - rect.left - THUMB/2) / (rect.width - THUMB), clamped 0-1.
-- Keyboard: ArrowLeft/Right ±1, PageUp/Down ±10, Home=0, End=100, Enter submits.
-- Rating auto-submits on pointer release and on each arrow-key press (no separate button).
+Below the info, a single rounded box with two StarRow components:
+  red  row — "Seen it"      — filled = 3 (default)
+  blue row — "Haven't seen" — filled = 3 (default)
+  Hint text: "Click a star to rate and advance · red = seen, blue = interest"
+Clicking any star calls submitRating(n, mode) immediately — no separate submit button.
 
 While the LLM is fetching: dim the card to 45% opacity. Show a fixed pill at
 bottom-center of the viewport: "LLM is thinking..." with bouncing dots.
@@ -231,6 +229,9 @@ When type changes, if the current card doesn't match, re-fetch immediately.
 Segmented control for LLM: populated from GET /api/config which checks which
 of DEEPSEEK_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY exist
 in env and returns { llms: [{ id, label }] }. Only show if >1 key configured.
+
+Segmented control: Trailers | Posters (displayMode state, default "trailers").
+When "posters" is selected, always use the poster layout even if trailerKey is available.
 
 User request text input: full-width input below the segmented controls.
 Placeholder: 'Request something specific… e.g. "French cinema" or "slow-burn thrillers"'.

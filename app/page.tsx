@@ -1241,8 +1241,8 @@ export default function Home() {
 
                   {/* Star ratings — fills with watch time; click either row to submit */}
                   <div className="rounded-xl bg-zinc-50 border border-zinc-200 p-3 space-y-2">
-                    <StarRow filled={trailerStars} color="red"  label="Seen it"      onRate={(n) => submitRating(n, "seen")} />
-                    <StarRow filled={trailerStars} color="blue" label="Haven't seen" onRate={(n) => submitRating(n, "unseen")} />
+                    <StarRow key={`tr-red-${current.title}`}  filled={trailerStars} color="red"  label="Seen it"      onRate={(n) => submitRating(n, "seen")} />
+                    <StarRow key={`tr-blue-${current.title}`} filled={trailerStars} color="blue" label="Haven't seen" onRate={(n) => submitRating(n, "unseen")} />
                     <p className="text-xs text-zinc-400 text-center pt-1">Stars fill as you watch · click red = seen, blue = interest</p>
                   </div>
                 </div>
@@ -1301,8 +1301,8 @@ export default function Home() {
                   </div>
                   {/* Star ratings — both start at 3; click either row to submit */}
                   <div className="rounded-xl bg-zinc-50 border border-zinc-200 p-3 space-y-2">
-                    <StarRow filled={3} color="red"  label="Seen it"      onRate={(n) => submitRating(n, "seen")} />
-                    <StarRow filled={3} color="blue" label="Haven't seen" onRate={(n) => submitRating(n, "unseen")} />
+                    <StarRow key={`po-red-${current.title}`}  filled={3} color="red"  label="Seen it"      onRate={(n) => submitRating(n, "seen")} />
+                    <StarRow key={`po-blue-${current.title}`} filled={3} color="blue" label="Haven't seen" onRate={(n) => submitRating(n, "unseen")} />
                     <p className="text-xs text-zinc-400 text-center pt-1">Click a star to rate and advance · red = seen, blue = interest</p>
                   </div>
                 </div>
