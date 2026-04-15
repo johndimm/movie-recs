@@ -600,6 +600,7 @@ export default function Home() {
   const [lastResult, setLastResult] = useState<LastResult | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [mediaType, setMediaType] = useState<"both" | "movie" | "tv">("both");
+  const [displayMode, setDisplayMode] = useState<"trailers" | "posters">("trailers");
   const [llm, setLlm] = useState<string>("deepseek");
   const [availableLlms, setAvailableLlms] = useState<{ id: string; label: string }[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -1153,6 +1154,23 @@ export default function Home() {
             ))}
           </div>
 
+          {/* Trailers vs Posters */}
+          <div className="flex rounded-xl border border-zinc-200 bg-white overflow-hidden text-sm shadow-sm">
+            {(["trailers", "posters"] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setDisplayMode(mode)}
+                className={`px-3 py-1.5 font-medium transition-colors capitalize ${
+                  displayMode === mode
+                    ? "bg-zinc-900 text-white"
+                    : "text-zinc-500 hover:bg-zinc-50"
+                }`}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+
           {/* LLM selector */}
           {availableLlms.length > 1 && (
             <div className="flex rounded-xl border border-zinc-200 bg-white overflow-hidden text-sm shadow-sm">
@@ -1256,7 +1274,7 @@ export default function Home() {
             </div>
           ) : current ? (
             <div style={{ opacity: cardOpacity, transition: "opacity 150ms ease" }}>
-              {current.trailerKey ? (
+              {current.trailerKey && displayMode === "trailers" ? (
                 /* ── TRAILER LAYOUT ── */
                 <div className="flex flex-col gap-4 p-4 sm:p-6">
                   <TrailerPlayer
