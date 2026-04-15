@@ -2,6 +2,62 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 
+// ── YouTube IFrame API minimal type shim ──────────────────────────────────────
+declare global {
+  interface Window {
+    YT: {
+      Player: new (
+        el: HTMLElement,
+        opts: {
+          videoId: string;
+          playerVars?: Record<string, unknown>;
+          events?: {
+            onReady?: (e: { target: YTPlayer }) => void;
+            onStateChange?: (e: { data: number }) => void;
+          };
+        }
+      ) => YTPlayer;
+      PlayerState: { ENDED: number; PLAYING: number; PAUSED: number; BUFFERING: number; CUED: number };
+    };
+    onYouTubeIframeAPIReady?: () => void;
+  }
+}
+interface YTPlayer {
+  getCurrentTime(): number;
+  getDuration(): number;
+  getVolume(): number;
+  isMuted(): boolean;
+  setVolume(v: number): void;
+  unMute(): void;
+  destroy(): void;
+}
+
+// Loads https://www.youtube.com/iframe_api exactly once; resolves when YT.Player is available.
+let _ytApiLoaded = false;
+let _ytApiReady = false;
+const _ytReadyCallbacks: Array<() => void> = [];
+function loadYouTubeApi(): Promise<void> {
+  return new Promise((resolve) => {
+    if (_ytApiReady) { resolve(); return; }
+    _ytReadyCallbacks.push(resolve);
+    if (_ytApiLoaded) return;
+    _ytApiLoaded = true;
+    window.onYouTubeIframeAPIReady = () => {
+      _ytApiReady = true;
+      _ytReadyCallbacks.forEach((cb) => cb());
+      _ytReadyCallbacks.length = 0;
+    };
+    const tag = document.createElement("script");
+    tag.src = "https://www.youtube.com/iframe_api";
+    document.head.appendChild(tag);
+  });
+}
+
+/** Map 0-100% of trailer watched → a 0-95 rating. Linear; caps at 95 so 100 stays exceptional. */
+function watchPctToRating(pct: number): number {
+  return Math.min(95, Math.round(pct));
+}
+
 /** Server merges full rating list in memory; client avoids resending it every request (delta / reuse). */
 const LS_LLM_SESSION = "movie-recs-llm-session-id";
 const LS_LLM_SYNCED = "movie-recs-llm-history-synced";
@@ -73,6 +129,7 @@ interface CurrentMovie {
   actors: string[];
   plot: string;
   posterUrl: string | null;
+  trailerKey: string | null;
   rtScore: string | null;
 }
 
@@ -440,6 +497,88 @@ function RTBadge({ score }: { score: string }) {
   );
 }
 
+// Persists volume across trailer cards (module-level, not localStorage — session only)
+let _lastVolume: number | null = null;
+
+// ── TrailerPlayer ─────────────────────────────────────────────────────────────
+function TrailerPlayer({
+  videoId,
+  onPctChange,
+  onEnd,
+}: {
+  videoId: string;
+  onPctChange: (pct: number) => void;
+  onEnd: () => void;
+}) {
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const playerRef = useRef<YTPlayer | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const endedRef = useRef(false);
+  const onPctRef = useRef(onPctChange);
+  const onEndRef = useRef(onEnd);
+  onPctRef.current = onPctChange;
+  onEndRef.current = onEnd;
+
+  useEffect(() => {
+    endedRef.current = false;
+
+    // Create a fresh child element for YouTube to replace with its iframe.
+    // React keeps ownership of wrapperRef's div; YT only manages this inner el.
+    const mountEl = document.createElement("div");
+    wrapperRef.current?.appendChild(mountEl);
+
+    let cancelled = false;
+
+    loadYouTubeApi().then(() => {
+      if (cancelled || !mountEl.isConnected) return;
+      const player = new window.YT.Player(mountEl, {
+        videoId,
+        playerVars: { autoplay: 1, mute: 1, controls: 1, rel: 0, modestbranding: 1, playsinline: 1 },
+        events: {
+          onReady: (e: { target: YTPlayer }) => {
+            // Restore previous volume; start muted so autoplay is allowed, then immediately unmute
+            if (_lastVolume !== null) {
+              e.target.setVolume(_lastVolume);
+            }
+            e.target.unMute();
+            pollRef.current = setInterval(() => {
+              if (!playerRef.current) return;
+              const dur = playerRef.current.getDuration();
+              if (dur > 0) {
+                onPctRef.current(Math.min(100, (playerRef.current.getCurrentTime() / dur) * 100));
+              }
+            }, 500);
+          },
+          onStateChange: (e) => {
+            if (e.data === window.YT.PlayerState.ENDED && !endedRef.current) {
+              endedRef.current = true;
+              onPctRef.current(100);
+              onEndRef.current();
+            }
+          },
+        },
+      });
+      playerRef.current = player;
+    });
+
+    return () => {
+      cancelled = true;
+      if (pollRef.current !== null) { clearInterval(pollRef.current); pollRef.current = null; }
+      try {
+        if (playerRef.current && !playerRef.current.isMuted()) {
+          _lastVolume = playerRef.current.getVolume();
+        }
+        playerRef.current?.destroy();
+      } catch {}
+      playerRef.current = null;
+      // Remove the inner element if YouTube didn't (e.g. API not yet loaded)
+      if (mountEl.isConnected) mountEl.remove();
+    };
+  }, [videoId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return <div ref={wrapperRef} className="w-full aspect-video rounded-xl overflow-hidden bg-black" />;
+}
+
 export default function Home() {
   const [history, setHistory] = useState<RatingEntry[]>([]);
   const [skipped, setSkipped] = useState<string[]>([]);
@@ -467,6 +606,9 @@ export default function Home() {
   const watchlistRef = useRef(watchlist);
   const notInterestedRef = useRef(notInterested);
   const tasteSummaryRef = useRef(tasteSummary);
+  const trailerWatchPctRef = useRef<number>(0);
+  const trailerCommittedRef = useRef<boolean>(false);
+  const [seenItExpanded, setSeenItExpanded] = useState(false);
   const replenishOptsRef = useRef<{ mediaType: string; llm: string }>({ mediaType: "both", llm: "deepseek" });
   const zeroYieldStreakRef = useRef(0); // consecutive batches with 0 fresh items — stop daisy-chaining when high
   const lensIndexRef = useRef(0);       // rotates through DIVERSITY_LENSES so each batch explores a different area
@@ -736,6 +878,13 @@ export default function Home() {
     if (current && cardOpacity === 1) inputRef.current?.focus();
   }, [current, cardOpacity]);
 
+  // Reset trailer state whenever the card changes
+  useEffect(() => {
+    trailerWatchPctRef.current = 0;
+    trailerCommittedRef.current = false;
+    setSeenItExpanded(false);
+  }, [current?.title]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // When mediaType changes, replace the current card if it doesn't match
   useEffect(() => {
     if (!current) return;
@@ -766,6 +915,7 @@ export default function Home() {
 
   const recordNotSeen = (kind: "want" | "skip") => {
     if (!current) return;
+    trailerCommittedRef.current = true; // prevent trailer auto-commit if user acts explicitly
     const snapshot = current;
 
     let newWatchlist = watchlist;
@@ -830,6 +980,12 @@ export default function Home() {
   };
 
 
+  const commitTrailerRating = () => {
+    if (trailerCommittedRef.current) return;
+    trailerCommittedRef.current = true;
+    handleRate(watchPctToRating(trailerWatchPctRef.current));
+  };
+
   const handleReset = () => {
     if (confirm("Clear all ratings and start over?")) {
       saveHistory([]);
@@ -867,6 +1023,7 @@ export default function Home() {
       actors: [],
       plot: "",
       posterUrl: null,
+      trailerKey: null,
       rtScore: entry.rtScore ?? null,
     };
     setUserRating("50");
@@ -895,6 +1052,7 @@ export default function Home() {
       actors: [],
       plot: "",
       posterUrl: null,
+      trailerKey: null,
       rtScore: item.rtScore ?? null,
     };
     setUserRating("50");
@@ -1045,99 +1203,190 @@ export default function Home() {
               </div>
             </div>
           ) : current ? (
-            <div
-              className="flex flex-col sm:flex-row gap-4 p-4 sm:p-6"
-              style={{ opacity: cardOpacity, transition: "opacity 150ms ease" }}
-            >
-              <div className="sm:flex-shrink-0 sm:self-start w-full sm:w-56">
-                {current.posterUrl ? (
-                  <button
-                    type="button"
-                    onClick={() => setLightboxUrl(current.posterUrl)}
-                    className="w-full rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-zoom-in block"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={current.posterUrl}
-                      alt={`${current.title} poster`}
-                      referrerPolicy="no-referrer"
-                      className="w-full sm:w-56 h-52 sm:h-auto object-cover object-center sm:object-top"
-                    />
-                  </button>
-                ) : (
-                  <div
-                    className="w-full sm:w-56 h-52 sm:min-h-[14rem] rounded-xl bg-zinc-100 border border-zinc-200 flex flex-col items-center justify-center gap-2 text-zinc-400 text-sm px-3 text-center"
-                    title="Posters: TMDB (TMDB_API_KEY) first, then Serper (SERPER_API_KEY). Add TMDB for free official posters."
-                  >
-                    <span className="text-3xl" aria-hidden>🎬</span>
-                    <span>No poster yet</span>
-                  </div>
-                )}
-              </div>
-              <div className="flex-1 min-w-0 space-y-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                      {current.type === "tv" ? "TV Series" : "Movie"}
-                      {current.year && <span className="ml-1 font-normal">· {current.year}</span>}
-                    </span>
-                    {current.rtScore && <RTBadge score={current.rtScore} />}
-                  </div>
-                  <h2 className="text-2xl font-bold text-zinc-900 mt-1 leading-tight">{current.title}</h2>
-                  {current.director && (
-                    <p className="mt-1 text-sm text-zinc-500">
-                      <span className="text-zinc-400">{current.type === "tv" ? "Created by" : "Dir."}</span> {current.director}
-                    </p>
-                  )}
-                  {current.actors.length > 0 && (
-                    <p className="mt-0.5 text-sm text-zinc-500">{current.actors.join(" · ")}</p>
-                  )}
-                  {current.plot && (
-                    <p className="mt-2 text-sm text-zinc-600 leading-relaxed">{current.plot}</p>
-                  )}
-                </div>
+            <div style={{ opacity: cardOpacity, transition: "opacity 150ms ease" }}>
+              {current.trailerKey ? (
+                /* ── TRAILER LAYOUT ── */
+                <div className="flex flex-col gap-4 p-4 sm:p-6">
+                  <TrailerPlayer
+                    key={current.trailerKey}
+                    videoId={current.trailerKey}
+                    onPctChange={(pct) => { trailerWatchPctRef.current = pct; }}
+                    onEnd={commitTrailerRating}
+                  />
 
-                <div className="space-y-3">
-                  {/* Seen it — rate it */}
-                  <div className="rounded-xl bg-zinc-50 border border-zinc-200 p-3 space-y-3">
-                    <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">I&apos;ve seen it — rate it</p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-zinc-600">Your rating</span>
-                      <span className="text-3xl font-bold text-zinc-900 w-14 text-right tabular-nums">{ratingNum || 50}</span>
-                    </div>
-                    <RatingSlider
-                      value={ratingNum || 50}
-                      sliderRef={inputRef}
-                      onChange={(v) => setUserRating(String(v))}
-                      onCommit={(v) => handleRate(v)}
-                      onEnter={() => handleRate()}
+                  {/* Watch progress */}
+                  <div className="h-1.5 w-full rounded-full bg-zinc-200 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-blue-500 transition-[width] duration-500"
+                      style={{ width: `${trailerWatchPctRef.current}%` }}
                     />
-                    <div className="flex justify-between text-xs text-zinc-400 px-0.5">
-                      <span>0</span><span>25</span><span>50</span><span>75</span><span>100</span>
-                    </div>
-                    <p className="text-xs text-zinc-400 text-center">Drag the slider — rating saves on release. Arrow keys or Enter also work.</p>
                   </div>
 
-                  {/* Haven't seen it */}
-                  <div className="rounded-xl bg-zinc-50 border border-zinc-200 p-3 space-y-2">
-                    <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Haven&apos;t seen it</p>
-                    <div className="grid grid-cols-2 gap-2">
+                  {/* Metadata */}
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                        {current.type === "tv" ? "TV Series" : "Movie"}
+                        {current.year && <span className="ml-1 font-normal">· {current.year}</span>}
+                      </span>
+                      {current.rtScore && <RTBadge score={current.rtScore} />}
+                    </div>
+                    <h2 className="text-2xl font-bold text-zinc-900 mt-1 leading-tight">{current.title}</h2>
+                    {current.director && (
+                      <p className="mt-1 text-sm text-zinc-500">
+                        <span className="text-zinc-400">{current.type === "tv" ? "Created by" : "Dir."}</span> {current.director}
+                      </p>
+                    )}
+                    {current.actors.length > 0 && (
+                      <p className="mt-0.5 text-sm text-zinc-500">{current.actors.join(" · ")}</p>
+                    )}
+                    {current.plot && (
+                      <p className="mt-2 text-sm text-zinc-600 leading-relaxed">{current.plot}</p>
+                    )}
+                  </div>
+
+                  {/* 3-button row: Not interested | Next → | Want to watch */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      onClick={() => recordNotSeen("skip")}
+                      className="py-2.5 rounded-xl border border-zinc-200 text-sm text-zinc-500 hover:bg-zinc-100 active:bg-zinc-200 active:scale-95 transition-all"
+                    >
+                      Not interested
+                    </button>
+                    <button
+                      onClick={commitTrailerRating}
+                      className="py-2.5 rounded-xl border border-blue-200 bg-blue-50 text-sm font-semibold text-blue-700 hover:bg-blue-100 active:bg-blue-200 active:scale-95 transition-all"
+                    >
+                      Next →
+                    </button>
+                    <button
+                      onClick={() => recordNotSeen("want")}
+                      className="py-2.5 rounded-xl border border-green-200 bg-green-50 text-sm font-medium text-green-700 hover:bg-green-100 active:bg-green-200 active:scale-95 transition-all"
+                    >
+                      Want to watch
+                    </button>
+                  </div>
+
+                  {/* Collapsible "I've seen it" override */}
+                  <div className="rounded-xl border border-zinc-200 overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setSeenItExpanded((x) => !x)}
+                      className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-zinc-500 hover:bg-zinc-50 transition-colors"
+                    >
+                      <span>I&apos;ve seen it — rate it</span>
+                      <span className="text-zinc-400 text-xs">{seenItExpanded ? "▲" : "▼"}</span>
+                    </button>
+                    {seenItExpanded && (
+                      <div className="px-4 pb-4 pt-3 space-y-3 bg-zinc-50 border-t border-zinc-200">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-zinc-600">Your rating</span>
+                          <span className="text-3xl font-bold text-zinc-900 w-14 text-right tabular-nums">{ratingNum || 50}</span>
+                        </div>
+                        <RatingSlider
+                          value={ratingNum || 50}
+                          sliderRef={inputRef}
+                          onChange={(v) => setUserRating(String(v))}
+                          onCommit={(v) => handleRate(v)}
+                          onEnter={() => handleRate()}
+                        />
+                        <div className="flex justify-between text-xs text-zinc-400 px-0.5">
+                          <span>0</span><span>25</span><span>50</span><span>75</span><span>100</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                /* ── POSTER LAYOUT (no trailer) ── */
+                <div className="flex flex-col sm:flex-row gap-4 p-4 sm:p-6">
+                  <div className="sm:flex-shrink-0 sm:self-start w-full sm:w-56">
+                    {current.posterUrl ? (
                       <button
-                        onClick={() => recordNotSeen("skip")}
-                        className="py-2 rounded-xl border border-zinc-200 text-sm text-zinc-500 hover:bg-zinc-100 active:bg-zinc-200 active:border-zinc-400 active:scale-95 transition-all"
+                        type="button"
+                        onClick={() => setLightboxUrl(current.posterUrl)}
+                        className="w-full rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-zoom-in block"
                       >
-                        Not interested
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={current.posterUrl}
+                          alt={`${current.title} poster`}
+                          referrerPolicy="no-referrer"
+                          className="w-full sm:w-56 h-52 sm:h-auto object-cover object-center sm:object-top"
+                        />
                       </button>
-                      <button
-                        onClick={() => recordNotSeen("want")}
-                        className="py-2 rounded-xl border border-green-200 bg-green-50 text-sm font-medium text-green-700 hover:bg-green-100 active:bg-green-200 active:border-green-400 active:scale-95 transition-all"
+                    ) : (
+                      <div
+                        className="w-full sm:w-56 h-52 sm:min-h-[14rem] rounded-xl bg-zinc-100 border border-zinc-200 flex flex-col items-center justify-center gap-2 text-zinc-400 text-sm px-3 text-center"
+                        title="Posters: TMDB (TMDB_API_KEY) first, then Serper (SERPER_API_KEY). Add TMDB for free official posters."
                       >
-                        Want to watch
-                      </button>
+                        <span className="text-3xl" aria-hidden>🎬</span>
+                        <span>No poster yet</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                          {current.type === "tv" ? "TV Series" : "Movie"}
+                          {current.year && <span className="ml-1 font-normal">· {current.year}</span>}
+                        </span>
+                        {current.rtScore && <RTBadge score={current.rtScore} />}
+                      </div>
+                      <h2 className="text-2xl font-bold text-zinc-900 mt-1 leading-tight">{current.title}</h2>
+                      {current.director && (
+                        <p className="mt-1 text-sm text-zinc-500">
+                          <span className="text-zinc-400">{current.type === "tv" ? "Created by" : "Dir."}</span> {current.director}
+                        </p>
+                      )}
+                      {current.actors.length > 0 && (
+                        <p className="mt-0.5 text-sm text-zinc-500">{current.actors.join(" · ")}</p>
+                      )}
+                      {current.plot && (
+                        <p className="mt-2 text-sm text-zinc-600 leading-relaxed">{current.plot}</p>
+                      )}
+                    </div>
+                    <div className="space-y-3">
+                      <div className="rounded-xl bg-zinc-50 border border-zinc-200 p-3 space-y-3">
+                        <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">I&apos;ve seen it — rate it</p>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-zinc-600">Your rating</span>
+                          <span className="text-3xl font-bold text-zinc-900 w-14 text-right tabular-nums">{ratingNum || 50}</span>
+                        </div>
+                        <RatingSlider
+                          value={ratingNum || 50}
+                          sliderRef={inputRef}
+                          onChange={(v) => setUserRating(String(v))}
+                          onCommit={(v) => handleRate(v)}
+                          onEnter={() => handleRate()}
+                        />
+                        <div className="flex justify-between text-xs text-zinc-400 px-0.5">
+                          <span>0</span><span>25</span><span>50</span><span>75</span><span>100</span>
+                        </div>
+                        <p className="text-xs text-zinc-400 text-center">Drag the slider — rating saves on release. Arrow keys or Enter also work.</p>
+                      </div>
+                      <div className="rounded-xl bg-zinc-50 border border-zinc-200 p-3 space-y-2">
+                        <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Haven&apos;t seen it</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => recordNotSeen("skip")}
+                            className="py-2 rounded-xl border border-zinc-200 text-sm text-zinc-500 hover:bg-zinc-100 active:bg-zinc-200 active:border-zinc-400 active:scale-95 transition-all"
+                          >
+                            Not interested
+                          </button>
+                          <button
+                            onClick={() => recordNotSeen("want")}
+                            className="py-2 rounded-xl border border-green-200 bg-green-50 text-sm font-medium text-green-700 hover:bg-green-100 active:bg-green-200 active:border-green-400 active:scale-95 transition-all"
+                          >
+                            Want to watch
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           ) : null}
         </div>

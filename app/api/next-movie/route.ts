@@ -16,6 +16,7 @@ export interface NextMovieResponse {
   actors: string[];
   plot: string;
   posterUrl: string | null;
+  trailerKey: string | null;
   rtScore: string | null;
 }
 
@@ -47,10 +48,14 @@ const HIGH_RT_THRESHOLD = 70; // not interested: RT at/above this is a strong si
 /** 5 items × ~200 tokens each + overhead. */
 const LLM_OUTPUT_MAX_TOKENS = 1500;
 
-/** Official posters — free key at https://www.themoviedb.org/settings/api (preferred over image search). */
-async function fetchPosterFromTmdb(title: string, type: "movie" | "tv", year: number | null): Promise<string | null> {
+/** Official poster + YouTube trailer key via TMDB — one search + one videos call per title. */
+async function fetchTmdbAssets(
+  title: string,
+  type: "movie" | "tv",
+  year: number | null
+): Promise<{ posterUrl: string | null; trailerKey: string | null }> {
   const apiKey = process.env.TMDB_API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey) return { posterUrl: null, trailerKey: null };
   const base = "https://api.themoviedb.org/3";
   const path = type === "tv" ? "search/tv" : "search/movie";
   try {
@@ -63,24 +68,48 @@ async function fetchPosterFromTmdb(title: string, type: "movie" | "tv", year: nu
     if (!res.ok) {
       const errBody = await res.text().catch(() => "");
       console.error("[next-movie] TMDB search HTTP", res.status, errBody.slice(0, 200));
-      return null;
+      return { posterUrl: null, trailerKey: null };
     }
-    let data = (await res.json()) as { results?: { poster_path: string | null }[] };
+    let data = (await res.json()) as { results?: { id?: number; poster_path?: string | null }[] };
     let results = data.results ?? [];
     if (results.length === 0 && year !== null) {
       const p2 = new URLSearchParams({ api_key: apiKey, query: title });
       res = await fetch(`${base}/${path}?${p2.toString()}`);
       if (res.ok) {
-        data = (await res.json()) as { results?: { poster_path: string | null }[] };
+        data = (await res.json()) as { results?: { id?: number; poster_path?: string | null }[] };
         results = data.results ?? [];
       }
     }
-    const withPoster = results.find((r) => r.poster_path);
-    if (!withPoster?.poster_path) return null;
-    return `https://image.tmdb.org/t/p/w500${withPoster.poster_path}`;
+    const hit = results.find((r) => r.poster_path) ?? results[0] ?? null;
+    const posterUrl = hit?.poster_path ? `https://image.tmdb.org/t/p/w500${hit.poster_path}` : null;
+    const tmdbId = hit?.id ?? null;
+
+    let trailerKey: string | null = null;
+    if (tmdbId !== null) {
+      try {
+        const videoPath = type === "tv" ? `tv/${tmdbId}/videos` : `movie/${tmdbId}/videos`;
+        const vRes = await fetch(`${base}/${videoPath}?api_key=${apiKey}`);
+        if (vRes.ok) {
+          const vData = (await vRes.json()) as {
+            results?: { key: string; site: string; type: string; official?: boolean }[];
+          };
+          const ytVideos = (vData.results ?? []).filter((v) => v.site === "YouTube");
+          const pick =
+            ytVideos.find((v) => v.type === "Trailer" && v.official) ??
+            ytVideos.find((v) => v.type === "Trailer") ??
+            ytVideos[0] ??
+            null;
+          trailerKey = pick?.key ?? null;
+        }
+      } catch (e) {
+        console.error("[next-movie] TMDB videos fetch failed:", e);
+      }
+    }
+
+    return { posterUrl, trailerKey };
   } catch (e) {
-    console.error("[next-movie] TMDB poster fetch failed:", e);
-    return null;
+    console.error("[next-movie] TMDB assets fetch failed:", e);
+    return { posterUrl: null, trailerKey: null };
   }
 }
 
@@ -114,12 +143,11 @@ async function fetchPosterFromSerper(title: string, type: "movie" | "tv", year: 
   }
 }
 
-async function fetchPoster(title: string, type: "movie" | "tv", year: number | null): Promise<string | null> {
-  const tmdb = await fetchPosterFromTmdb(title, type, year);
-  if (tmdb) return tmdb;
+/** Serper-only fallback used when TMDB_API_KEY is absent — returns poster only, no trailer. */
+async function fetchPosterFallback(title: string, type: "movie" | "tv", year: number | null): Promise<string | null> {
   const serper = await fetchPosterFromSerper(title, type, year);
   if (serper) return serper;
-  if (!process.env.TMDB_API_KEY && !process.env.SERPER_API_KEY) {
+  if (!process.env.SERPER_API_KEY) {
     console.warn("[next-movie] Set TMDB_API_KEY (recommended) or SERPER_API_KEY — poster lookup disabled");
   }
   return null;
@@ -439,6 +467,7 @@ ${history.length === 0 && allExcluded.length === 0
       actors: raw.actors ?? [],
       plot: raw.plot ?? "",
       posterUrl: null,
+      trailerKey: null,
       rtScore: raw.rt_score ?? null,
     });
   }
@@ -448,11 +477,17 @@ ${history.length === 0 && allExcluded.length === 0
     return Response.json({ error: "No valid titles in response", raw: text }, { status: 500 });
   }
 
-  const posterUrls = await Promise.all(
-    normalized.map((m) => fetchPoster(m.title, m.type, m.year))
+  const assets = await Promise.all(
+    normalized.map(async (m) => {
+      if (process.env.TMDB_API_KEY) {
+        return fetchTmdbAssets(m.title, m.type, m.year);
+      }
+      const posterUrl = await fetchPosterFallback(m.title, m.type, m.year);
+      return { posterUrl, trailerKey: null };
+    })
   );
   for (let i = 0; i < normalized.length; i++) {
-    normalized[i] = { ...normalized[i], posterUrl: posterUrls[i] };
+    normalized[i] = { ...normalized[i], posterUrl: assets[i].posterUrl, trailerKey: assets[i].trailerKey };
   }
 
   return Response.json({ movies: normalized });
