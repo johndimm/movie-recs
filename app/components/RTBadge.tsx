@@ -12,7 +12,7 @@ export default function RTBadge({ score }: { score: string }) {
   return (
     <span
       className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-full ${
-        fresh ? "bg-red-50 text-red-700" : "bg-zinc-100 text-zinc-500"
+        fresh ? "bg-red-950/60 text-red-400" : "bg-zinc-800 text-zinc-400"
       }`}
       title={pct !== null ? `Rotten Tomatoes ${pct}%` : `Rotten Tomatoes ${score}`}
     >
