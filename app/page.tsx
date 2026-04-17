@@ -494,12 +494,13 @@ function MovieCardSkeleton({ mode }: { mode: "trailers" | "posters" }) {
 // ── Home hero (isolated from card state so clicks don’t re-render the banner) ──
 const HomeHero = memo(function HomeHero() {
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-zinc-200/90 shadow-sm ring-1 ring-black/5">
+    <div className="relative overflow-hidden rounded-2xl border border-zinc-200/90 shadow-sm ring-1 ring-black/5" style={{ aspectRatio: "1376 / 614" }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/banner.png"
+        src="/nano-banano-photo.png"
         alt=""
-        className="pointer-events-none block h-auto w-full select-none"
+        className="pointer-events-none absolute inset-0 w-full h-full select-none"
+        style={{ objectFit: "cover", objectPosition: "center" }}
         aria-hidden
       />
       <div
@@ -507,11 +508,11 @@ const HomeHero = memo(function HomeHero() {
         aria-hidden
         style={{
           background:
-            "linear-gradient(to left, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.14) 38%, transparent 58%)",
+            "linear-gradient(to right, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0.2) 45%, transparent 68%)",
         }}
       />
-      <div className="absolute inset-0 z-10 flex flex-col justify-center items-end px-4 py-6 sm:px-6 sm:py-8">
-        <div className="max-w-xl text-right">
+      <div className="absolute inset-0 z-10 flex flex-col justify-center items-start px-4 py-6 sm:px-6 sm:py-8">
+        <div className="max-w-xl text-left">
           <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl [text-shadow:1px_0_0_rgba(0,0,0,0.85),-1px_0_0_rgba(0,0,0,0.85),0_1px_0_rgba(0,0,0,0.85),0_-1px_0_rgba(0,0,0,0.85),1px_1px_0_rgba(0,0,0,0.75),-1px_-1px_0_rgba(0,0,0,0.75),1px_-1px_0_rgba(0,0,0,0.75),-1px_1px_0_rgba(0,0,0,0.75),0_2px_12px_rgba(0,0,0,0.45)]">
             Trailer Vision
           </h1>

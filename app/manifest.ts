@@ -11,8 +11,8 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#000000",
     icons: [
       {
-        src: "/airstream.png",
-        sizes: "128x128",
+        src: "/nano-banano-photo.png",
+        sizes: "1376x768",
         type: "image/png",
       },
       {

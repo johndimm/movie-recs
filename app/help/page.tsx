@@ -5,7 +5,7 @@ export default function HelpPage() {
     <div className="min-h-screen bg-zinc-50 flex flex-col items-center py-6 sm:py-10 px-4">
       <div className="w-full max-w-3xl space-y-8">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/banner.png" alt="Trailer Vision" className="w-full rounded-2xl shadow-sm" />
+        <img src="/nano-banano-photo.png" alt="Trailer Vision" className="w-full rounded-2xl shadow-sm" />
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-zinc-900">Help</h1>
           <p className="text-sm text-zinc-500 mt-1">How to use Trailer Vision</p>
