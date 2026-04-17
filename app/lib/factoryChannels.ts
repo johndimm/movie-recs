@@ -6,6 +6,7 @@ const CHANNELS_KEY = "movie-recs-channels";
 const DEFAULT_ALL = {
   id: "all",
   name: "All",
+  mediums: [] as string[],
   genres: [] as string[],
   timePeriods: [] as string[],
   language: "",

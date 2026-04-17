@@ -14,9 +14,16 @@ import {
 } from "../lib/unseenInterestLog";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 
+/** What kinds of titles this channel should surface (empty = no extra format filter beyond app settings). */
+export type ChannelMedium = "movie" | "tv" | "miniseries";
+
+const VALID_MEDIUMS = new Set<ChannelMedium>(["movie", "tv", "miniseries"]);
+
 export interface Channel {
   id: string;
   name: string;
+  /** Feature films, episodic TV, and/or limited series / miniseries. Empty = any format. */
+  mediums: ChannelMedium[];
   genres: string[];
   timePeriods: string[];
   language: string;
@@ -24,6 +31,20 @@ export interface Channel {
   artists: string;
   freeText: string;
   popularity: number;
+}
+
+/** Ensure persisted channels (pre–mediums field) get a valid `mediums` array. */
+export function normalizeChannel(c: Channel): Channel {
+  const raw = (c as { mediums?: unknown }).mediums;
+  const mediums = Array.isArray(raw)
+    ? raw.filter((x): x is ChannelMedium => typeof x === "string" && VALID_MEDIUMS.has(x as ChannelMedium))
+    : [];
+  return { ...c, mediums };
+}
+
+export function channelToFormInitial(ch: Channel): Omit<Channel, "id"> {
+  const { id: _id, ...rest } = normalizeChannel(ch);
+  return rest;
 }
 
 export const CHANNELS_KEY = "movie-recs-channels";
@@ -48,6 +69,7 @@ function readLlmFromLocalSettings(): string {
 export const ALL_CHANNEL: Channel = {
   id: "all",
   name: "All",
+  mediums: [],
   genres: [],
   timePeriods: [],
   language: "",
@@ -68,6 +90,12 @@ const TIME_OPTIONS = [
   "1980s", "1990s", "2000s", "2010s", "2020s",
 ];
 
+const MEDIUM_OPTIONS: { id: ChannelMedium; label: string; hint: string }[] = [
+  { id: "movie", label: "Movies", hint: "Theatrical feature films" },
+  { id: "tv", label: "TV series", hint: "Episodic / ongoing series" },
+  { id: "miniseries", label: "Miniseries", hint: "Limited series, anthology seasons" },
+];
+
 export function popularityLabel(n: number): string {
   if (n <= 15) return "Hidden gems only";
   if (n <= 35) return "Mostly obscure";
@@ -80,6 +108,7 @@ export function popularityLabel(n: number): string {
 
 const EMPTY: Omit<Channel, "id"> = {
   name: "",
+  mediums: [],
   genres: [],
   timePeriods: [],
   language: "",
@@ -105,6 +134,9 @@ function ChannelForm({
   const toggleArr = (arr: string[], val: string) =>
     arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val];
 
+  const toggleMedium = (arr: ChannelMedium[], val: ChannelMedium) =>
+    arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val];
+
   const field = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
@@ -119,6 +151,26 @@ function ChannelForm({
           placeholder="e.g. French New Wave, 80s Horror, Kubrick"
           className="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-800 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-300"
         />
+      </div>
+
+      <div>
+        <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Medium</label>
+        <p className="mt-0.5 text-xs text-zinc-400">
+          Leave all off to allow any format (still respects the app&apos;s movie/TV filter). Select one or more to restrict this channel.
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {MEDIUM_OPTIONS.map(({ id, label, hint }) => (
+            <button
+              key={id}
+              type="button"
+              title={hint}
+              onClick={() => field("mediums", toggleMedium(form.mediums, id))}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${form.mediums.includes(id) ? "bg-indigo-600 text-white" : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div>
@@ -225,7 +277,7 @@ export default function ChannelsPage() {
           applyFactoryBootstrap();
         }
         const s = localStorage.getItem(CHANNELS_KEY);
-        let chs: Channel[] = s ? JSON.parse(s) : [];
+        let chs: Channel[] = s ? (JSON.parse(s) as Channel[]).map(normalizeChannel) : [];
         // Ensure All channel is always present and first
         if (!chs.find((c) => c.id === "all")) {
           chs = [ALL_CHANNEL, ...chs];
@@ -255,8 +307,9 @@ export default function ChannelsPage() {
   const saveChannels = (chs: Channel[]) => {
     // All channel is always first and immutable
     const withAll = chs.find((c) => c.id === "all") ? chs : [ALL_CHANNEL, ...chs];
-    localStorage.setItem(CHANNELS_KEY, JSON.stringify(withAll));
-    setChannels(withAll);
+    const normalized = withAll.map(normalizeChannel);
+    localStorage.setItem(CHANNELS_KEY, JSON.stringify(normalized));
+    setChannels(normalized);
   };
 
   const createChannel = (data: Omit<Channel, "id">) => {
@@ -426,6 +479,9 @@ export default function ChannelsPage() {
   // Chips shown in the settings summary row
   const settingChips = selected
     ? [
+        ...selected.mediums.map((m) =>
+          m === "movie" ? "Movies" : m === "tv" ? "TV series" : "Miniseries"
+        ),
         ...selected.genres,
         ...selected.timePeriods,
         ...(selected.language ? [selected.language] : []),
@@ -456,10 +512,65 @@ export default function ChannelsPage() {
       )}
     </ConfirmDialog>
     <div className="min-h-screen bg-zinc-50">
-      <div className="max-w-4xl mx-auto flex h-[calc(100vh-2.75rem)]">
+      <div className="max-w-4xl mx-auto flex h-[calc(100dvh-2.75rem)] sm:h-[calc(100vh-2.75rem)] flex-col sm:flex-row min-h-0">
 
-        {/* ── Left sidebar: channel list ── */}
-        <div className="w-44 shrink-0 border-r border-zinc-200 bg-white flex flex-col">
+        {/* Mobile: compact channel picker — full-width select + new (sidebar hidden on small screens) */}
+        <div className="shrink-0 border-b border-zinc-200 bg-white sm:hidden">
+          {showNew ? (
+            <div className="flex items-center gap-3 px-3 py-2.5">
+              <button
+                type="button"
+                onClick={() => setShowNew(false)}
+                className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
+              >
+                ← Back
+              </button>
+              <span className="text-sm font-semibold text-zinc-800">New channel</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 px-3 py-2.5">
+              <label htmlFor="channel-select-mobile" className="sr-only">
+                Channel
+              </label>
+              <select
+                id="channel-select-mobile"
+                className="min-w-0 flex-1 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-sm font-medium text-zinc-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:opacity-50"
+                value={selectedId ?? ""}
+                disabled={channels.length === 0}
+                onChange={(e) => {
+                  setSelectedId(e.target.value);
+                  setEditExpanded(false);
+                  setShowNew(false);
+                }}
+              >
+                {channels.length === 0 ? (
+                  <option value="">No channels</option>
+                ) : (
+                  channels.map((ch) => (
+                    <option key={ch.id} value={ch.id}>
+                      {ch.name}
+                    </option>
+                  ))
+                )}
+              </select>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowNew(true);
+                  setEditExpanded(false);
+                }}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-white text-lg font-light leading-none text-zinc-500 transition-colors hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-600"
+                title="New channel"
+                aria-label="New channel"
+              >
+                +
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* ── Left sidebar: channel list (tablet/desktop only) ── */}
+        <div className="hidden w-44 shrink-0 flex-col border-r border-zinc-200 bg-white sm:flex">
           <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100">
             <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Channels</span>
             <button
@@ -468,7 +579,7 @@ export default function ChannelsPage() {
               title="New channel"
             >+</button>
           </div>
-          <div className="flex-1 overflow-y-auto py-1">
+          <div className="flex-1 overflow-y-auto py-1 min-h-0">
             {channels.map((ch) => (
               <button
                 key={ch.id}
@@ -488,12 +599,12 @@ export default function ChannelsPage() {
           </div>
         </div>
 
-        {/* ── Right panel ── */}
-        <div className="flex-1 overflow-y-auto">
+        {/* ── Main panel ── */}
+        <div className="min-h-0 flex-1 overflow-y-auto">
 
           {/* New channel form */}
           {showNew && (
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               <p className="text-sm font-semibold text-zinc-700 mb-0">New channel</p>
               <ChannelForm
                 initial={EMPTY}
@@ -505,7 +616,7 @@ export default function ChannelsPage() {
 
           {/* Selected channel view */}
           {!showNew && selected && (
-            <div className="p-6 space-y-6">
+            <div className="p-4 sm:p-6 space-y-6">
 
               {/* Settings summary row */}
               <div>
@@ -541,7 +652,7 @@ export default function ChannelsPage() {
                 {/* Expandable edit form */}
                 {editExpanded && selected.id !== "all" && (
                   <ChannelForm
-                    initial={selected}
+                    initial={channelToFormInitial(selected)}
                     onSave={(data) => updateChannel(selected.id, data)}
                     onCancel={() => setEditExpanded(false)}
                   />

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useId, memo } from "react";
 import Link from "next/link";
 import type { Channel } from "./channels/page";
-import { ALL_CHANNEL } from "./channels/page";
+import { ALL_CHANNEL, normalizeChannel } from "./channels/page";
 import RTBadge from "./components/RTBadge";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { clampStarRating, migrateRatingValue } from "./lib/ratingScale";
@@ -1049,13 +1049,15 @@ export default function Home() {
       let loadedChannels: Channel[] = [];
       const storedChannels = localStorage.getItem(CHANNELS_KEY);
       if (storedChannels) {
-        loadedChannels = JSON.parse(storedChannels);
+        loadedChannels = (JSON.parse(storedChannels) as Channel[]).map(normalizeChannel);
         // Seed All channel if missing
         if (!loadedChannels.find((c) => c.id === "all")) {
           loadedChannels = [ALL_CHANNEL, ...loadedChannels];
           localStorage.setItem(CHANNELS_KEY, JSON.stringify(loadedChannels));
         }
         setChannels(loadedChannels);
+        // Before the next useEffect runs fetchNext, React state is still stale — sync ref now so /api/next-movie gets activeChannel.
+        channelsRef.current = loadedChannels;
       }
       const storedActiveChannel = localStorage.getItem(ACTIVE_CHANNEL_KEY);
       const defaultChannelId = loadedChannels.length > 0 ? loadedChannels[0].id : "all";
@@ -1125,9 +1127,22 @@ export default function Home() {
             diversityLens: DIVERSITY_LENSES[lensIndexRef.current % DIVERSITY_LENSES.length],
             userRequest: userRequestRef.current.trim() || undefined,
             activeChannel: (() => {
-              const id = activeChannelIdRef.current;
+              const id = activeChannelIdRef.current?.trim();
               if (!id) return undefined;
-              return channelsRef.current.find((c) => c.id === id) ?? undefined;
+              let ch = channelsRef.current.find((c) => c.id === id);
+              if (!ch) {
+                try {
+                  const raw = localStorage.getItem(CHANNELS_KEY);
+                  if (raw) {
+                    ch = (JSON.parse(raw) as Channel[])
+                      .map(normalizeChannel)
+                      .find((c) => c.id === id);
+                  }
+                } catch {
+                  /* ignore */
+                }
+              }
+              return ch;
             })(),
             mediaType: opts.mediaType,
             llm: opts.llm,
@@ -1372,7 +1387,7 @@ export default function Home() {
     try {
       const cRaw = localStorage.getItem(CHANNELS_KEY);
       if (cRaw) {
-        chs = JSON.parse(cRaw) as Channel[];
+        chs = (JSON.parse(cRaw) as Channel[]).map(normalizeChannel);
         if (!chs.find((c) => c.id === "all")) {
           chs = [ALL_CHANNEL, ...chs];
         }
@@ -1384,6 +1399,9 @@ export default function Home() {
     const storedActive = localStorage.getItem(ACTIVE_CHANNEL_KEY);
     const activeForPrefetch = storedActive || defaultCh;
     activeChannelIdRef.current = activeForPrefetch;
+    if (chs.length > 0) {
+      channelsRef.current = chs;
+    }
     loadPrefetchIntoRefForChannel(activeForPrefetch);
     persistPrefetchQueue();
 
@@ -1539,7 +1557,7 @@ export default function Home() {
     mergeFactoryChannelsAndQueues();
     try {
       const raw = localStorage.getItem(CHANNELS_KEY);
-      let next: Channel[] = raw ? (JSON.parse(raw) as Channel[]) : [];
+      let next: Channel[] = raw ? (JSON.parse(raw) as Channel[]).map(normalizeChannel) : [];
       if (!next.some((c) => c.id === "all")) {
         next = [ALL_CHANNEL, ...next];
         localStorage.setItem(CHANNELS_KEY, JSON.stringify(next));

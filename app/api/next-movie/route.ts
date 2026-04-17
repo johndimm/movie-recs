@@ -322,6 +322,8 @@ import { resolveHistoryForPrompt } from "./historySessionStore";
 interface ChannelPayload {
   id: string;
   name: string;
+  /** Subset of movie / TV / miniseries; omitted or empty = no extra format line. */
+  mediums?: ("movie" | "tv" | "miniseries")[];
   genres: string[];
   timePeriods: string[];
   language: string;
@@ -331,8 +333,26 @@ interface ChannelPayload {
   popularity: number;
 }
 
+function buildMediumsConstraintLine(mediums: ChannelPayload["mediums"]): string | null {
+  if (!mediums?.length) return null;
+  const uniq = [...new Set(mediums)].filter((m): m is "movie" | "tv" | "miniseries" =>
+    m === "movie" || m === "tv" || m === "miniseries"
+  );
+  if (uniq.length === 0 || uniq.length === 3) return null;
+  const parts = uniq.map((m) =>
+    m === "movie"
+      ? "theatrical feature films (each item type must be \"movie\")"
+      : m === "tv"
+        ? "TV series / episodic shows (each item type must be \"tv\")"
+        : "limited series, miniseries, or anthology-style seasons (use type \"tv\" in JSON; clarify in plot if it is a miniseries)"
+  );
+  return `- Format / medium: Only recommend titles that fit: ${parts.join(" OR ")}.`;
+}
+
 function buildChannelConstraint(ch: ChannelPayload): string {
   const lines: string[] = [];
+  const mediumLine = buildMediumsConstraintLine(ch.mediums);
+  if (mediumLine) lines.push(mediumLine);
   if (ch.genres.length) lines.push(`- Genres: ${ch.genres.join(", ")}`);
   if (ch.timePeriods.length) lines.push(`- Time periods: ${ch.timePeriods.join(", ")}`);
   if (ch.language.trim()) lines.push(`- Language: ${ch.language.trim()}`);
