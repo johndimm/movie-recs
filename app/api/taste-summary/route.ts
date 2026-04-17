@@ -1,5 +1,9 @@
 import { callLLM } from "../next-movie/llm";
 import { type RatingEntry } from "../next-movie/route";
+import {
+  migrateRatingValue,
+  rtTomatometerPercentToStars,
+} from "../../lib/ratingScale";
 
 /** Parse "91%" → 91 */
 function parseRtPercent(s: string | null | undefined): number | null {
@@ -9,8 +13,13 @@ function parseRtPercent(s: string | null | undefined): number | null {
 }
 
 function divergence(entry: RatingEntry): number {
+  const u = migrateRatingValue(entry.userRating);
+  const p = migrateRatingValue(entry.predictedRating);
   const rt = parseRtPercent(entry.rtScore);
-  return rt !== null ? Math.abs(entry.userRating - rt) : Math.abs(entry.userRating - entry.predictedRating);
+  if (rt !== null) {
+    return Math.abs(u - rtTomatometerPercentToStars(rt));
+  }
+  return Math.abs(u - p);
 }
 
 export async function POST(request: Request) {
@@ -47,11 +56,15 @@ export async function POST(request: Request) {
 
   const ratingLines = selected
     .map((h) => {
+      const u = migrateRatingValue(h.userRating);
+      const p = migrateRatingValue(h.predictedRating);
       const rt = h.rtScore ? ` RT:${h.rtScore}` : "";
-      const gap = h.rtScore
-        ? ` gap:${Math.abs(h.userRating - (parseRtPercent(h.rtScore) ?? h.userRating))}`
-        : "";
-      return `- "${h.title}" (${h.type}): user ${h.userRating}/100, AI ${h.predictedRating}/100${rt}${gap}`;
+      const rtN = parseRtPercent(h.rtScore);
+      const gap =
+        rtN !== null
+          ? ` gap vs RT★: ${Math.abs(u - rtTomatometerPercentToStars(rtN)).toFixed(1)}`
+          : "";
+      return `- "${h.title}" (${h.type}): user ${u}/5, AI ${p}/5${rt}${gap}`;
     })
     .join("\n");
 

@@ -1,6 +1,28 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import Link from "next/link";
+import type { Channel } from "./channels/page";
+import { ALL_CHANNEL } from "./channels/page";
+import RTBadge from "./components/RTBadge";
+import { ConfirmDialog } from "./components/ConfirmDialog";
+import { clampStarRating, migrateRatingValue } from "./lib/ratingScale";
+import {
+  LEGACY_PREFETCH_QUEUE_KEY,
+  prefetchQueueStorageKey,
+} from "./lib/storageKeys";
+import {
+  applyFactoryBootstrap,
+  hasNoChannelsPersisted,
+  mergeFactoryChannelsAndQueues,
+} from "./lib/factoryChannels";
+import { pushUnseenInterestEntry, type UnseenInterestEntry } from "./lib/unseenInterestLog";
+
+function migrateRatingEntry(e: RatingEntry): RatingEntry {
+  const u = migrateRatingValue(e.userRating);
+  const p = migrateRatingValue(e.predictedRating);
+  return { ...e, userRating: u, predictedRating: p, error: Math.abs(u - p) };
+}
 
 // ── YouTube IFrame API minimal type shim ──────────────────────────────────────
 declare global {
@@ -31,33 +53,55 @@ interface YTPlayer {
   isMuted(): boolean;
   setVolume(v: number): void;
   unMute(): void;
+  loadVideoById(videoId: string, startSeconds?: number): void;
   destroy(): void;
 }
 
-// Loads https://www.youtube.com/iframe_api exactly once; resolves when YT.Player is available.
+// Loads https://www.youtube.com/iframe_api once; resolves when YT.Player is available.
 let _ytApiLoaded = false;
 let _ytApiReady = false;
 const _ytReadyCallbacks: Array<() => void> = [];
+
+function flushYtReady() {
+  if (!window.YT?.Player) return;
+  if (_ytApiReady) return;
+  _ytApiReady = true;
+  _ytReadyCallbacks.forEach((cb) => cb());
+  _ytReadyCallbacks.length = 0;
+}
+
 function loadYouTubeApi(): Promise<void> {
   return new Promise((resolve) => {
-    if (_ytApiReady) { resolve(); return; }
+    if (_ytApiReady && window.YT?.Player) {
+      resolve();
+      return;
+    }
     _ytReadyCallbacks.push(resolve);
-    if (_ytApiLoaded) return;
+    if (_ytApiLoaded) {
+      // Script tag already injected but callback may be delayed or blocked — poll for YT.
+      const t = window.setInterval(() => {
+        if (window.YT?.Player) {
+          window.clearInterval(t);
+          flushYtReady();
+        }
+      }, 50);
+      window.setTimeout(() => window.clearInterval(t), 20_000);
+      return;
+    }
     _ytApiLoaded = true;
+    const prev = window.onYouTubeIframeAPIReady;
     window.onYouTubeIframeAPIReady = () => {
-      _ytApiReady = true;
-      _ytReadyCallbacks.forEach((cb) => cb());
-      _ytReadyCallbacks.length = 0;
+      prev?.();
+      flushYtReady();
     };
     const tag = document.createElement("script");
     tag.src = "https://www.youtube.com/iframe_api";
     document.head.appendChild(tag);
+    // If the script was cached and YT appears before the global callback runs.
+    window.setTimeout(() => {
+      if (window.YT?.Player) flushYtReady();
+    }, 0);
   });
-}
-
-/** Map 0–100% watched to 1–5 stars. Each 20% = one star, minimum 1. */
-function pctToStars(pct: number): number {
-  return Math.min(5, Math.floor(pct / 20) + 1);
 }
 
 /** Server merges full rating list in memory; client avoids resending it every request (delta / reuse). */
@@ -80,11 +124,6 @@ function getSyncedRatingCount(): number {
 
 function setSyncedRatingCount(n: number) {
   localStorage.setItem(LS_LLM_SYNCED, String(n));
-}
-
-function clearLlmSessionSync() {
-  localStorage.removeItem(LS_LLM_SESSION);
-  localStorage.removeItem(LS_LLM_SYNCED);
 }
 
 function buildHistorySyncPayload(hist: RatingEntry[]): Record<string, unknown> {
@@ -113,13 +152,15 @@ function buildHistorySyncPayload(hist: RatingEntry[]): Record<string, unknown> {
   };
 }
 
-interface RatingEntry {
+export interface RatingEntry {
   title: string;
   type: "movie" | "tv";
   userRating: number;
   predictedRating: number;
   error: number;
   rtScore?: string | null;
+  channelId?: string;
+  posterUrl?: string | null;
 }
 
 interface CurrentMovie {
@@ -132,13 +173,6 @@ interface CurrentMovie {
   plot: string;
   posterUrl: string | null;
   trailerKey: string | null;
-  rtScore: string | null;
-}
-
-interface LastResult extends RatingEntry {
-  actors: string[];
-  plot: string;
-  posterUrl: string | null;
   rtScore: string | null;
 }
 
@@ -159,8 +193,12 @@ export interface WatchlistEntry {
 const LLM_BATCH_SIZE = 5;
 /** Max concurrent LLM fetches. With daisy-chaining, this many batches run continuously until HIGH_WATER_MARK is reached. */
 const MAX_REPLENISH_IN_FLIGHT = 3;
-/** Stop queuing new batches once the prefetch queue has this many items ready. */
-const HIGH_WATER_MARK = 12;
+/**
+ * Stop daisy-chaining replenishes once the queue has this many items.
+ * Lower = new ratings affect upcoming picks sooner (fewer “stale” cards buffered).
+ * Higher = less risk of an empty queue if the LLM is slow. ~6 ≈ 1–2 batches ahead.
+ */
+const HIGH_WATER_MARK = 6;
 
 /**
  * Rotating lenses that force the LLM to explore different corners of cinema on each batch.
@@ -193,12 +231,37 @@ const DIVERSITY_LENSES = [
   "romance or coming-of-age stories",
 ];
 
+/** YouTube search for clips when the card has no embedded trailer (poster-only layout). */
+function youtubeSearchUrlForMovie(title: string, type: "movie" | "tv", year: number | null): string {
+  const q = [title, year != null ? String(year) : null, type === "tv" ? "TV series trailer" : "movie trailer"]
+    .filter(Boolean)
+    .join(" ");
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
+}
+
 const STORAGE_KEY = "movie-recs-history";
 const SKIPPED_KEY = "movie-recs-skipped";
+/** Titles advanced with "Next" — excluded from picks, not a rating or "not interested". */
+const PASSED_KEY = "movie-recs-passed";
 const WATCHLIST_KEY = "movie-recs-watchlist";
 const NOTSEEN_KEY = "movie-recs-notseen";
 const NOT_INTERESTED_KEY = "movie-recs-not-interested"; // {title, rtScore}[] for high-RT taste signal
 const TASTE_SUMMARY_KEY = "movie-recs-taste-summary";   // string: LLM's running taste profile
+const SETTINGS_KEY = "movie-recs-settings";
+const RECONSIDER_KEY = "movie-recs-reconsider";
+const CHANNELS_KEY = "movie-recs-channels";
+const ACTIVE_CHANNEL_KEY = "movie-recs-active-channel";
+
+function loadSetting<T>(key: string, fallback: T): T {
+  try {
+    const s = localStorage.getItem(SETTINGS_KEY);
+    if (!s) return fallback;
+    const obj = JSON.parse(s);
+    return key in obj ? (obj[key] as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 /** Collapse common spellings so the same film is not shown twice (e.g. Se7en vs Seven). */
 function canonicalTitleKey(title: string): string {
@@ -211,203 +274,64 @@ function canonicalTitleKey(title: string): string {
   return s;
 }
 
-const WANT_ACCURACY = 85;  // unseen but want to watch — LLM correctly identified appealing content
-const SKIP_ACCURACY = 20;  // unseen and not interested — LLM missed the mark entirely
-
 interface NotSeenEvent {
   afterRating: number;
   kind: "want" | "skip";
 }
 
-type SeqEvent = { kind: "rated"; error: number } | { kind: "not-seen"; accuracy: number; want: boolean };
-
-function buildSequence(history: RatingEntry[], notSeen: NotSeenEvent[]): SeqEvent[] {
-  const sorted = [...notSeen].sort((a, b) => a.afterRating - b.afterRating);
-  const events: SeqEvent[] = [];
-  let nsIdx = 0;
-
-  const toSeqEvent = (e: NotSeenEvent): SeqEvent => ({
-    kind: "not-seen",
-    want: e.kind === "want",
-    accuracy: e.kind === "want" ? WANT_ACCURACY : SKIP_ACCURACY,
-  });
-
-  while (nsIdx < sorted.length && sorted[nsIdx].afterRating === 0) {
-    events.push(toSeqEvent(sorted[nsIdx++]));
-  }
-
-  for (let i = 0; i < history.length; i++) {
-    const e = history[i];
-    if (typeof e.error === "number" && !isNaN(e.error)) {
-      events.push({ kind: "rated", error: e.error });
-    }
-    while (nsIdx < sorted.length && sorted[nsIdx].afterRating === i + 1) {
-      events.push(toSeqEvent(sorted[nsIdx++]));
-    }
-  }
-
-  while (nsIdx < sorted.length) {
-    events.push(toSeqEvent(sorted[nsIdx++]));
-  }
-
-  return events;
+/** Resolve mouse/touch X position within a button to a half-star value (0.5 increments). */
+function halfStarValue(clientX: number, rect: DOMRect, n: number): number {
+  return clientX - rect.left < rect.width / 2 ? n - 0.5 : n;
 }
 
-function ErrorChart({
-  history,
-  notSeen,
-  watchlistCount,
-  dontSeeCount,
-}: {
-  history: RatingEntry[];
-  notSeen: NotSeenEvent[];
-  /** Saved watchlist size — source of truth (may exceed decision-log events if notSeen drifted). */
-  watchlistCount: number;
-  /** Not-interested titles (skipped, not on watchlist) — matches dont-see list. */
-  dontSeeCount: number;
-}) {
-  const seq = buildSequence(history, notSeen);
-  if (seq.length === 0) return null;
-
-  const W = 600;
-  const H = 130;
-  const PAD = { top: 10, right: 20, bottom: 30, left: 40 };
-  const chartW = W - PAD.left - PAD.right;
-  const chartH = H - PAD.top - PAD.bottom;
-  const n = seq.length;
-
-  const xScale = (i: number) =>
-    n === 1 ? PAD.left + chartW / 2 : PAD.left + (i / (n - 1)) * chartW;
-  const yScale = (acc: number) =>
-    PAD.top + chartH - (Math.min(Math.max(acc, 0), 100) / 100) * chartH;
-
-  const eventAccuracy = (e: SeqEvent) => e.kind === "rated" ? 100 - e.error : e.accuracy;
-
-  const WINDOW = 5;
-  const combinedAvgs = seq.map((_, i) => {
-    const slice = seq.slice(Math.max(0, i - WINDOW + 1), i + 1);
-    return slice.reduce((s, e) => s + eventAccuracy(e), 0) / slice.length;
-  });
-
-  const avgPath =
-    n === 1
-      ? ""
-      : combinedAvgs
-          .map((v, i) => `${i === 0 ? "M" : "L"} ${xScale(i).toFixed(2)} ${yScale(v).toFixed(2)}`)
-          .join(" ");
-
-  const currentAvg = combinedAvgs[combinedAvgs.length - 1];
-  const ratedCount = seq.filter((e) => e.kind === "rated").length;
-  const wantMarkers = seq.filter((e) => e.kind === "not-seen" && e.want).length;
-  const skipMarkers = seq.filter((e) => e.kind === "not-seen" && !e.want).length;
-
-  return (
-    <div className="w-full">
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 mb-2 text-sm text-zinc-500">
-        <span><span className="font-semibold text-zinc-800">{ratedCount}</span> rated</span>
-        {watchlistCount > 0 && (
-          <span title="Titles on your watchlist (saved). Green markers on the chart are from the decision log when each was added; counts can differ if the log was cleared or from older sessions.">
-            <span className="font-semibold text-green-600">{watchlistCount}</span> on watchlist{" "}
-            <span className="text-zinc-400 text-xs">(+{WANT_ACCURACY})</span>
-            {wantMarkers !== watchlistCount && (
-              <span className="text-zinc-400 text-xs"> · {wantMarkers} on chart</span>
-            )}
-          </span>
-        )}
-        {dontSeeCount > 0 && (
-          <span title="Titles marked not interested (saved). Red markers follow the decision log; may differ for the same reasons.">
-            <span className="font-semibold text-red-600">{dontSeeCount}</span> not interested{" "}
-            <span className="text-zinc-400 text-xs">({SKIP_ACCURACY})</span>
-            {skipMarkers !== dontSeeCount && (
-              <span className="text-zinc-400 text-xs"> · {skipMarkers} on chart</span>
-            )}
-          </span>
-        )}
-        <span>Avg accuracy: <span className="font-semibold text-indigo-700">{currentAvg.toFixed(1)}</span></span>
-      </div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: 130 }}>
-        {/* Grid lines */}
-        {[0, 25, 50, 75, 100].map((v) => (
-          <g key={v}>
-            <line x1={PAD.left} y1={yScale(v)} x2={PAD.left + chartW} y2={yScale(v)}
-              stroke={v === WANT_ACCURACY ? "#bbf7d0" : v === SKIP_ACCURACY ? "#fca5a5" : "#e4e4e7"}
-              strokeWidth={v === WANT_ACCURACY || v === SKIP_ACCURACY ? 1.5 : 1}
-              strokeDasharray={v === WANT_ACCURACY || v === SKIP_ACCURACY ? "4 3" : undefined} />
-            <text x={PAD.left - 4} y={yScale(v)} textAnchor="end" dominantBaseline="middle" fontSize="9"
-              fill={v === WANT_ACCURACY ? "#16a34a" : v === SKIP_ACCURACY ? "#dc2626" : "#a1a1aa"}>{v}</text>
-          </g>
-        ))}
-
-        {/* Bars / markers per event */}
-        {seq.map((e, i) => {
-          const x = xScale(i);
-          const acc = eventAccuracy(e);
-          if (e.kind === "rated") {
-            const barH = (Math.min(Math.max(acc, 0), 100) / 100) * chartH;
-            return <rect key={i} x={x - 3} y={yScale(acc)} width={6} height={barH} fill="#93c5fd" opacity={0.7} rx={1} />;
-          } else {
-            const cy = yScale(acc);
-            const r = 5;
-            const fill = e.want ? "#16a34a" : "#dc2626";
-            return (
-              <polygon key={i}
-                points={`${x},${cy - r} ${x + r},${cy} ${x},${cy + r} ${x - r},${cy}`}
-                fill={fill} opacity={0.85}
-              />
-            );
-          }
-        })}
-
-        {/* Combined running average */}
-        {n === 1 ? (
-          <circle cx={xScale(0)} cy={yScale(combinedAvgs[0])} r={4} fill="#4f46e5" />
-        ) : (
-          <path d={avgPath} fill="none" stroke="#4f46e5" strokeWidth="2" strokeLinejoin="round" />
-        )}
-
-        <text x={PAD.left + chartW / 2} y={H - 4} textAnchor="middle" fontSize="9" fill="#a1a1aa">← decisions →</text>
-      </svg>
-
-      {/* Legend */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-zinc-400">
-        <span className="flex items-center gap-1"><span className="inline-block w-3 h-2 rounded bg-blue-300 opacity-70" /> accuracy</span>
-        <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rotate-45 bg-green-600 opacity-85" /> want to see ({WANT_ACCURACY})</span>
-        <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rotate-45 bg-red-600 opacity-85" /> not interested ({SKIP_ACCURACY})</span>
-        <span className="flex items-center gap-1"><span className="inline-block w-4 h-0.5 bg-indigo-600" /> avg accuracy</span>
-      </div>
-    </div>
-  );
-}
-
-
-/** A row of 5 clickable stars. `filled` stars are colored; clicking any star submits immediately. */
+/** A row of 5 clickable stars supporting half-star precision. */
 function StarRow({
   filled,
   color,
   label,
   onRate,
+  compact = false,
 }: {
   filled: number;
   color: "red" | "blue";
   label: string;
   onRate: (stars: number) => void;
+  /** Tighter label + stars for single-line toolbar layout */
+  compact?: boolean;
 }) {
   const [hover, setHover] = useState(0);
   const active = hover || filled;
   const filledColor = color === "red" ? "text-red-500" : "text-blue-500";
+
   return (
-    <div className="flex items-center gap-3">
-      <span className="text-xs text-zinc-400 w-24 shrink-0 text-right">{label}</span>
-      <div className="flex gap-1" onMouseLeave={() => setHover(0)}>
+    <div className={`flex items-center ${compact ? "gap-1.5 sm:gap-2" : "gap-3"}`}>
+      <span
+        className={`font-medium text-zinc-800 shrink-0 text-right leading-snug ${
+          compact ? "text-xs w-12 sm:w-16 sm:text-sm" : "text-sm w-28"
+        }`}
+      >
+        {label}
+      </span>
+      <div className={`flex ${compact ? "gap-px sm:gap-0.5" : "gap-1"}`} onMouseLeave={() => setHover(0)}>
         {[1, 2, 3, 4, 5].map((n) => (
           <button
             key={n}
-            onClick={() => onRate(n)}
-            onMouseEnter={() => setHover(n)}
-            className={`text-3xl leading-none transition-colors select-none ${n <= active ? filledColor : "text-zinc-200"}`}
+            onMouseMove={(e) => setHover(halfStarValue(e.clientX, e.currentTarget.getBoundingClientRect(), n))}
+            onClick={(e) => onRate(halfStarValue(e.clientX, e.currentTarget.getBoundingClientRect(), n))}
+            onTouchStart={(e) => {
+              const t = e.touches[0];
+              onRate(halfStarValue(t.clientX, e.currentTarget.getBoundingClientRect(), n));
+            }}
+            className={`relative leading-none select-none ${compact ? "text-2xl sm:text-3xl" : "text-3xl"}`}
             style={{ touchAction: "manipulation" }}
           >
-            ★
+            <span className="text-zinc-200">★</span>
+            {active >= n && (
+              <span className={`absolute inset-0 ${filledColor}`}>★</span>
+            )}
+            {active >= n - 0.5 && active < n && (
+              <span className={`absolute inset-0 overflow-hidden ${filledColor}`} style={{ width: "50%" }}>★</span>
+            )}
           </button>
         ))}
       </div>
@@ -415,14 +339,24 @@ function StarRow({
   );
 }
 
-function RTBadge({ score }: { score: string }) {
-  const pct = parseInt(score, 10);
-  const fresh = !isNaN(pct) ? pct >= 60 : true;
+function PassNextButton({ onPass, compact = false }: { onPass: () => void; compact?: boolean }) {
   return (
-    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${fresh ? "bg-red-50 text-red-700" : "bg-zinc-100 text-zinc-500"}`}>
-      <span>{fresh ? "🍅" : "💀"}</span>
-      {score}
-    </span>
+    <button
+      type="button"
+      onClick={onPass}
+      className={`inline-flex items-center rounded-lg bg-zinc-900 font-semibold text-white shadow-md transition-colors hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 shrink-0 ${
+        compact
+          ? "gap-1 px-2.5 py-1.5 text-xs"
+          : "gap-1.5 px-4 py-2 text-sm"
+      }`}
+      title="Show another title without saving a rating"
+      aria-label="Next title without rating"
+    >
+      Next
+      <svg className={`text-white/90 ${compact ? "h-3.5 w-3.5" : "h-4 w-4"}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+        <path fillRule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clipRule="evenodd" />
+      </svg>
+    </button>
   );
 }
 
@@ -430,85 +364,87 @@ function RTBadge({ score }: { score: string }) {
 let _lastVolume: number | null = null;
 
 // ── TrailerPlayer ─────────────────────────────────────────────────────────────
-function TrailerPlayer({
-  videoId,
-  onPctChange,
-  onEnd,
-}: {
-  videoId: string;
-  onPctChange: (pct: number) => void;
-  onEnd: () => void;
-}) {
+/** One iframe per mount; swap trailers with loadVideoById so rapid card changes don't cancel init (black player). */
+function TrailerPlayer({ videoId }: { videoId: string }) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTPlayer | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const endedRef = useRef(false);
-  const onPctRef = useRef(onPctChange);
-  const onEndRef = useRef(onEnd);
-  onPctRef.current = onPctChange;
-  onEndRef.current = onEnd;
+  const videoIdRef = useRef(videoId);
 
   useEffect(() => {
-    endedRef.current = false;
+    videoIdRef.current = videoId;
+  }, [videoId]);
 
-    // Create a fresh child element for YouTube to replace with its iframe.
-    // React keeps ownership of wrapperRef's div; YT only manages this inner el.
-    // Stretch the mount point to fill the wrapper so the iframe inherits 100%×100%.
+  useEffect(() => {
     const mountEl = document.createElement("div");
     mountEl.style.position = "absolute";
     mountEl.style.inset = "0";
     wrapperRef.current?.appendChild(mountEl);
 
     let cancelled = false;
+    let playerInstance: YTPlayer | null = null;
 
     loadYouTubeApi().then(() => {
       if (cancelled || !mountEl.isConnected) return;
-      const player = new window.YT.Player(mountEl, {
-        videoId,
+      // Must match the parent page origin (including http://localhost:PORT) so the JS API
+      // postMessage targets line up. Omitting it on localhost often triggers www-widgetapi errors.
+      const origin =
+        typeof window !== "undefined" ? window.location.origin : undefined;
+      playerInstance = new window.YT.Player(mountEl, {
+        videoId: videoIdRef.current,
         width: "100%",
         height: "100%",
-        playerVars: { autoplay: 1, mute: 1, controls: 1, rel: 0, modestbranding: 1, playsinline: 1 },
+        playerVars: {
+          autoplay: 1,
+          mute: 1,
+          controls: 1,
+          rel: 0,
+          modestbranding: 1,
+          playsinline: 1,
+          enablejsapi: 1,
+          ...(origin ? { origin } : {}),
+        },
         events: {
           onReady: (e: { target: YTPlayer }) => {
-            // Restore previous volume; start muted so autoplay is allowed, then immediately unmute
-            if (_lastVolume !== null) {
-              e.target.setVolume(_lastVolume);
-            }
+            if (cancelled) return;
+            playerRef.current = e.target;
+            if (_lastVolume !== null) e.target.setVolume(_lastVolume);
             e.target.unMute();
-            pollRef.current = setInterval(() => {
-              if (!playerRef.current) return;
-              const dur = playerRef.current.getDuration();
-              if (dur > 0) {
-                onPctRef.current(Math.min(100, (playerRef.current.getCurrentTime() / dur) * 100));
-              }
-            }, 500);
-          },
-          onStateChange: (e) => {
-            if (e.data === window.YT.PlayerState.ENDED && !endedRef.current) {
-              endedRef.current = true;
-              onPctRef.current(100);
-              onEndRef.current();
+            try {
+              e.target.loadVideoById(videoIdRef.current);
+            } catch {
+              /* ignore */
             }
           },
         },
       });
-      playerRef.current = player;
     });
 
     return () => {
       cancelled = true;
-      if (pollRef.current !== null) { clearInterval(pollRef.current); pollRef.current = null; }
       try {
-        if (playerRef.current && !playerRef.current.isMuted()) {
-          _lastVolume = playerRef.current.getVolume();
+        const p = playerRef.current ?? playerInstance;
+        if (p && !p.isMuted()) {
+          _lastVolume = p.getVolume();
         }
-        playerRef.current?.destroy();
-      } catch {}
+        p?.destroy();
+      } catch {
+        /* ignore */
+      }
       playerRef.current = null;
-      // Remove the inner element if YouTube didn't (e.g. API not yet loaded)
+      playerInstance = null;
       if (mountEl.isConnected) mountEl.remove();
     };
-  }, [videoId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const p = playerRef.current;
+    if (!p) return;
+    try {
+      p.loadVideoById(videoId);
+    } catch {
+      /* ignore */
+    }
+  }, [videoId]);
 
   return <div ref={wrapperRef} className="relative w-full aspect-video rounded-xl overflow-hidden bg-black" />;
 }
@@ -516,6 +452,7 @@ function TrailerPlayer({
 export default function Home() {
   const [history, setHistory] = useState<RatingEntry[]>([]);
   const [skipped, setSkipped] = useState<string[]>([]);
+  const [passed, setPassed] = useState<string[]>([]);
   const [watchlist, setWatchlist] = useState<WatchlistEntry[]>([]);
   const [notSeen, setNotSeen] = useState<NotSeenEvent[]>([]);
   const [notInterested, setNotInterested] = useState<{ title: string; rtScore?: string | null }[]>([]);
@@ -523,37 +460,89 @@ export default function Home() {
   const [current, setCurrent] = useState<CurrentMovie | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const [cardOpacity, setCardOpacity] = useState(1);
-  const [lastResult, setLastResult] = useState<LastResult | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
-  const [mediaType, setMediaType] = useState<"both" | "movie" | "tv">("both");
-  const [displayMode, setDisplayMode] = useState<"trailers" | "posters">("trailers");
-  const [llm, setLlm] = useState<string>("deepseek");
-  const [availableLlms, setAvailableLlms] = useState<{ id: string; label: string }[]>([]);
+  const [mediaType, setMediaType] = useState<"both" | "movie" | "tv">(() => loadSetting("mediaType", "both" as const));
+  const [displayMode, setDisplayMode] = useState<"trailers" | "posters">(() => loadSetting("displayMode", "trailers" as const));
+  const [llm, setLlm] = useState<string>(() => loadSetting("llm", "deepseek"));
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [trailerStars, setTrailerStars] = useState(1);
+  /** null = show seen (red) stars first; "unseen" = user chose not seen, show blue stars only. */
+  const [seenStatus, setSeenStatus] = useState<"unseen" | null>(null);
+  const seenStatusRef = useRef<"unseen" | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const prefetchRef = useRef<CurrentMovie[]>([]);
+  const [prefetchQueueUi, setPrefetchQueueUi] = useState<CurrentMovie[]>([]);
+  const replenishGenRef = useRef(0);
+  const savedPrefetchChannelRef = useRef<string | null>(null);
   const replenishInFlight = useRef(0);
   const batchYieldRef = useRef<number[]>([]); // rolling yield fractions (fresh / requested)
 
   const historyRef = useRef(history);
   const skippedRef = useRef(skipped);
+  const passedRef = useRef(passed);
   const watchlistRef = useRef(watchlist);
   const notInterestedRef = useRef(notInterested);
   const tasteSummaryRef = useRef(tasteSummary);
-  const trailerWatchPctRef = useRef<number>(0);
-  const trailerCommittedRef = useRef<boolean>(false);
-  const [userRequest, setUserRequest] = useState("");
+  const [userRequest, setUserRequest] = useState<string>(() => loadSetting("userRequest", ""));
   const userRequestRef = useRef("");
   userRequestRef.current = userRequest;
+  /** Set after first userRequest effect — used so we only flush prefetch on real edits, not mount/import. */
+  const prevUserRequestForFlushRef = useRef<string | undefined>(undefined);
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [channelPendingDelete, setChannelPendingDelete] = useState<Channel | null>(null);
+  const channelsRef = useRef<Channel[]>([]);
+  const [activeChannelId, setActiveChannelId] = useState<string>("");
+  const activeChannelIdRef = useRef<string>("");
+  activeChannelIdRef.current = activeChannelId;
+  channelsRef.current = channels;
   const replenishOptsRef = useRef<{ mediaType: string; llm: string }>({ mediaType: "both", llm: "deepseek" });
   const zeroYieldStreakRef = useRef(0); // consecutive batches with 0 fresh items — stop daisy-chaining when high
   const lensIndexRef = useRef(0);       // rotates through DIVERSITY_LENSES so each batch explores a different area
   historyRef.current = history;
   skippedRef.current = skipped;
+  passedRef.current = passed;
   watchlistRef.current = watchlist;
   notInterestedRef.current = notInterested;
   tasteSummaryRef.current = tasteSummary;
+
+  const loadPrefetchIntoRefForChannel = useCallback((channelId: string) => {
+    const k = prefetchQueueStorageKey(channelId);
+    let raw = localStorage.getItem(k);
+    if (!raw) {
+      raw = localStorage.getItem(LEGACY_PREFETCH_QUEUE_KEY);
+      if (raw) {
+        try {
+          localStorage.setItem(k, raw);
+          localStorage.removeItem(LEGACY_PREFETCH_QUEUE_KEY);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    if (!raw) {
+      prefetchRef.current = [];
+      return;
+    }
+    try {
+      const q = JSON.parse(raw) as CurrentMovie[];
+      if (Array.isArray(q) && q.every((m) => m && typeof m.title === "string")) {
+        prefetchRef.current = q;
+      } else {
+        prefetchRef.current = [];
+      }
+    } catch {
+      prefetchRef.current = [];
+    }
+  }, []);
+
+  const persistPrefetchQueue = useCallback(() => {
+    const ch = activeChannelIdRef.current?.trim() || "all";
+    try {
+      localStorage.setItem(prefetchQueueStorageKey(ch), JSON.stringify(prefetchRef.current));
+    } catch {
+      /* ignore quota */
+    }
+    setPrefetchQueueUi([...prefetchRef.current]);
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -566,9 +555,14 @@ export default function Home() {
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) setHistory(JSON.parse(stored));
+      if (stored) {
+        const parsed = JSON.parse(stored) as RatingEntry[];
+        setHistory(parsed.map(migrateRatingEntry));
+      }
       const storedSkipped = localStorage.getItem(SKIPPED_KEY);
       if (storedSkipped) setSkipped(JSON.parse(storedSkipped));
+      const storedPassed = localStorage.getItem(PASSED_KEY);
+      if (storedPassed) setPassed(JSON.parse(storedPassed));
       const storedWatchlist = localStorage.getItem(WATCHLIST_KEY);
       if (storedWatchlist) setWatchlist(JSON.parse(storedWatchlist));
       const storedNotSeen = localStorage.getItem(NOTSEEN_KEY);
@@ -577,6 +571,25 @@ export default function Home() {
       if (storedNotInterested) setNotInterested(JSON.parse(storedNotInterested));
       const storedTasteSummary = localStorage.getItem(TASTE_SUMMARY_KEY);
       if (storedTasteSummary) { setTasteSummary(storedTasteSummary); tasteSummaryRef.current = storedTasteSummary; }
+      if (hasNoChannelsPersisted()) {
+        applyFactoryBootstrap();
+      }
+      let loadedChannels: Channel[] = [];
+      const storedChannels = localStorage.getItem(CHANNELS_KEY);
+      if (storedChannels) {
+        loadedChannels = JSON.parse(storedChannels);
+        // Seed All channel if missing
+        if (!loadedChannels.find((c) => c.id === "all")) {
+          loadedChannels = [ALL_CHANNEL, ...loadedChannels];
+          localStorage.setItem(CHANNELS_KEY, JSON.stringify(loadedChannels));
+        }
+        setChannels(loadedChannels);
+      }
+      const storedActiveChannel = localStorage.getItem(ACTIVE_CHANNEL_KEY);
+      const defaultChannelId = loadedChannels.length > 0 ? loadedChannels[0].id : "all";
+      const activeId = storedActiveChannel || defaultChannelId;
+      setActiveChannelId(activeId);
+      activeChannelIdRef.current = activeId;
     } catch {}
   }, []);
 
@@ -640,6 +653,11 @@ export default function Home() {
             tasteSummary: tasteSummaryRef.current ?? undefined,
             diversityLens: DIVERSITY_LENSES[lensIndexRef.current % DIVERSITY_LENSES.length],
             userRequest: userRequestRef.current.trim() || undefined,
+            activeChannel: (() => {
+              const id = activeChannelIdRef.current;
+              if (!id) return undefined;
+              return channelsRef.current.find((c) => c.id === id) ?? undefined;
+            })(),
             mediaType: opts.mediaType,
             llm: opts.llm,
             count: LLM_BATCH_SIZE,
@@ -674,6 +692,7 @@ export default function Home() {
     if (replenishInFlight.current >= MAX_REPLENISH_IN_FLIGHT) return new Set();
     replenishOptsRef.current = opts;
 
+    const genAtStart = replenishGenRef.current;
     replenishInFlight.current++;
     lensIndexRef.current++; // advance lens so concurrent batches each explore a different area
     const seenThisBatch = new Set<string>();
@@ -681,6 +700,7 @@ export default function Home() {
     try {
       const skippedForApi = [
         ...skippedRef.current,
+        ...passedRef.current,
         ...extraRetrySkips,
         ...prefetchRef.current.map((m) => m.title),
       ];
@@ -691,6 +711,8 @@ export default function Home() {
         skipped: skippedForApi,
       });
 
+      if (genAtStart !== replenishGenRef.current) return seenThisBatch;
+
       let freshCount = 0;
 
       if (movies) {
@@ -699,6 +721,7 @@ export default function Home() {
         const excluded = new Set<string>();
         for (const h of historyRef.current) excluded.add(canonicalTitleKey(h.title));
         for (const s of skippedRef.current) excluded.add(canonicalTitleKey(s));
+        for (const p of passedRef.current) excluded.add(canonicalTitleKey(p));
         for (const w of watchlistRef.current) excluded.add(canonicalTitleKey(w.title));
         for (const m of prefetchRef.current) excluded.add(canonicalTitleKey(m.title));
 
@@ -715,11 +738,13 @@ export default function Home() {
 
       batchYieldRef.current = [...batchYieldRef.current.slice(-4), freshCount / LLM_BATCH_SIZE];
       zeroYieldStreakRef.current = freshCount > 0 ? 0 : zeroYieldStreakRef.current + 1;
+      persistPrefetchQueue();
     } finally {
       replenishInFlight.current--;
       // Daisy-chain: keep filling until high-water mark, but stop if recent batches are all dupes.
       // zeroYieldStreak >= 3 means the LLM is stuck — no point hammering it further.
       if (
+        genAtStart === replenishGenRef.current &&
         prefetchRef.current.length < HIGH_WATER_MARK &&
         replenishInFlight.current < MAX_REPLENISH_IN_FLIGHT &&
         zeroYieldStreakRef.current < 3
@@ -729,7 +754,7 @@ export default function Home() {
     }
 
     return seenThisBatch;
-  }, [fetchMovieBatch]);
+  }, [fetchMovieBatch, persistPrefetchQueue]);
 
   // Pop instantly from prefetch queue; if empty, wait for replenish first
   const fetchNext = useCallback(async (
@@ -742,9 +767,11 @@ export default function Home() {
     while (prefetchRef.current.length > 0) {
       const [next, ...rest] = prefetchRef.current;
       prefetchRef.current = rest;
+      persistPrefetchQueue();
       const excluded = new Set<string>();
       for (const h of historyRef.current) excluded.add(canonicalTitleKey(h.title));
       for (const s of skippedRef.current) excluded.add(canonicalTitleKey(s));
+      for (const p of passedRef.current) excluded.add(canonicalTitleKey(p));
       for (const w of watchlistRef.current) excluded.add(canonicalTitleKey(w.title));
       if (excluded.has(canonicalTitleKey(next.title))) continue; // already seen — discard silently
       if (!isFirst) {
@@ -769,6 +796,7 @@ export default function Home() {
         await new Promise((r) => setTimeout(r, 200));
       }
       const next = prefetchRef.current.shift();
+      persistPrefetchQueue();
       if (!next) {
         setCardOpacity(1); setInitialLoading(false);
         setFetchError("Couldn't find a new title. Try again.");
@@ -784,11 +812,55 @@ export default function Home() {
       setCardOpacity(1); setInitialLoading(false);
       setFetchError("Something went wrong. Try again.");
     }
-  }, [replenish]);
+  }, [replenish, persistPrefetchQueue]);
+
+  const removeFromPrefetchQueue = useCallback(
+    (index: number) => {
+      const q = prefetchRef.current;
+      if (index < 0 || index >= q.length) return;
+      prefetchRef.current = q.filter((_, i) => i !== index);
+      persistPrefetchQueue();
+      if (
+        prefetchRef.current.length < HIGH_WATER_MARK &&
+        replenishInFlight.current < MAX_REPLENISH_IN_FLIGHT &&
+        zeroYieldStreakRef.current < 3
+      ) {
+        replenish({ mediaType, llm });
+      }
+    },
+    [mediaType, llm, replenish, persistPrefetchQueue]
+  );
+
+  const playPrefetchAtIndex = useCallback(
+    (index: number) => {
+      const q = prefetchRef.current;
+      if (index < 0 || index >= q.length) return;
+      const movie = q[index];
+      if (current && canonicalTitleKey(movie.title) === canonicalTitleKey(current.title)) return;
+      replenishGenRef.current += 1;
+      prefetchRef.current = q.filter((_, i) => i !== index);
+      persistPrefetchQueue();
+      setCurrent(movie);
+      setInitialLoading(false);
+      setFetchError(null);
+      setCardOpacity(1);
+      seenStatusRef.current = null;
+      setSeenStatus(null);
+      zeroYieldStreakRef.current = 0;
+      if (
+        prefetchRef.current.length < HIGH_WATER_MARK &&
+        replenishInFlight.current < MAX_REPLENISH_IN_FLIGHT &&
+        zeroYieldStreakRef.current < 3
+      ) {
+        replenish({ mediaType, llm });
+      }
+    },
+    [mediaType, llm, replenish, persistPrefetchQueue, current]
+  );
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
-    const hist: RatingEntry[] = stored ? JSON.parse(stored) : [];
+    const hist: RatingEntry[] = stored ? (JSON.parse(stored) as RatingEntry[]).map(migrateRatingEntry) : [];
     const storedSkipped = localStorage.getItem(SKIPPED_KEY);
     const skip: string[] = storedSkipped ? JSON.parse(storedSkipped) : [];
     const storedWl = localStorage.getItem(WATCHLIST_KEY);
@@ -797,27 +869,68 @@ export default function Home() {
     const ni: { title: string; rtScore?: string | null }[] = storedNi ? JSON.parse(storedNi) : [];
     historyRef.current = hist;
     skippedRef.current = skip;
+    const storedPassed = localStorage.getItem(PASSED_KEY);
+    const passedList: string[] = storedPassed ? JSON.parse(storedPassed) : [];
+    passedRef.current = passedList;
+
     watchlistRef.current = wl;
     notInterestedRef.current = ni;
+
+    let chs: Channel[] = [];
+    try {
+      const cRaw = localStorage.getItem(CHANNELS_KEY);
+      if (cRaw) {
+        chs = JSON.parse(cRaw) as Channel[];
+        if (!chs.find((c) => c.id === "all")) {
+          chs = [ALL_CHANNEL, ...chs];
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+    const defaultCh = chs.length > 0 ? chs[0].id : "all";
+    const storedActive = localStorage.getItem(ACTIVE_CHANNEL_KEY);
+    const activeForPrefetch = storedActive || defaultCh;
+    activeChannelIdRef.current = activeForPrefetch;
+    loadPrefetchIntoRefForChannel(activeForPrefetch);
+    persistPrefetchQueue();
+
+    // Check if the Ratings page asked us to reconsider a title
+    const pendingReconsider = localStorage.getItem(RECONSIDER_KEY);
+    if (pendingReconsider) {
+      localStorage.removeItem(RECONSIDER_KEY);
+      try {
+        const m = JSON.parse(pendingReconsider);
+        const movie: CurrentMovie = {
+          title: m.title,
+          type: m.type ?? "movie",
+          year: m.year ?? null,
+          director: m.director ?? null,
+          predictedRating: migrateRatingValue(typeof m.predictedRating === "number" ? m.predictedRating : 3),
+          actors: m.actors ?? [],
+          plot: m.plot ?? "",
+          posterUrl: m.posterUrl ?? null,
+          trailerKey: m.trailerKey ?? null,
+          rtScore: m.rtScore ?? null,
+        };
+        setCurrent(movie);
+        setInitialLoading(false);
+        replenish({ mediaType, llm });
+        return;
+      } catch {}
+    }
+
     fetchNext({ mediaType, llm }, true);
-  }, [fetchNext]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Mount-only hydrate; mediaType / llm / replenish changes are handled by other effects.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchNext, loadPrefetchIntoRefForChannel, persistPrefetchQueue]);
 
-  useEffect(() => {
-    fetch("/api/config")
-      .then((r) => r.json())
-      .then((d: { llms: { id: string; label: string }[] }) => {
-        setAvailableLlms(d.llms);
-        if (d.llms.length > 0) setLlm(d.llms[0].id);
-      })
-      .catch(() => {});
-  }, []);
 
-  // Reset trailer state whenever the card changes
+  // Reset rating state whenever the card changes
   useEffect(() => {
-    trailerWatchPctRef.current = 0;
-    trailerCommittedRef.current = false;
-    setTrailerStars(1);
-  }, [current?.title]); // eslint-disable-line react-hooks/exhaustive-deps
+    seenStatusRef.current = null;
+    setSeenStatus(null);
+  }, [current?.title]);
 
   // On mobile, scroll the card into view when a new one loads so it's never below the fold
   const isFirstCard = useRef(true);
@@ -826,13 +939,15 @@ export default function Home() {
     if (isFirstCard.current) { isFirstCard.current = false; return; }
     if (window.innerWidth >= 640) return; // desktop handles itself
     cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [current?.title]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [current?.title]);
 
   // When mediaType changes, replace the current card if it doesn't match
   useEffect(() => {
     if (!current) return;
     if (mediaType !== "both" && current.type !== mediaType) {
+      replenishGenRef.current += 1;
       prefetchRef.current = [];
+      persistPrefetchQueue();
       batchYieldRef.current = [];
       fetchNext({ mediaType, llm });
     }
@@ -840,21 +955,135 @@ export default function Home() {
 
   // When userRequest changes (debounced 600ms), flush the prefetch queue so
   // upcoming cards reflect the new request rather than stale pre-fetched batches.
+  // Do not run on initial mount — that would clear an imported queue ~600ms after load.
   useEffect(() => {
+    const prev = prevUserRequestForFlushRef.current;
+    if (prev === undefined) {
+      prevUserRequestForFlushRef.current = userRequest;
+      return;
+    }
+    if (prev === userRequest) return;
+    prevUserRequestForFlushRef.current = userRequest;
     const t = setTimeout(() => {
+      replenishGenRef.current += 1;
       prefetchRef.current = [];
+      persistPrefetchQueue();
       batchYieldRef.current = [];
       zeroYieldStreakRef.current = 0;
     }, 600);
     return () => clearTimeout(t);
-  }, [userRequest]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userRequest, persistPrefetchQueue]);
+
+  // When active channel changes: save the previous channel's queue, load the new channel's queue.
+  useEffect(() => {
+    if (!activeChannelId) return;
+    localStorage.setItem(ACTIVE_CHANNEL_KEY, activeChannelId);
+
+    const prev = savedPrefetchChannelRef.current;
+    if (prev !== null && prev !== activeChannelId) {
+      replenishGenRef.current += 1;
+      try {
+        localStorage.setItem(prefetchQueueStorageKey(prev), JSON.stringify(prefetchRef.current));
+      } catch {
+        /* ignore */
+      }
+      loadPrefetchIntoRefForChannel(activeChannelId);
+      persistPrefetchQueue();
+      batchYieldRef.current = [];
+      zeroYieldStreakRef.current = 0;
+      savedPrefetchChannelRef.current = activeChannelId;
+      // Show the first saved title for this channel (or wait / fetch if the queue is empty).
+      const hasQueued = prefetchRef.current.length > 0;
+      void fetchNext({ mediaType, llm }, hasQueued);
+      return;
+    }
+    savedPrefetchChannelRef.current = activeChannelId;
+  }, [activeChannelId, mediaType, llm, fetchNext, loadPrefetchIntoRefForChannel, persistPrefetchQueue]);
+
+  const confirmDeleteChannelFromHome = useCallback(() => {
+    const ch = channelPendingDelete;
+    if (!ch || ch.id === "all") {
+      setChannelPendingDelete(null);
+      return;
+    }
+    const id = ch.id;
+    const next = channels.filter((c) => c.id !== id);
+    try {
+      localStorage.removeItem(prefetchQueueStorageKey(id));
+    } catch {
+      /* ignore */
+    }
+    localStorage.setItem(CHANNELS_KEY, JSON.stringify(next));
+    setChannels(next);
+
+    if (activeChannelId === id) {
+      const fallback = next[0]?.id ?? "all";
+      replenishGenRef.current += 1;
+      savedPrefetchChannelRef.current = fallback;
+      loadPrefetchIntoRefForChannel(fallback);
+      persistPrefetchQueue();
+      batchYieldRef.current = [];
+      zeroYieldStreakRef.current = 0;
+      localStorage.setItem(ACTIVE_CHANNEL_KEY, fallback);
+      setActiveChannelId(fallback);
+      activeChannelIdRef.current = fallback;
+      void fetchNext({ mediaType, llm }, prefetchRef.current.length > 0);
+    }
+    setChannelPendingDelete(null);
+  }, [
+    channelPendingDelete,
+    channels,
+    activeChannelId,
+    mediaType,
+    llm,
+    loadPrefetchIntoRefForChannel,
+    persistPrefetchQueue,
+    fetchNext,
+  ]);
+
+  const loadStarterChannelsFromFactory = useCallback(() => {
+    mergeFactoryChannelsAndQueues();
+    try {
+      const raw = localStorage.getItem(CHANNELS_KEY);
+      let next: Channel[] = raw ? (JSON.parse(raw) as Channel[]) : [];
+      if (!next.some((c) => c.id === "all")) {
+        next = [ALL_CHANNEL, ...next];
+        localStorage.setItem(CHANNELS_KEY, JSON.stringify(next));
+      }
+      setChannels(next);
+      const preferred = localStorage.getItem(ACTIVE_CHANNEL_KEY);
+      const active =
+        preferred && next.some((c) => c.id === preferred) ? preferred : (next[0]?.id ?? "all");
+      activeChannelIdRef.current = active;
+      setActiveChannelId(active);
+      replenishGenRef.current += 1;
+      savedPrefetchChannelRef.current = active;
+      loadPrefetchIntoRefForChannel(active);
+      persistPrefetchQueue();
+      batchYieldRef.current = [];
+      zeroYieldStreakRef.current = 0;
+      void fetchNext({ mediaType, llm }, prefetchRef.current.length > 0);
+    } catch {
+      /* ignore */
+    }
+  }, [loadPrefetchIntoRefForChannel, persistPrefetchQueue, fetchNext, mediaType, llm]);
 
   const handleRate = (rating: number) => {
-    rating = Math.min(100, Math.max(0, Math.round(rating)));
+    rating = clampStarRating(rating);
     if (!current) return;
-    const error = Math.abs(rating - current.predictedRating);
-    const entry: RatingEntry = { title: current.title, type: current.type, userRating: rating, predictedRating: current.predictedRating, error, rtScore: current.rtScore };
-    setLastResult({ ...entry, actors: current.actors, plot: current.plot, posterUrl: current.posterUrl, rtScore: current.rtScore });
+    const predicted = migrateRatingValue(current.predictedRating);
+    const error = Math.abs(rating - predicted);
+    const channelId = activeChannelIdRef.current || undefined;
+    const entry: RatingEntry = {
+      title: current.title,
+      type: current.type,
+      userRating: rating,
+      predictedRating: predicted,
+      error,
+      rtScore: current.rtScore,
+      channelId,
+      posterUrl: current.posterUrl,
+    };
     const newHistory = [...history, entry];
     saveHistory(newHistory);
     zeroYieldStreakRef.current = 0; // new exclusion may unblock the LLM
@@ -866,18 +1095,30 @@ export default function Home() {
 
   /** Single entry point for all star clicks. Red = seen (goes to history). Blue = unseen (4-5 → watchlist, 1-3 → not-interested). */
   const submitRating = (stars: number, mode: "seen" | "unseen") => {
-    trailerCommittedRef.current = true;
     if (mode === "seen") {
-      handleRate(stars * 20);
+      handleRate(stars);
     } else {
-      recordNotSeen(stars >= 4 ? "want" : "skip");
+      recordNotSeen(stars >= 4 ? "want" : "skip", stars);
     }
   };
 
-  const recordNotSeen = (kind: "want" | "skip") => {
+  /** Advance without a rating — title is excluded from future picks but not counted as not interested. */
+  const passCurrentCard = () => {
     if (!current) return;
-    trailerCommittedRef.current = true; // prevent trailer auto-commit if user acts explicitly
+    const t = current.title;
+    const newPassed = [...passed, t];
+    localStorage.setItem(PASSED_KEY, JSON.stringify(newPassed));
+    setPassed(newPassed);
+    passedRef.current = newPassed;
+    zeroYieldStreakRef.current = 0;
+    fetchNext({ mediaType, llm });
+  };
+
+  const recordNotSeen = (kind: "want" | "skip", interestStars: number) => {
+    if (!current) return;
     const snapshot = current;
+    const chId = activeChannelIdRef.current?.trim() || "all";
+    const starsNorm = migrateRatingValue(interestStars);
 
     let newWatchlist = watchlist;
     if (kind === "want") {
@@ -920,6 +1161,22 @@ export default function Home() {
     localStorage.setItem(NOTSEEN_KEY, JSON.stringify(newNotSeen));
     setNotSeen(newNotSeen);
 
+    const logRow: UnseenInterestEntry = {
+      title: snapshot.title,
+      type: snapshot.type,
+      year: snapshot.year,
+      director: snapshot.director,
+      actors: snapshot.actors,
+      plot: snapshot.plot,
+      posterUrl: snapshot.posterUrl,
+      rtScore: snapshot.rtScore,
+      interestStars: starsNorm,
+      kind,
+      channelId: chId,
+      at: new Date().toISOString(),
+    };
+    pushUnseenInterestEntry(logRow);
+
     const newSkipped = [...skipped, snapshot.title];
     localStorage.setItem(SKIPPED_KEY, JSON.stringify(newSkipped));
     setSkipped(newSkipped);
@@ -940,251 +1197,174 @@ export default function Home() {
     fetchNext({ mediaType, llm });
   };
 
-
-  const commitTrailerRating = () => {
-    if (trailerCommittedRef.current) return;
-    trailerCommittedRef.current = true;
-    handleRate(trailerStars * 20); // default: seen (red), rating based on watch time
-  };
-
-  const handleReset = () => {
-    if (confirm("Clear all ratings and start over?")) {
-      saveHistory([]);
-      localStorage.removeItem(SKIPPED_KEY);
-      localStorage.removeItem(NOTSEEN_KEY);
-      localStorage.removeItem(WATCHLIST_KEY);
-      localStorage.removeItem(NOT_INTERESTED_KEY);
-      localStorage.removeItem(TASTE_SUMMARY_KEY);
-      clearLlmSessionSync();
-      setSkipped([]);
-      setNotSeen([]);
-      setWatchlist([]);
-      setNotInterested([]);
-      setTasteSummary(null);
-      tasteSummaryRef.current = null;
-      skippedRef.current = [];
-      watchlistRef.current = [];
-      notInterestedRef.current = [];
-      prefetchRef.current = [];
-      batchYieldRef.current = [];
-      fetchNext({ mediaType, llm });
-    }
-  };
-
-  /** Remove a rated entry from history and show it as the current card for re-rating. */
-  const reconsiderHistoryEntry = (entry: RatingEntry) => {
-    const newHistory = history.filter((h) => h.title !== entry.title);
-    saveHistory(newHistory);
-    const movie: CurrentMovie = {
-      title: entry.title,
-      type: entry.type,
-      year: null,
-      director: null,
-      predictedRating: entry.predictedRating,
-      actors: [],
-      plot: "",
-      posterUrl: null,
-      trailerKey: null,
-      rtScore: entry.rtScore ?? null,
-    };
-    setCurrent(movie);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  /** Remove a not-interested entry from skipped/not-interested lists and show it as the current card. */
-  const reconsiderNotInterested = (item: { title: string; rtScore?: string | null }) => {
-    const newSkipped = skipped.filter((s) => s !== item.title);
-    localStorage.setItem(SKIPPED_KEY, JSON.stringify(newSkipped));
-    setSkipped(newSkipped);
-    skippedRef.current = newSkipped;
-
-    const newNotInterested = notInterested.filter((n) => n.title !== item.title);
-    localStorage.setItem(NOT_INTERESTED_KEY, JSON.stringify(newNotInterested));
-    setNotInterested(newNotInterested);
-    notInterestedRef.current = newNotInterested;
-
-    const movie: CurrentMovie = {
-      title: item.title,
-      type: "movie",
-      year: null,
-      director: null,
-      predictedRating: 50,
-      actors: [],
-      plot: "",
-      posterUrl: null,
-      trailerKey: null,
-      rtScore: item.rtScore ?? null,
-    };
-    setCurrent(movie);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-/** Haven’t-seen titles you didn’t add to the watchlist (not interested), newest first — includes legacy rows stored only in `skipped`. */
-  const dontSeeRows = useMemo(() => {
-    const wl = new Set(watchlist.map((w) => canonicalTitleKey(w.title)));
-    const rtByKey = new Map<string, string | null | undefined>();
-    for (const n of notInterested) {
-      rtByKey.set(canonicalTitleKey(n.title), n.rtScore);
-    }
-    const out: { title: string; rtScore: string | null | undefined }[] = [];
-    const seen = new Set<string>();
-    for (let i = skipped.length - 1; i >= 0; i--) {
-      const s = skipped[i];
-      const k = canonicalTitleKey(s);
-      if (wl.has(k) || seen.has(k)) continue;
-      seen.add(k);
-      out.push({
-        title: s,
-        rtScore: rtByKey.has(k) ? rtByKey.get(k) : null,
-      });
-    }
-    return out;
-  }, [skipped, watchlist, notInterested]);
+  const prefetchQueueBlock = (
+    <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 sm:p-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-sm font-semibold text-zinc-900">Upcoming queue</h2>
+        <span className="text-xs text-zinc-400 tabular-nums">
+          {prefetchQueueUi.length} title{prefetchQueueUi.length === 1 ? "" : "s"}
+          {channels.length > 0 && activeChannelId ? (
+            <span className="font-medium text-zinc-600">
+              {" "}
+              · {channels.find((c) => c.id === activeChannelId)?.name ?? "channel"}
+            </span>
+          ) : null}
+        </span>
+      </div>
+      <p className="text-xs text-zinc-500 mt-1">
+        Click a title to play it now. Remove drops it from the list. Saved per channel when Settings backup includes the prefetch queue.
+      </p>
+      {prefetchQueueUi.length === 0 ? (
+        <p className="text-sm text-zinc-400 mt-3">Nothing queued yet — titles appear here as the model responds.</p>
+      ) : (
+        <ul className="mt-3 divide-y divide-zinc-100 max-h-56 overflow-y-auto rounded-lg border border-zinc-100 bg-white">
+          {prefetchQueueUi.map((m, index) => (
+            <li
+              key={`${canonicalTitleKey(m.title)}-${index}`}
+              className="flex items-stretch gap-1 py-1 px-1 text-sm"
+            >
+              <button
+                type="button"
+                onClick={() => playPrefetchAtIndex(index)}
+                className="min-w-0 flex-1 flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-zinc-800 hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300"
+                aria-label={`Play ${m.title} now`}
+              >
+                <span className="min-w-0 flex-1 truncate" title={m.title}>
+                  {m.title}
+                  {m.year != null && <span className="text-zinc-400 font-normal"> · {m.year}</span>}
+                </span>
+                <span className="shrink-0 text-[10px] uppercase tracking-wide text-zinc-400">
+                  {m.type === "tv" ? "TV" : "Film"}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeFromPrefetchQueue(index);
+                }}
+                className="shrink-0 self-center rounded-lg px-2 py-1 text-xs font-medium text-zinc-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+                aria-label={`Remove ${m.title} from queue`}
+              >
+                Remove
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-zinc-50 flex flex-col items-center py-6 sm:py-10 px-4">
       <div className="w-full max-w-3xl space-y-4 sm:space-y-6">
 
-        {/* Header */}
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-zinc-900">Movie Recs</h1>
-            <p className="text-sm text-zinc-500">Discover films you haven&apos;t seen but will love.</p>
-            <p className="text-xs text-zinc-400 hidden sm:block">Rate what you&apos;ve seen — the AI learns your taste to find them.</p>
-          </div>
-          {history.length > 0 && (
-            <button onClick={handleReset} className="text-xs text-zinc-400 hover:text-red-500 transition-colors">
-              Reset
-            </button>
-          )}
-        </div>
-
-        {/* Controls */}
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Media type toggle */}
-          <div className="flex rounded-xl border border-zinc-200 bg-white overflow-hidden text-sm shadow-sm">
-            {(["both", "movie", "tv"] as const).map((opt) => (
-              <button
-                key={opt}
-                onClick={() => setMediaType(opt)}
-                className={`px-3 py-1.5 font-medium transition-colors ${
-                  mediaType === opt
-                    ? "bg-zinc-900 text-white"
-                    : "text-zinc-500 hover:bg-zinc-50"
-                }`}
-              >
-                {opt === "both" ? "Movies & TV" : opt === "movie" ? "Movies" : "TV Series"}
-              </button>
-            ))}
-          </div>
-
-          {/* Trailers vs Posters */}
-          <div className="flex rounded-xl border border-zinc-200 bg-white overflow-hidden text-sm shadow-sm">
-            {(["trailers", "posters"] as const).map((mode) => (
-              <button
-                key={mode}
-                onClick={() => setDisplayMode(mode)}
-                className={`px-3 py-1.5 font-medium transition-colors capitalize ${
-                  displayMode === mode
-                    ? "bg-zinc-900 text-white"
-                    : "text-zinc-500 hover:bg-zinc-50"
-                }`}
-              >
-                {mode}
-              </button>
-            ))}
-          </div>
-
-          {/* LLM selector */}
-          {availableLlms.length > 1 && (
-            <div className="flex rounded-xl border border-zinc-200 bg-white overflow-hidden text-sm shadow-sm">
-              {availableLlms.map((l) => (
-                <button
-                  key={l.id}
-                  onClick={() => setLlm(l.id)}
-                  className={`px-3 py-1.5 font-medium transition-colors ${
-                    llm === l.id
-                      ? "bg-indigo-600 text-white"
-                      : "text-zinc-500 hover:bg-zinc-50"
-                  }`}
-                >
-                  {l.label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* User request */}
-        <div className="flex items-center gap-2 mt-2">
-          <input
-            type="text"
-            value={userRequest}
-            onChange={(e) => setUserRequest(e.target.value)}
-            placeholder={'Request something specific\u2026 e.g. \u201cFrench cinema\u201d or \u201cslow-burn thrillers\u201d'}
-            className="flex-1 rounded-xl border border-zinc-200 bg-white px-3 py-1.5 text-sm text-zinc-700 placeholder-zinc-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+        {/* Header — text-free photo (no baked-in lettering); left scrim for UI copy */}
+        <div className="relative flex min-h-[clamp(13rem,36vw,22rem)] flex-col overflow-hidden rounded-2xl border border-zinc-200/90 shadow-sm ring-1 ring-black/5">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 origin-top scale-[1.18] bg-cover bg-top bg-no-repeat"
+            style={{
+              backgroundImage: "url(/cozy-evening-forest-campsite.png)",
+              /* Top origin + zoom: clip below the trailer opening (campfire/ground) */
+              backgroundPosition: "center top",
+            }}
           />
-          {userRequest && (
-            <button
-              onClick={() => setUserRequest("")}
-              className="text-zinc-400 hover:text-zinc-600 text-lg leading-none"
-              title="Clear request"
-            >
-              ×
-            </button>
-          )}
+          <div
+            className="pointer-events-none absolute inset-0"
+            aria-hidden
+            style={{
+              /* Light left vignette only — keeps photo (face, props) visible */
+              background:
+                "linear-gradient(to right, rgba(0, 0, 0, 0.38) 0%, rgba(0, 0, 0, 0.12) 32%, transparent 52%)",
+            }}
+          />
+          <div className="relative z-10 flex flex-1 flex-col justify-center px-4 py-6 sm:px-5 sm:py-8">
+            <div className="w-full max-w-md">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white [text-shadow:1px_0_0_rgba(0,0,0,0.85),-1px_0_0_rgba(0,0,0,0.85),0_1px_0_rgba(0,0,0,0.85),0_-1px_0_rgba(0,0,0,0.85),1px_1px_0_rgba(0,0,0,0.75),-1px_-1px_0_rgba(0,0,0,0.75),1px_-1px_0_rgba(0,0,0,0.75),-1px_1px_0_rgba(0,0,0,0.75),0_2px_12px_rgba(0,0,0,0.45)]">
+                Trailer Vision
+              </h1>
+              <p className="mt-1 text-sm font-semibold leading-snug text-white [text-shadow:1px_0_0_rgba(0,0,0,0.8),-1px_0_0_rgba(0,0,0,0.8),0_1px_0_rgba(0,0,0,0.8),0_-1px_0_rgba(0,0,0,0.8),1px_1px_0_rgba(0,0,0,0.65),-1px_-1px_0_rgba(0,0,0,0.65),0_1px_10px_rgba(0,0,0,0.4)]">
+                Discover films you haven&apos;t seen but will love.
+              </p>
+              <p className="mt-1 text-xs font-semibold leading-snug text-white/95 [text-shadow:1px_0_0_rgba(0,0,0,0.75),-1px_0_0_rgba(0,0,0,0.75),0_1px_0_rgba(0,0,0,0.75),0_-1px_0_rgba(0,0,0,0.75),1px_1px_0_rgba(0,0,0,0.6),-1px_-1px_0_rgba(0,0,0,0.6),0_1px_8px_rgba(0,0,0,0.35)] hidden sm:block">
+                Rate what you&apos;ve seen — the AI learns your taste to find them.
+              </p>
+            </div>
+          </div>
         </div>
 
-        {/* Stats chart + last result */}
-        {history.length > 0 && (
-          <div className="bg-white rounded-2xl border border-zinc-200 p-4 shadow-sm space-y-4">
-            <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">How well the AI knows your taste</p>
-            <ErrorChart
-              history={history}
-              notSeen={notSeen}
-              watchlistCount={watchlist.length}
-              dontSeeCount={dontSeeRows.length}
-            />
-
-            {lastResult && (
-              <div className="border-t border-zinc-100 pt-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-zinc-400">
-                    Last: <span className="font-medium text-zinc-600">{lastResult.title}</span>
-                  </p>
-                  {lastResult.rtScore && <RTBadge score={lastResult.rtScore} />}
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="bg-zinc-50 rounded-xl py-2">
-                    <div className="text-xs text-zinc-400">You</div>
-                    <div className="text-2xl font-bold text-zinc-900">{lastResult.userRating}</div>
+        {/* Channel selector + shortcut to create a channel */}
+        <div className="flex flex-wrap gap-2 items-center pb-1">
+          {!channels.some((ch) => ch.id !== "all") ? (
+            <>
+              <button
+                type="button"
+                onClick={loadStarterChannelsFromFactory}
+                className="shrink-0 rounded-full border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-900 shadow-sm transition-colors hover:border-indigo-300 hover:bg-indigo-100"
+              >
+                Load starter channels
+              </button>
+              <Link
+                href="/channels?new=1"
+                className="shrink-0 flex size-8 items-center justify-center rounded-full border border-dashed border-zinc-300 bg-white text-lg font-light leading-none text-zinc-500 transition-colors hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-600"
+                title="Create a new channel"
+                aria-label="Create a new channel"
+              >
+                +
+              </Link>
+            </>
+          ) : (
+            <>
+              {channels.map((ch) => {
+                const deletable = ch.id !== "all";
+                return (
+                  <div key={ch.id} className="group relative shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setActiveChannelId(ch.id)}
+                      className={`max-w-[240px] rounded-full py-1.5 text-sm font-semibold whitespace-nowrap transition-colors pl-3.5 ${
+                        deletable ? "pr-9" : "pr-3.5"
+                      } ${
+                        activeChannelId === ch.id
+                          ? "bg-zinc-900 text-white shadow-sm"
+                          : "bg-white border border-zinc-200 text-zinc-800 hover:border-zinc-300 hover:bg-zinc-50"
+                      }`}
+                    >
+                      <span className="block truncate">{ch.name}</span>
+                    </button>
+                    {deletable && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setChannelPendingDelete(ch);
+                        }}
+                        className={`absolute right-1 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-sm leading-none opacity-100 transition-opacity sm:pointer-events-none sm:opacity-0 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 ${
+                          activeChannelId === ch.id
+                            ? "text-zinc-300 hover:bg-white/10 hover:text-red-300"
+                            : "text-zinc-400 hover:bg-red-50 hover:text-red-600"
+                        }`}
+                        aria-label={`Delete channel ${ch.name}`}
+                      >
+                        ×
+                      </button>
+                    )}
                   </div>
-                  <div className="bg-zinc-50 rounded-xl py-2">
-                    <div className="text-xs text-zinc-400">AI</div>
-                    <div className="text-2xl font-bold text-blue-600">{lastResult.predictedRating}</div>
-                  </div>
-                  <div className={`rounded-xl py-2 ${lastResult.error <= 10 ? "bg-green-50" : lastResult.error <= 25 ? "bg-yellow-50" : "bg-red-50"}`}>
-                    <div className="text-xs text-zinc-400">Error</div>
-                    <div className={`text-2xl font-bold ${lastResult.error <= 10 ? "text-green-700" : lastResult.error <= 25 ? "text-yellow-700" : "text-red-700"}`}>
-                      {lastResult.error}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-
-        {/* Taste profile card */}
-        {tasteSummary && (
-          <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm p-4">
-            <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">AI&apos;s model of your taste</p>
-            <p className="text-sm text-zinc-700 leading-relaxed" style={{ borderLeft: "3px solid #a78bfa", paddingLeft: "12px" }}>
-              {tasteSummary}
-            </p>
-          </div>
-        )}
+                );
+              })}
+              <Link
+                href="/channels?new=1"
+                className="shrink-0 flex size-8 items-center justify-center rounded-full border border-dashed border-zinc-300 bg-white text-lg font-light leading-none text-zinc-500 transition-colors hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-600"
+                title="Create a new channel"
+                aria-label="Create a new channel"
+              >
+                +
+              </Link>
+            </>
+          )}
+        </div>
 
         {/* Movie card */}
         <div ref={cardRef} className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden scroll-mt-14">
@@ -1201,20 +1381,7 @@ export default function Home() {
               {current.trailerKey && displayMode === "trailers" ? (
                 /* ── TRAILER LAYOUT ── */
                 <div className="flex flex-col gap-4 p-4 sm:p-6">
-                  <TrailerPlayer
-                    key={current.trailerKey}
-                    videoId={current.trailerKey}
-                    onPctChange={(pct) => { trailerWatchPctRef.current = pct; setTrailerStars(pctToStars(pct)); }}
-                    onEnd={commitTrailerRating}
-                  />
-
-                  {/* Watch progress */}
-                  <div className="h-1.5 w-full rounded-full bg-zinc-200 overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-blue-500 transition-[width] duration-500"
-                      style={{ width: `${trailerWatchPctRef.current}%` }}
-                    />
-                  </div>
+                  <TrailerPlayer videoId={current.trailerKey} />
 
                   {/* Metadata */}
                   <div>
@@ -1239,12 +1406,56 @@ export default function Home() {
                     )}
                   </div>
 
-                  {/* Star ratings — fills with watch time; click either row to submit */}
-                  <div className="rounded-xl bg-zinc-50 border border-zinc-200 p-3 space-y-2">
-                    <StarRow key={`tr-red-${current.title}`}  filled={trailerStars} color="red"  label="Seen it"      onRate={(n) => submitRating(n, "seen")} />
-                    <StarRow key={`tr-blue-${current.title}`} filled={trailerStars} color="blue" label="Haven't seen" onRate={(n) => submitRating(n, "unseen")} />
-                    <p className="text-xs text-zinc-400 text-center pt-1">Stars fill as you watch · click red = seen, blue = interest</p>
+                  {/* Rating UI */}
+                  <div className="rounded-xl bg-zinc-50 border border-zinc-200 px-2 py-2 sm:px-3 sm:py-2.5">
+                    {seenStatus === null ? (
+                      <div className="flex flex-nowrap items-center gap-1.5 sm:gap-2 min-w-0 overflow-x-auto [scrollbar-width:thin]">
+                        <StarRow
+                          key={`tr-seen-${current.title}`}
+                          compact
+                          filled={0}
+                          color="red"
+                          label="Seen it"
+                          onRate={(n) => submitRating(n, "seen")}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            seenStatusRef.current = "unseen";
+                            setSeenStatus("unseen");
+                          }}
+                          className="shrink-0 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-[11px] sm:text-xs font-medium text-zinc-700 whitespace-nowrap hover:bg-zinc-50 transition-colors"
+                          title="Haven't seen it — rate interest with blue stars"
+                        >
+                          Not yet
+                        </button>
+                        <PassNextButton compact onPass={passCurrentCard} />
+                      </div>
+                    ) : (
+                      <div className="flex flex-nowrap items-center gap-1.5 sm:gap-2 min-w-0 overflow-x-auto [scrollbar-width:thin]">
+                        <StarRow
+                          key={`tr-unseen-${current.title}`}
+                          compact
+                          filled={0}
+                          color="blue"
+                          label="Interest"
+                          onRate={(n) => submitRating(n, "unseen")}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            seenStatusRef.current = null;
+                            setSeenStatus(null);
+                          }}
+                          className="shrink-0 text-[11px] sm:text-xs text-zinc-500 hover:text-zinc-800 transition-colors whitespace-nowrap"
+                        >
+                          I have seen it
+                        </button>
+                        <PassNextButton compact onPass={passCurrentCard} />
+                      </div>
+                    )}
                   </div>
+                  {prefetchQueueBlock}
                 </div>
               ) : (
                 /* ── POSTER LAYOUT (no trailer) ── */
@@ -1285,7 +1496,21 @@ export default function Home() {
                         </span>
                         {current.rtScore && <RTBadge score={current.rtScore} />}
                       </div>
-                      <h2 className="text-xl sm:text-2xl font-bold text-zinc-900 mt-0.5 leading-tight">{current.title}</h2>
+                      <h2 className="text-xl sm:text-2xl font-bold text-zinc-900 mt-0.5 leading-tight">
+                        {!current.trailerKey ? (
+                          <a
+                            href={youtubeSearchUrlForMovie(current.title, current.type, current.year)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline decoration-zinc-300 decoration-2 underline-offset-2 hover:text-indigo-700 hover:decoration-indigo-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 rounded-sm"
+                            aria-label={`Search YouTube for ${current.title} trailer`}
+                          >
+                            {current.title}
+                          </a>
+                        ) : (
+                          current.title
+                        )}
+                      </h2>
                       {current.director && (
                         <p className="mt-1 text-sm text-zinc-500">
                           <span className="text-zinc-400">{current.type === "tv" ? "Created by" : "Dir."}</span> {current.director}
@@ -1299,74 +1524,69 @@ export default function Home() {
                       )}
                     </div>
                   </div>
-                  {/* Star ratings — both start at 3; click either row to submit */}
-                  <div className="rounded-xl bg-zinc-50 border border-zinc-200 p-3 space-y-2">
-                    <StarRow key={`po-red-${current.title}`}  filled={3} color="red"  label="Seen it"      onRate={(n) => submitRating(n, "seen")} />
-                    <StarRow key={`po-blue-${current.title}`} filled={3} color="blue" label="Haven't seen" onRate={(n) => submitRating(n, "unseen")} />
-                    <p className="text-xs text-zinc-400 text-center pt-1">Click a star to rate and advance · red = seen, blue = interest</p>
+                  {/* Rating UI */}
+                  <div className="rounded-xl bg-zinc-50 border border-zinc-200 px-2 py-2 sm:px-3 sm:py-2.5">
+                    {seenStatus === null ? (
+                      <div className="flex flex-nowrap items-center gap-1.5 sm:gap-2 min-w-0 overflow-x-auto [scrollbar-width:thin]">
+                        <StarRow
+                          key={`po-seen-${current.title}`}
+                          compact
+                          filled={0}
+                          color="red"
+                          label="Seen it"
+                          onRate={(n) => submitRating(n, "seen")}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            seenStatusRef.current = "unseen";
+                            setSeenStatus("unseen");
+                          }}
+                          className="shrink-0 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-[11px] sm:text-xs font-medium text-zinc-700 whitespace-nowrap hover:bg-zinc-50 transition-colors"
+                          title="Haven't seen it — rate interest with blue stars"
+                        >
+                          Not yet
+                        </button>
+                        <PassNextButton compact onPass={passCurrentCard} />
+                      </div>
+                    ) : (
+                      <div className="flex flex-nowrap items-center gap-1.5 sm:gap-2 min-w-0 overflow-x-auto [scrollbar-width:thin]">
+                        <StarRow
+                          key={`po-unseen-${current.title}`}
+                          compact
+                          filled={0}
+                          color="blue"
+                          label="Interest"
+                          onRate={(n) => submitRating(n, "unseen")}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            seenStatusRef.current = null;
+                            setSeenStatus(null);
+                          }}
+                          className="shrink-0 text-[11px] sm:text-xs text-zinc-500 hover:text-zinc-800 transition-colors whitespace-nowrap"
+                        >
+                          I have seen it
+                        </button>
+                        <PassNextButton compact onPass={passCurrentCard} />
+                      </div>
+                    )}
                   </div>
+                  {prefetchQueueBlock}
                 </div>
               )}
             </div>
           ) : null}
         </div>
 
-        {/* Full rating history */}
-        {history.length > 0 && (
-          <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm">
-            <div className="px-4 py-3 border-b border-zinc-100 flex items-center justify-between gap-2">
-              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">All ratings</p>
-              <span className="text-xs text-zinc-400 tabular-nums">{history.length}</span>
-            </div>
-            <ul className="divide-y divide-zinc-50 max-h-[min(50vh,28rem)] overflow-y-auto overscroll-contain">
-              {[...history].reverse().map((e, i) => (
-                <li
-                  key={`${e.title}-${history.length - 1 - i}`}
-                  onClick={() => reconsiderHistoryEntry(e)}
-                  className="px-4 py-2 flex items-center justify-between gap-3 text-sm min-w-0 cursor-pointer hover:bg-zinc-50 active:bg-zinc-100 transition-colors"
-                  title="Click to re-rate"
-                >
-                  <div className="min-w-0 flex items-baseline gap-1.5">
-                    <span className="font-medium text-zinc-800 truncate">{e.title}</span>
-                    <span className="text-xs text-zinc-400 flex-shrink-0">{e.type === "tv" ? "TV" : "Film"}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs flex-shrink-0">
-                    <span className="text-zinc-600">You: <strong>{e.userRating}</strong></span>
-                    <span className="text-blue-500">AI: <strong>{e.predictedRating}</strong></span>
-                    <span className={`font-bold ${e.error <= 10 ? "text-green-600" : e.error <= 25 ? "text-yellow-600" : "text-red-600"}`}>
-                      ±{e.error}
-                    </span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* All “not interested” (haven’t seen — didn’t want to watch) */}
-        {dontSeeRows.length > 0 && (
-          <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm">
-            <div className="px-4 py-3 border-b border-zinc-100 flex items-center justify-between gap-2">
-              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Not interested</p>
-              <span className="text-xs text-zinc-400 tabular-nums">{dontSeeRows.length}</span>
-            </div>
-            <ul className="divide-y divide-zinc-50 max-h-[min(40vh,22rem)] overflow-y-auto overscroll-contain">
-              {dontSeeRows.map((e, i) => (
-                <li
-                  key={`${e.title}-${i}`}
-                  onClick={() => reconsiderNotInterested(e)}
-                  className="px-4 py-2 flex items-center justify-between gap-3 text-sm min-w-0 cursor-pointer hover:bg-zinc-50 active:bg-zinc-100 transition-colors"
-                  title="Click to reconsider"
-                >
-                  <span className="font-medium text-zinc-800 truncate">{e.title}</span>
-                  {e.rtScore != null && e.rtScore !== "" ? (
-                    <span className="text-xs text-zinc-500 flex-shrink-0 tabular-nums">RT {e.rtScore}</span>
-                  ) : (
-                    <span className="text-xs text-zinc-400 flex-shrink-0">—</span>
-                  )}
-                </li>
-              ))}
-            </ul>
+        {/* Taste profile card */}
+        {tasteSummary && (
+          <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm p-4">
+            <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">AI&apos;s model of your taste</p>
+            <p className="text-sm text-zinc-700 leading-relaxed" style={{ borderLeft: "3px solid #a78bfa", paddingLeft: "12px" }}>
+              {tasteSummary}
+            </p>
           </div>
         )}
 
@@ -1410,6 +1630,23 @@ export default function Home() {
           />
         </div>
       )}
+
+      <ConfirmDialog
+        open={channelPendingDelete !== null}
+        title="Delete channel"
+        tone="danger"
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        onCancel={() => setChannelPendingDelete(null)}
+        onConfirm={confirmDeleteChannelFromHome}
+      >
+        {channelPendingDelete ? (
+          <>
+            Delete <span className="font-medium text-zinc-800">&quot;{channelPendingDelete.name}&quot;</span>? This
+            cannot be undone.
+          </>
+        ) : null}
+      </ConfirmDialog>
     </div>
   );
 }

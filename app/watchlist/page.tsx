@@ -2,21 +2,11 @@
 
 import { useState, useEffect } from "react";
 import type { WatchlistEntry } from "../page";
+import RTBadge from "../components/RTBadge";
 
 const WATCHLIST_KEY = "movie-recs-watchlist";
 const SKIPPED_KEY = "movie-recs-skipped";
 const NOT_INTERESTED_KEY = "movie-recs-not-interested";
-
-function RTBadge({ score }: { score: string }) {
-  const pct = parseInt(score, 10);
-  const fresh = !isNaN(pct) ? pct >= 60 : true;
-  return (
-    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${fresh ? "bg-red-50 text-red-700" : "bg-zinc-100 text-zinc-500"}`}>
-      <span>{fresh ? "🍅" : "💀"}</span>
-      {score}
-    </span>
-  );
-}
 
 export default function WatchlistPage() {
   const [watchlist, setWatchlist] = useState<WatchlistEntry[]>([]);
@@ -63,12 +53,18 @@ export default function WatchlistPage() {
         {/* Header */}
         <div>
           <h1 className="text-2xl font-bold text-zinc-900">Watchlist</h1>
-          <p className="text-sm text-zinc-500">{watchlist.length} title{watchlist.length !== 1 ? "s" : ""} to watch</p>
+          <p className="text-sm text-zinc-500">
+            {watchlist.length} title{watchlist.length !== 1 ? "s" : ""} to watch — one global list; any channel can add
+            titles here.
+          </p>
         </div>
 
         {watchlist.length === 0 ? (
           <div className="bg-white rounded-2xl border border-zinc-200 p-12 text-center shadow-sm">
-            <p className="text-zinc-400 text-sm">No titles yet. Click &quot;Want to watch&quot; to add movies here.</p>
+            <p className="text-zinc-400 text-sm">
+              No titles yet. Save from the app with blue 4–5★ (or use &ldquo;Add to watchlist&rdquo; on Channels for
+              high-interest passes).
+            </p>
           </div>
         ) : (
           <>

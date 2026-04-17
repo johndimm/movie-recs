@@ -1,6 +1,7 @@
 export interface RatingEntry {
   title: string;
   type: "movie" | "tv";
+  /** 0.5–5 half-star scale. Legacy 0–100 is migrated client-side. */
   userRating: number;
   predictedRating: number;
   rtScore?: string | null;
@@ -32,6 +33,12 @@ interface RawItem {
   rt_score?: string | null;
 }
 
+import {
+  migrateRatingValue,
+  normalizePredictedRating,
+  rtTomatometerPercentToStars,
+} from "../../lib/ratingScale";
+
 /**
  * Items per LLM response — 5 items ≈ 750 output tokens ≈ ~10–15s on DeepSeek.
  * Smaller + parallel beats larger + sequential for keeping the prefetch queue full.
@@ -47,6 +54,64 @@ const LOW_RT_THRESHOLD = 60; // want-to-watch: RT below this is a strong signal
 const HIGH_RT_THRESHOLD = 70; // not interested: RT at/above this is a strong signal
 /** 5 items × ~200 tokens each + overhead. */
 const LLM_OUTPUT_MAX_TOKENS = 1500;
+
+function getYoutubeDataApiKey(): string | undefined {
+  return process.env.YOUTUBE_API_KEY || process.env.YOUTUBE_DATA_API_KEY;
+}
+
+/**
+ * Optional YouTube Data API check (requires {@link getYoutubeDataApiKey}).
+ * Drops trailers that cannot be embedded on a third-party site (uploader disabled embeds) or
+ * are age-restricted on YouTube (otherwise the iframe shows “Watch on YouTube” only).
+ * On API errors we fail open so a bad key or outage does not strip every trailer.
+ */
+async function youtubeVideoIsEmbeddableForSite(videoId: string): Promise<boolean> {
+  const key = getYoutubeDataApiKey();
+  if (!key) return true;
+  try {
+    const url = new URL("https://www.googleapis.com/youtube/v3/videos");
+    url.searchParams.set("part", "status,contentDetails");
+    url.searchParams.set("id", videoId);
+    url.searchParams.set("key", key);
+    const res = await fetch(url.toString());
+    if (!res.ok) {
+      console.warn("[next-movie] YouTube Data API HTTP", res.status);
+      return true;
+    }
+    const data = (await res.json()) as {
+      items?: Array<{
+        status?: { embeddable?: boolean };
+        contentDetails?: { contentRating?: { ytRating?: string } };
+      }>;
+    };
+    const item = data.items?.[0];
+    if (!item) return false;
+    if (item.status?.embeddable === false) return false;
+    if (item.contentDetails?.contentRating?.ytRating === "ytAgeRestricted") return false;
+    return true;
+  } catch (e) {
+    console.warn("[next-movie] YouTube Data API check failed", e);
+    return true;
+  }
+}
+
+/** Prefer official trailers, then other trailers, then any YouTube clip TMDB listed. */
+function orderedYoutubeCandidateKeys(
+  ytVideos: { key: string; site: string; type: string; official?: boolean }[]
+): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const add = (k: string | undefined) => {
+    if (!k || seen.has(k)) return;
+    seen.add(k);
+    out.push(k);
+  };
+  const trailers = ytVideos.filter((v) => v.type === "Trailer");
+  trailers.sort((a, b) => Number(!!b.official) - Number(!!a.official));
+  for (const v of trailers) add(v.key);
+  for (const v of ytVideos) add(v.key);
+  return out;
+}
 
 /** Official poster + YouTube trailer key via TMDB — one search + one videos call per title. */
 async function fetchTmdbAssets(
@@ -94,12 +159,13 @@ async function fetchTmdbAssets(
             results?: { key: string; site: string; type: string; official?: boolean }[];
           };
           const ytVideos = (vData.results ?? []).filter((v) => v.site === "YouTube");
-          const pick =
-            ytVideos.find((v) => v.type === "Trailer" && v.official) ??
-            ytVideos.find((v) => v.type === "Trailer") ??
-            ytVideos[0] ??
-            null;
-          trailerKey = pick?.key ?? null;
+          const candidateKeys = orderedYoutubeCandidateKeys(ytVideos);
+          for (const key of candidateKeys) {
+            if (await youtubeVideoIsEmbeddableForSite(key)) {
+              trailerKey = key;
+              break;
+            }
+          }
         }
       } catch (e) {
         console.error("[next-movie] TMDB videos fetch failed:", e);
@@ -224,12 +290,15 @@ function parseRtPercent(rtScore: string | null | undefined): number | null {
 }
 
 /**
- * Taste information density: prefer |user − RT|; if no RT, use |user − AI prediction| as fallback.
+ * Taste information density: prefer |user − RT| (RT % mapped to same half-star scale); else |user − AI|.
  */
 function divergenceScore(entry: RatingEntry): number {
+  const u = migrateRatingValue(entry.userRating);
   const rt = parseRtPercent(entry.rtScore);
-  if (rt !== null) return Math.abs(entry.userRating - rt);
-  return Math.abs(entry.userRating - entry.predictedRating);
+  if (rt !== null) {
+    return Math.abs(u - rtTomatometerPercentToStars(rt));
+  }
+  return Math.abs(u - migrateRatingValue(entry.predictedRating));
 }
 
 function selectInformativeHistory(history: RatingEntry[], maxEntries: number): RatingEntry[] {
@@ -250,6 +319,40 @@ function selectInformativeHistory(history: RatingEntry[], maxEntries: number): R
 import { callLLM } from "./llm";
 import { resolveHistoryForPrompt } from "./historySessionStore";
 
+interface ChannelPayload {
+  id: string;
+  name: string;
+  genres: string[];
+  timePeriods: string[];
+  language: string;
+  region: string;
+  artists: string;
+  freeText: string;
+  popularity: number;
+}
+
+function buildChannelConstraint(ch: ChannelPayload): string {
+  const lines: string[] = [];
+  if (ch.genres.length) lines.push(`- Genres: ${ch.genres.join(", ")}`);
+  if (ch.timePeriods.length) lines.push(`- Time periods: ${ch.timePeriods.join(", ")}`);
+  if (ch.language.trim()) lines.push(`- Language: ${ch.language.trim()}`);
+  if (ch.region.trim()) lines.push(`- Region/Country: ${ch.region.trim()}`);
+  if (ch.artists.trim()) lines.push(`- Focus on work by: ${ch.artists.trim()}`);
+  if (ch.freeText.trim()) lines.push(`- Additional: ${ch.freeText.trim()}`);
+
+  const pop = ch.popularity;
+  if (pop <= 15) lines.push("- Popularity: Hidden gems only — obscure, underseen, cult, or arthouse titles. Avoid mainstream blockbusters entirely.");
+  else if (pop <= 35) lines.push("- Popularity: Mostly obscure — prefer lesser-known films, avoid the biggest blockbusters.");
+  else if (pop <= 45) lines.push("- Popularity: Lean obscure — mix of hidden gems and mid-range titles, avoiding mainstream hits.");
+  else if (pop <= 55) lines.push("- Popularity: Balanced mix of mainstream and hidden gems.");
+  else if (pop <= 65) lines.push("- Popularity: Lean mainstream — prefer well-known titles, include some lesser-known.");
+  else if (pop <= 85) lines.push("- Popularity: Mostly mainstream — well-known, popular titles.");
+  else lines.push("- Popularity: Mainstream only — widely-known, popular, commercially successful titles.");
+
+  if (lines.length === 0) return "";
+  return `CHANNEL — "${ch.name}" — HARD CONSTRAINT: Every item MUST fit this channel. Requirements:\n${lines.join("\n")}`;
+}
+
 export async function POST(request: Request) {
   const raw = (await request.json()) as {
     sessionId?: string;
@@ -263,6 +366,7 @@ export async function POST(request: Request) {
     tasteSummary?: string;
     diversityLens?: string;
     userRequest?: string;
+    activeChannel?: ChannelPayload;
     mediaType?: "movie" | "tv" | "both";
     llm?: string;
     count?: number;
@@ -279,6 +383,9 @@ export async function POST(request: Request) {
   const existingTasteSummary = raw.tasteSummary?.trim() || null;
   const diversityLens = raw.diversityLens?.trim() || null;
   const userRequest = raw.userRequest?.trim() || null;
+  const activeChannel = raw.activeChannel ?? null;
+  // "all" is the special no-filter channel — treat it like no channel so the diversity lens applies
+  const channelConstraint = (activeChannel && activeChannel.id !== "all") ? buildChannelConstraint(activeChannel) : null;
   const mediaType = raw.mediaType ?? "both";
   const llm = raw.llm ?? "deepseek";
   const countRaw = raw.count;
@@ -315,11 +422,13 @@ export async function POST(request: Request) {
           .map((h) => {
             const rt = h.rtScore ? ` RT:${h.rtScore}` : "";
             const rt_n = parseRtPercent(h.rtScore);
+            const u = migrateRatingValue(h.userRating);
+            const rtAsStars = rt_n !== null ? rtTomatometerPercentToStars(rt_n) : null;
             const gap =
-              rt_n !== null
-                ? ` |user−RT|=${Math.abs(h.userRating - rt_n)}`
-                : ` |user−AI|=${Math.abs(h.userRating - h.predictedRating)} (no RT)`;
-            return `- "${h.title}" (${h.type}): user ${h.userRating}/100, AI predicted ${h.predictedRating}/100${rt}${gap}`;
+              rtAsStars !== null
+                ? ` |user−RT★|=${Math.abs(u - rtAsStars)} (Tomatometer → ${rtAsStars}/5 stars)`
+                : ` |user−AI|=${Math.abs(u - migrateRatingValue(h.predictedRating))} (no RT)`;
+            return `- "${h.title}" (${h.type}): user ${u}/5, AI ${migrateRatingValue(h.predictedRating)}/5${rt}${gap}`;
           })
           .join("\n");
 
@@ -358,25 +467,28 @@ export async function POST(request: Request) {
 
   const systemPrompt = `You are calibrating a movie/TV recommendation system to a specific user's taste.
 
-Many cards have no Rotten Tomatoes score in the data — that is normal. When RT is missing from a rating line, the |user−AI| gap is used instead of |user−RT|.
+The user rates with **half stars from 0.5 to 5** (not percentages). Rotten Tomatoes Tomatometer scores are percentages; the app converts them to the same star scale for comparison.
+
+Many cards have no Rotten Tomatoes score — that is normal.
 
 Your job each turn:
 1. Propose ${batchCount} titles (aim for variety). The client removes duplicates against a large exclusion set you do not receive in full — repeats are OK; the app will filter.
-2. For each title, predict the rating they would give (0–100) from the taste signals below
-3. Return title, year, director, top 3-4 actors, a 1-2 sentence plot summary, and Rotten Tomatoes Tomatometer score for each
+2. For each title, predict the rating they would give on a **0.5–5 star scale (half-star steps only)**.
+3. Return title, year, director, top 3-4 actors, a 1-2 sentence plot summary, and Rotten Tomatoes Tomatometer when known.
 4. Respond with ONLY valid JSON — no markdown, no explanation:
-{"items":[{"title":"...","type":"movie","year":1994,"director":"...","predicted_rating":75,"actors":["...","..."],"plot":"...","rt_score":"94%"}]}
+{"items":[{"title":"...","type":"movie","year":1994,"director":"...","predicted_rating":3.5,"actors":["...","..."],"plot":"...","rt_score":"94%"}]}
 
 Rules:
 - Return exactly ${batchCount} objects in "items" (unless absolutely impossible — then return as many distinct valid picks as you can)
 - Avoid duplicate titles within "items". Do not worry about overlap with the user's full past list — the app enforces that separately
 - "type" must be exactly "movie" or "tv"
 - "year" is a number; "director" is the creator/showrunner for TV
+- "predicted_rating" is a number from 0.5 to 5 in steps of 0.5 (half stars) — never use 0–100
 - "rt_score" is the Tomatometer percentage (e.g. "94%") or null if unknown
 - All string values must be on a single line — no newline characters inside strings
 - Vary genres, eras, and (if media allows) movie vs TV to calibrate faster
-- Predict honestly — don't always guess 70
-- Taste data below is intentionally small: high-divergence ratings, low-RT wants, high-RT dismissals. Full exclusion is not listed.${mediaConstraint}${userRequest ? `\nUSER REQUEST — HARD CONSTRAINT: The user has asked for "${userRequest}". Every single item you return MUST match this request. Do not return anything outside this category. This overrides the diversity lens entirely.` : diversityLens ? `\nDIVERSITY LENS FOR THIS BATCH: ${diversityLens}. Every item must fit this lens. This is how the app explores beyond the obvious — treat it as a hard constraint.` : ""}`;
+- Predict honestly — vary predictions; the midpoint is not always 3
+- Taste data below is intentionally small: high-divergence ratings, low-RT wants, high-RT dismissals. Full exclusion is not listed.${mediaConstraint}${channelConstraint ? `\n\n${channelConstraint}` : ""}${userRequest ? `\nUSER REQUEST — ADDITIONAL HARD CONSTRAINT: The user has also asked for "${userRequest}". Every item must satisfy BOTH the channel requirements above AND this request.` : !channelConstraint && diversityLens ? `\nDIVERSITY LENS FOR THIS BATCH: ${diversityLens}. Every item must fit this lens. This is how the app explores beyond the obvious — treat it as a hard constraint.` : ""}`;
 
   const tasteSummarySection = existingTasteSummary
     ? `RUNNING TASTE PROFILE (your summary from the previous session — treat as primary signal, refine it):
@@ -465,7 +577,7 @@ ${history.length === 0 && allExcluded.length === 0
       type: raw.type,
       year: raw.year ?? null,
       director: raw.director ?? null,
-      predictedRating: raw.predicted_rating ?? 70,
+      predictedRating: normalizePredictedRating(raw.predicted_rating, 3),
       actors: raw.actors ?? [],
       plot: raw.plot ?? "",
       posterUrl: null,

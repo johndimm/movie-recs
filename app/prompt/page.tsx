@@ -5,37 +5,37 @@ import { useState } from "react";
 const NATURAL_PROMPT = `Build a web app for discovering movies and TV shows I'll love.
 
 TikTok doesn't ask you what you like — it watches how you react and figures it out.
-I want something like that for movies. Show me a title, I'll rate it 0–100, and you
-reveal what you predicted. Over many rounds the AI should get better at knowing my taste.
+I want something like that for movies. Show me a title; I rate with half-star red (seen)
+or blue (unseen interest) stars, and you reveal how close your prediction was. Over many
+rounds the AI should get better at knowing my taste.
 
 The real goal isn't rating films I've already seen — it's finding films I haven't seen
-but will love. The watchlist of "want to watch" titles is the actual product. Rating
-seen films is just the training signal to get there.
+but will love. The global watchlist is the actual product. Rating seen films is the
+training signal to get there.
 
-Each round: show me a movie or TV title with its poster, director, cast, plot summary,
-and Rotten Tomatoes score. If I've seen it, I rate it with a slider. If I haven't, I
-can either save it to my watchlist (which means the AI got it right) or dismiss it
-(which means the AI missed). Either way, that title never comes up again.
+Each round: poster or trailer, director, cast, plot, Rotten Tomatoes when available.
+If I've seen it, one tap on the red stars submits. If I haven't, I tap "Not yet", then
+blue stars for interest — high stars add to my watchlist, low stars mean not interested.
+I can hit Next to skip without saving. Dismissed titles stay excluded from future picks.
 
-After I submit a rating, load the next title automatically — no Next button, keep it
-moving. Show my score, the AI's prediction, and the error in the chart area.
+After I submit, load the next title automatically. Show accuracy in a chart — rolling
+window over recent decisions, not a lifetime average.
 
-Show an accuracy chart over time so I can see the AI improving. Rolling window, not
-cumulative — I want to see recent performance, not a lifetime average dragged down by
-early misses.
+When something lands on my watchlist, look up streaming services (US) when possible.
 
-When I save something to my watchlist, also look up which streaming services have it
-so I know where to watch it.
+Filter movies / TV / both. Pick an LLM (DeepSeek, Claude, GPT-4o, Gemini) if I have keys.
 
-Let me filter to movies only, TV only, or both. Let me switch between different LLMs
-(DeepSeek, Claude, GPT-4o, Gemini) if I have API keys for them, so I can compare how
-well each one knows my taste.
+Multiple taste channels with per-channel prefetch queues — same title can have different
+ratings per channel. A starter pack can merge example channels without wiping my data.
+
+Nav includes a dedicated Watchlist page (global list) plus Channels, Settings, Help.
+Ratings page: Seen (signed delta vs AI), Watchlist, Not interested.
 
 Keep all data in localStorage — no accounts, no server database.`;
 
-const PROMPT = `# Movie Recs — full spec
+const PROMPT = `# Trailer Vision — full spec
 
-Build a Next.js 16 (App Router) web app called Movie Recs.
+Build a Next.js 16 (App Router) web app called Trailer Vision.
 Use Tailwind CSS v4 for styling. All persistence in localStorage. No database.
 
 ## Core concept
@@ -45,9 +45,9 @@ signal; the watchlist of unseen-but-wanted titles is the actual product.
 
 Each round:
 1. The next card is served instantly from a prefetch queue (see below).
-2. The user rates it 0-100 with a slider (or marks it as unseen).
-3. The next title loads automatically — no Next button.
-4. The last result (your score / AI score / error) is shown inline in the chart panel.
+2. The user rates with half-star stars: red = seen (one tap); if unseen, "Not yet" then blue stars.
+3. **Next** skips without saving. After a rating, the next title loads automatically.
+4. The last result (accuracy vs prediction) is shown inline in the chart panel.
 
 ## LLM API route  POST /api/next-movie
 Request body:
@@ -110,15 +110,16 @@ incrementally rather than starting from scratch.
 
 ## Prefetch queue with daisy-chain replenishment
 Maintain a client-side prefetch queue (ref, not state) of pre-fetched CurrentMovie objects.
-LLM_BATCH_SIZE = 5. MAX_REPLENISH_IN_FLIGHT = 3. HIGH_WATER_MARK = 12.
+LLM_BATCH_SIZE = 5. MAX_REPLENISH_IN_FLIGHT = 3. HIGH_WATER_MARK = 6 (caps buffered cards so
+new ratings affect upcoming picks sooner; smaller than a deep backlog).
 
 On card pop: show the card instantly; if replenishInFlight < MAX_REPLENISH_IN_FLIGHT, start
 a background replenish immediately (don't wait for the queue to run low).
 
 Daisy-chain: when any replenish completes, if queue < HIGH_WATER_MARK and a slot is free,
-immediately start another. This keeps MAX_REPLENISH_IN_FLIGHT fetches running continuously
-so the queue is always being filled. Stop the chain if zeroYieldStreak >= 3 (3 consecutive
-batches with 0 fresh items — LLM is stuck). Reset the streak on any user action.
+immediately start another. This keeps up to MAX_REPLENISH_IN_FLIGHT fetches running so the
+queue refills. Stop the chain if zeroYieldStreak >= 3 (3 consecutive batches with 0 fresh
+items — LLM is stuck). Reset the streak on any user action.
 
 Pre-display check: before showing a card popped from the queue, verify the title is not
 already in the excluded set (race condition: user could rate/skip a title while it was
@@ -132,23 +133,23 @@ On failure, show a friendly error pill with a Retry button.
 lensIndexRef increments on every replenish call so concurrent batches get different lenses.
 
 ## Star rating system
-Every card shows two rows of 5 stars. Clicking any star submits immediately and advances.
+Half-star precision on 1–5. Trailer and poster layouts use the same interaction model.
 
-Red stars — "Seen it" (1–5):
-- Treated as an explicit rating. Stored in history. Maps to 0–100: stars × 20.
-- Contributes to the accuracy chart as a blue vertical bar.
+Initial state (seen path default):
+- One horizontal row: compact StarRow red ("Seen it") + button "Not yet" (sets unseen flow) + **Next** (skip).
+- Clicking a red star calls submitRating(n, "seen") immediately — one tap for seen titles.
 
-Blue stars — "Haven't seen it / interest level" (1–5):
-- 4–5 stars: adds to watchlist (same as old "Want to watch"), accuracy 85.
-- 1–3 stars: logged as not-interested taste signal (same as old "Not interested"), accuracy 20.
-- Both add to skipped list (never shown again).
+Unseen flow (after "Not yet"):
+- Compact StarRow blue ("Interest") + "I have seen it" (back to red row) + **Next**.
+- submitRating(_, "unseen") calls recordNotSeen(kind, interestStars): kind = want if stars≥4 else skip.
+- 4–5 stars: add to global watchlist, accuracy chart diamond at 85.
+- 1–3 stars: not-interested signal, chart diamond at 20.
+- Both add to skipped; every blue submit appends movie-recs-unseen-interest-log for /channels.
 
-StarRow component:
-- Props: filled (number 1–5), color ("red"|"blue"), label (string), onRate(n: number).
-- Internal hover state shows a preview as the user moves over stars.
-- key prop tied to current movie title forces a full remount on each new card,
-  resetting hover state so the previous card's highlight doesn't bleed through.
-- touchAction: "manipulation" on each star button for responsive mobile taps.
+StarRow supports optional compact mode (tighter label + smaller stars) for the one-line bar.
+
+Props: filled, color ("red"|"blue"), label, onRate(n), compact?: boolean.
+Hover preview, key={title} remount, touchAction: "manipulation" on star buttons.
 
 ## Accuracy chart
 Hand-rolled SVG, no library. Shows accuracy (100 - error) so up is always good.
@@ -163,53 +164,24 @@ Hand-rolled SVG, no library. Shows accuracy (100 - error) so up is always good.
 Use the YouTube IFrame API to embed and auto-play the trailer.
 
 TrailerPlayer component:
-- Declare a global Window.YT type shim (Player constructor + PlayerState enum + isMuted/
-  getVolume/setVolume/unMute methods on YTPlayer interface).
-- Load the IFrame API script exactly once via a module-level singleton
-  (loadYouTubeApi(): Promise<void> backed by _ytApiLoaded / _ytApiReady flags and a
-  resolve-queue). Never add the script tag twice.
-- In useEffect([videoId]): create a fresh inner mountEl div, append to wrapperRef.
-  Pass mountEl (NOT wrapperRef.current) to new window.YT.Player(mountEl, ...).
-  YT replaces its argument element with an iframe — passing a React-owned ref directly
-  causes a React removeChild crash on unmount. Only the inner element is YT-managed;
-  React owns the wrapper.
-- playerVars: { autoplay:1, mute:1, controls:1, rel:0, modestbranding:1, playsinline:1 }
-  (mute:1 is required for autoplay; unmute in onReady).
-- onReady: restore _lastVolume (module-level var) if set, then call unMute().
-- Poll getCurrentTime()/getDuration() every 500ms; report watch% via onPctChange.
-- onStateChange ENDED: call onPctChange(100) then onEnd() (guarded by endedRef).
-- Cleanup: save volume to _lastVolume if !isMuted(), then destroy(). Remove mountEl
-  if still connected. This persists volume across cards for the session.
-- Return <div ref={wrapperRef} className="w-full aspect-video rounded-xl overflow-hidden bg-black" />.
+- Global Window.YT shim; load iframe_api script once (singleton).
+- useEffect: create inner mountEl, append to wrapperRef; new YT.Player(mountEl, { videoId, playerVars }).
+  Never pass React's wrapper directly — YT replaces the node.
+- playerVars: autoplay, mute, controls, rel, modestbranding, playsinline, enablejsapi; include
+  origin: window.location.origin (http and https) for postMessage with the JS API.
+- onReady: unmute; optional loadVideoById when videoId changes; destroy on cleanup.
+- Return wrapper div aspect-video; volume can persist session-wide via module var.
 
-Trailer layout (card has trailerKey):
-- Full-width TrailerPlayer at the top.
-- Thin watch-progress bar below it (bg-blue-500, width = watchPct%).
-- Metadata (type/year badge, RT badge, title, director, cast, plot) below.
-- Two StarRow components in a rounded box:
-    red  row — "Seen it"      — filled = trailerStars (live, driven by watch%)
-    blue row — "Haven't seen" — filled = trailerStars (same live count)
-  Hint text: "Stars fill as you watch · click red = seen, blue = interest"
-- Watch-time → stars: pctToStars(pct) = Math.min(5, Math.floor(pct / 20) + 1).
-  trailerStars is React state updated via onPctChange every 500ms.
-- Video ends → commitTrailerRating() auto-submits as red (seen) at current trailerStars
-  (will be 5). Guarded by trailerCommittedRef to prevent double-submit.
-- Clicking any star calls submitRating(n, mode) which sets trailerCommittedRef = true.
-- Reset trailerWatchPctRef, trailerCommittedRef, trailerStars(1) on each new card.
+Trailer layout: TrailerPlayer on top; metadata; same single-line rating strip as poster
+(Seen it / Not yet / Next, then Interest / I have seen it / Next) — no watch-% auto stars
+in the current implementation.
 
 ## Main card UI (poster layout, when trailerKey is null or displayMode = "posters")
-On mobile: small portrait thumbnail (w-28 h-[10.5rem]) on the LEFT, metadata on the RIGHT.
-  Plot line-clamped to 3 lines on mobile (sm:line-clamp-none).
-On sm+: thumbnail widens to w-48 with natural height.
-Click poster for full-screen lightbox (Escape to close).
-Metadata: type + year badge, RT badge (tomato if >=60%, skull otherwise), title,
-director, cast, plot.
+On mobile: small portrait thumbnail (w-28) on the LEFT, metadata on the RIGHT; plot line-clamped.
+On sm+: thumbnail w-48. Poster opens lightbox. Metadata: type/year, RT badge, title, director,
+cast, plot. Without trailerKey, title links to YouTube search for a trailer.
 
-Below the info, a single rounded box with two StarRow components:
-  red  row — "Seen it"      — filled = 3 (default)
-  blue row — "Haven't seen" — filled = 3 (default)
-  Hint text: "Click a star to rate and advance · red = seen, blue = interest"
-Clicking any star calls submitRating(n, mode) immediately — no separate submit button.
+Below: one rounded box with the compact one-line rating UI (see Star rating system).
 
 While the LLM is fetching: dim the card to 45% opacity. Show a fixed pill at
 bottom-center of the viewport: "LLM is thinking..." with bouncing dots.
@@ -219,8 +191,65 @@ Page max-width: max-w-3xl.
 
 ## Navigation
 Shared sticky nav bar at the top of every page (via layout.tsx):
-App | Watchlist (count badge) | Journal | Prompt
-Active page is highlighted. All navigation stays in the same tab.
+App | Watchlist | Channels | Settings | Help
+/watchlist is the global watchlist (same data as Ratings → Watchlist tab).
+Help explains end-user usage and links to Dev Journal (/journal) and Prompt History (/prompt).
+Ratings (/ratings) is not in the bar. Active page is highlighted.
+
+## Channels (/channels) and per-channel prefetch
+- Channel model: id, name, genres[], timePeriods[], language, region, artists, freeText, popularity.
+- Immutable first channel id "all" named "All". CRUD for other channels; export/import includes
+  movie-recs-channels and movie-recs-active-channel.
+- **Recommendation islands:** Each channel is an independent recommendation context: its own
+  prefetch queue, its own activeChannel object sent to POST /api/next-movie, and its own slice of
+  seen ratings in history. RatingEntry includes optional channelId (set from the active channel
+  when the user rates). The same human-readable title may appear as **multiple** history rows
+  with different channelId values and different userRating / predictedRating — e.g. 4★ vs the AI
+  in "Korean Horror" and 2★ in "All" — because the user is judging the fit under different taste
+  lenses. Per-channel ratings UIs filter by channelId; "All" includes rows with channelId "all"
+  or missing channelId (legacy).
+- Each channel has its own prefetch queue in localStorage: movie-recs-prefetch-queue:{channelId}
+  (legacy key movie-recs-prefetch-queue may be migrated on read). Replenish and card pop use
+  the active channel's queue; switching channel persists the previous queue and loads the new one.
+- Client dedupe for the *next card* still merges canonical title keys from the **full** history
+  plus skipped/watchlist/passed — so in normal browsing a title already decided in one channel
+  is not offered again as a fresh pick until that history row is removed (e.g. reconsider flow).
+  Islands affect **stored ratings, queues, and LLM channel context**, not a second concurrent offer
+  of the same title across channels without clearing history.
+
+## Factory starter channels (factory-channels.json)
+Bundled JSON in the same shape as a v1 export (data object with channel list, active channel,
+prefetch keys, etc.).
+- First visit: if movie-recs-channels has never been written (getItem === null), copy every
+  key from data into localStorage once (applyFactoryBootstrap) on home and channels hydrate.
+- Settings: "Merge starter channels" appends any bundled non-All channels whose ids are not
+  already present; fills prefetch keys only when local key is missing (mergeFactoryChannelsAndQueues).
+- Home channel row: if the user has no custom channels (only "All" or empty during hydrate),
+  show a "Load starter channels" pill next to the + link that runs the same merge and refreshes
+  channels state + prefetch refs + fetchNext.
+
+## Home channel row UI
+- flex flex-wrap gap-2: channel pills wrap instead of single-line horizontal scroll.
+- Pills: text-sm font-semibold; inactive text-zinc-800; selected bg-zinc-900 text-white.
+- Deletable channels: × control on hover (sm+); ConfirmDialog before delete; if active channel
+  deleted, fall back to first remaining channel and fix prefetch/active key.
+
+## Ratings (/ratings) and channel history (/channels)
+Seen tab on /ratings and the **Seen** block inside /channels **Channel history**:
+- Do NOT show RT / Tomatometer badge on these rows (watchlist and not-interested tabs may still show RT).
+- Show StaticStars for userRating (red) plus a signed half-star delta = userRating − predictedRating,
+  formatted like +1.5 or -2 (tabular-nums; emerald if delta>0, rose if delta<0, zinc if 0).
+- Sort bar: "Your stars" (sort descending by user rating) | "vs predicted" (sort descending by delta).
+- Helpers in app/lib/ratingDelta.ts: starDelta(), formatStarDelta().
+- /channels "All" channel: include history where !channelId OR channelId === "all". Other channels:
+  filter channelId === selected.id.
+
+Channel history also lists **Unseen** rows from movie-recs-unseen-interest-log (append on every
+blue-star submit in recordNotSeen: title, metadata snapshot, interestStars, kind want|skip, channelId, at).
+Each row shows blue StaticStars and pills (Added / Not on list for saves vs Not interested for passes).
+**Add to watchlist**: minimum interest (2.5–4.5★), adds titles **not** already on the global watchlist
+with interest ≥ threshold — **skip** rows and **want** rows you removed from the watchlist — then
+removes promoted skips from skipped + not-interested and POST /api/streaming per new entry.
 
 ## Controls (below nav, above card)
 Segmented control: Movies & TV | Movies | TV Series
@@ -252,17 +281,23 @@ The "All ratings" list and the "Not interested" list below the card are fully cl
 In both cases the user rates or categorises it using the normal card UI; handleRate() adds
 a fresh history entry as usual.
 
+## Ratings page  /ratings
+Single page with tabs (Seen | Watchlist | Not interested) when the user has any data in those lists.
+- Seen: rated history — signed half-star delta (user − predicted), sort by your stars vs delta,
+  no RT badge on rows; click a row to remove from history and load that title on / for re-rate.
+- Watchlist: read-only list of movie-recs-watchlist (posters, metadata, RT, streaming pills).
+- Not interested: derived skipped titles (same logic as legacy lists below the home card).
+
 ## Watchlist page  /watchlist
-Shows all "want to watch" entries: poster (w-24), type+year, RT badge, title,
-director, cast, plot, streaming pills (blue).
-× button per entry — removes from watchlist AND moves to not-interested:
-  writes {title, rtScore} to movie-recs-not-interested and adds title to movie-recs-skipped.
+Linked from the main nav. Same global movie-recs-watchlist as Ratings → Watchlist: poster (w-24),
+type+year, RT badge, title, director, cast, plot, streaming pills (blue).
+× removes from watchlist AND moves to not-interested (writes movie-recs-not-interested + skipped).
 
 ## Streaming lookup  POST /api/streaming
 Request: { title, year, llm }
 Prompt: "What streaming services currently have {title} ({year}) in the US?
 Return ONLY a JSON array: ["Netflix", "Max", ...]. Return [] if unsure."
-Called when "Want to watch" is clicked; result stored in the watchlist entry.
+Called when a title is saved to the watchlist (blue 4–5★ or bulk add from Channels); result stored on the entry.
 
 ## Shared LLM caller  app/api/next-movie/llm.ts
 export async function callLLM(llm, systemPrompt, userMessage): Promise<string>
@@ -281,6 +316,7 @@ movie-recs-history        — RatingEntry[] (includes rtScore per entry)
 movie-recs-skipped        — string[] (all excluded titles)
 movie-recs-watchlist      — WatchlistEntry[]
 movie-recs-notseen        — NotSeenEvent[] (for chart plotting)
+movie-recs-unseen-interest-log — UnseenInterestEntry[] (unseen blue-star events with channelId)
 movie-recs-not-interested — { title, rtScore }[] (for high-RT taste signal)
 movie-recs-taste-summary  — string (LLM-generated taste profile, second person)
 movie-recs-llm-session-id — UUID for server-side history session
@@ -313,57 +349,61 @@ export default function PromptPage() {
     });
   };
 
-  const preStyle: React.CSSProperties = {
-    background: "#1e293b",
-    border: "1px solid #334155",
-    borderRadius: 12,
-    padding: "28px 32px",
-    fontFamily: '"SF Mono","Fira Code",monospace',
-    fontSize: "0.78rem",
-    lineHeight: 1.8,
-    whiteSpace: "pre-wrap",
-    wordBreak: "break-word",
-    color: "#e2e8f0",
-  };
+  const preClass =
+    "rounded-xl border border-zinc-200 bg-zinc-50 p-7 font-mono text-[0.78rem] leading-[1.8] text-zinc-800 whitespace-pre-wrap break-words shadow-sm";
 
   return (
-    <div className="min-h-screen bg-[#0f172a] py-12 px-6">
-      <div style={{ maxWidth: 780, margin: "0 auto" }}>
+    <div className="min-h-screen bg-white py-12 px-6">
+      <div className="max-w-[780px] mx-auto">
 
         {/* Natural language prompt */}
-        <div style={{ marginBottom: 28 }}>
-          <h1 style={{ fontSize: "1.4rem", fontWeight: 700, color: "#f1f5f9", letterSpacing: "-0.02em" }}>
-            Idea Prompt
+        <div className="mb-7">
+          <h1 className="text-[1.4rem] font-bold text-zinc-900 tracking-tight">
+            Prompt History
           </h1>
-          <p style={{ marginTop: 6, fontSize: "0.875rem", color: "#64748b" }}>
-            The original concept in plain English — no implementation details.
+          <p className="mt-1.5 text-sm text-zinc-500">
+            Original idea in plain English — then the full technical spec used to build the app.
           </p>
         </div>
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
-          <button onClick={copyNatural} style={{ background: copiedNatural ? "#166534" : "#334155", color: copiedNatural ? "#bbf7d0" : "#cbd5e1", border: "none", borderRadius: 8, padding: "6px 16px", fontSize: "0.8rem", cursor: "pointer", transition: "background 0.15s" }}>
+        <div className="flex justify-end mb-2.5">
+          <button
+            type="button"
+            onClick={copyNatural}
+            className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${
+              copiedNatural
+                ? "bg-green-700 text-white"
+                : "bg-zinc-900 text-white hover:bg-zinc-800"
+            }`}
+          >
             {copiedNatural ? "Copied!" : "Copy to clipboard"}
           </button>
         </div>
-        <pre style={preStyle}>{NATURAL_PROMPT}</pre>
+        <pre className={preClass}>{NATURAL_PROMPT}</pre>
 
         {/* Technical spec */}
-        <div style={{ marginTop: 56, marginBottom: 28 }}>
-          <h2 style={{ fontSize: "1.4rem", fontWeight: 700, color: "#f1f5f9", letterSpacing: "-0.02em" }}>
+        <div className="mt-14 mb-7">
+          <h2 className="text-[1.4rem] font-bold text-zinc-900 tracking-tight">
             Full Technical Spec
           </h2>
-          <p style={{ marginTop: 6, fontSize: "0.875rem", color: "#64748b" }}>
+          <p className="mt-1.5 text-sm text-zinc-500">
             Detailed spec for rebuilding the app from scratch.
           </p>
         </div>
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
-          <button onClick={copySpec} style={{ background: copiedSpec ? "#166534" : "#334155", color: copiedSpec ? "#bbf7d0" : "#cbd5e1", border: "none", borderRadius: 8, padding: "6px 16px", fontSize: "0.8rem", cursor: "pointer", transition: "background 0.15s" }}>
+        <div className="flex justify-end mb-2.5">
+          <button
+            type="button"
+            onClick={copySpec}
+            className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${
+              copiedSpec ? "bg-green-700 text-white" : "bg-zinc-900 text-white hover:bg-zinc-800"
+            }`}
+          >
             {copiedSpec ? "Copied!" : "Copy to clipboard"}
           </button>
         </div>
-        <pre style={preStyle}>
+        <pre className={preClass}>
           {PROMPT.split("\n").map((line, i) =>
             line.startsWith("#") ? (
-              <span key={i} style={{ color: "#64748b" }}>{line}{"\n"}</span>
+              <span key={i} className="text-zinc-500">{line}{"\n"}</span>
             ) : (
               <span key={i}>{line}{"\n"}</span>
             )

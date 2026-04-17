@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Movie Recs",
-  description: "TikTok-style movie recommendation trainer",
+  title: "Trailer Vision",
+  description: "Trailer-first taste calibration — find films you haven't seen but will love",
 };
 
 export default function RootLayout({

@@ -24,8 +24,8 @@ export default function JournalPage() {
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
 
         <div style={{ marginBottom: 40 }}>
-          <h1 style={{ fontSize: "2rem", fontWeight: 700, letterSpacing: "-0.03em", color: "#1a1a1a" }}>Movie Recs</h1>
-          <p style={{ marginTop: 6, fontSize: "0.875rem", color: "#888" }}>Dev Journal &mdash; Monday, April 13, 2026 (updated April 14–15)</p>
+          <h1 style={{ fontSize: "2rem", fontWeight: 700, letterSpacing: "-0.03em", color: "#1a1a1a" }}>Dev Journal</h1>
+          <p style={{ marginTop: 6, fontSize: "0.875rem", color: "#888" }}>Trailer Vision build log &mdash; Monday, April 13, 2026 (updated through April 16, 2026)</p>
         </div>
 
         {/* THE IDEA */}
@@ -43,11 +43,19 @@ export default function JournalPage() {
             training signal &mdash; the accuracy chart shows the work the AI is doing to get there.
             The watchlist is the point; everything else is calibration.
           </div>
+          <div className="j-insight">
+            <strong>Channels as islands:</strong> Each taste channel is its own recommendation context
+            &mdash; its own prefetch queue, its own filters sent to the LLM, and its own rows in history
+            (tagged with <code style={{ fontSize: "0.8em" }}>channelId</code>). The same movie can
+            legitimately carry <em>different</em> user and predicted ratings in different channels
+            (separate history entries); the per-channel and &ldquo;All&rdquo; lists only show the slice
+            that belongs to that island.
+          </div>
           <div className="j-card">
             <span className="j-tag concept">Concept</span>
             <h3>Core mechanic</h3>
             <p>Each round: LLM selects a movie/TV title and makes a hidden prediction.
-            User rates 0&ndash;100. Prediction is revealed alongside the error.
+            User rates with half-star red (seen) or blue (unseen interest) stars on a 1&ndash;5 scale (mapped to the model&apos;s 0&ndash;100 space). Prediction error feeds the chart.
             A rolling-window accuracy chart (last 5 decisions) tracks improvement over time.
             No title is ever shown twice &mdash; enforced both in the prompt and client-side.</p>
           </div>
@@ -63,10 +71,10 @@ export default function JournalPage() {
             { tag: "feature", title: "Movie details: poster, cast, plot, director, year", body: "You asked for the main actors, a plot summary, director, release year, and a poster on each card. The LLM returns all metadata as structured JSON; the Serper image search API fetches a poster (year included in the query to avoid getting a different version). The card became a proper movie entry rather than a bare title." },
             { tag: "feature", title: "Rotten Tomatoes score", body: "You wanted a professional rating to show alongside yours after the reveal. The LLM returns the RT Tomatometer from its training knowledge (e.g. \"91%\"). A 🍅 / 💀 badge renders on the card, giving immediate external context for how your taste compares to critics." },
             { tag: "feature", title: "Two kinds of \"haven't seen it\"", body: "You identified two distinct signals: films you want to see (LLM got your taste right — a positive outcome, score 85/100) vs films you have no interest in (LLM missed entirely — score 20/100). \"Want to watch\" adds to the watchlist. \"Not interested\" is discarded. Both are excluded from future picks." },
-            { tag: "feature", title: "Watchlist with streaming info", body: "Titles marked \"Want to watch\" are saved to a persistent watchlist with full metadata. On save, the selected LLM is asked which streaming services carry the title in the US; results appear as blue pills on the watchlist page." },
-            { tag: "feature", title: "Shared navigation bar", body: "A sticky nav bar at the top of every page (rendered in app/layout.tsx) links to App, Watchlist, Journal, and Prompt. The watchlist link shows a live count badge read from localStorage. The active page is highlighted. All navigation stays in the same tab — no target=_blank needed." },
+            { tag: "feature", title: "Watchlist with streaming info", body: "Titles marked \"Want to watch\" are saved to a persistent watchlist with full metadata. On save, the selected LLM is asked which streaming services carry the title in the US; results appear as blue pills on the dedicated /watchlist page and in the Watchlist tab on /ratings." },
+            { tag: "feature", title: "Shared navigation bar", body: "A sticky nav bar at the top of every page (rendered in app/layout.tsx) links to App, Watchlist (/watchlist — global list), Channels, Settings, and Help. Help links to Dev Journal and Prompt History. The active page is highlighted. Ratings (/ratings) is not in the bar but lists Seen, Watchlist, and Not interested tabs in one place." },
             { tag: "feature", title: "System/user prompt split with Anthropic caching", body: "callLLM() was refactored from a single prompt argument to (systemPrompt, userMessage). The stable instruction block goes in the system prompt with cache_control: { type: 'ephemeral' } and the anthropic-beta: prompt-caching-2024-07-31 header — Anthropic only re-bills the system prompt on cache miss. OpenAI caches prefixes ≥1024 tokens automatically. Gemini uses the systemInstruction field. The split also makes the per-request payload smaller." },
-            { tag: "feature", title: "Prefetch queue with adaptive batch sizing", body: "The app pre-fetches the next 5 titles in parallel so advancing to the next card is nearly instant. A background replenish fires whenever the queue drops below a low-water mark. Batch size adapts automatically: after each replenish, the yield fraction (valid results / requested) is recorded. If recent batches return fewer valid results — which happens as the exclusion list grows long — the next batch requests proportionally more. The formula is ceil(TARGET_FRESH / avgYield), capped at 20 parallel requests." },
+            { tag: "feature", title: "Prefetch queue (capped for freshness)", body: "Each LLM request asks for 5 titles. Up to 3 replenishes run concurrently (daisy-chained). HIGH_WATER_MARK = 6 caps how many cards sit buffered ahead so new ratings influence upcoming picks sooner; tradeoff is a slightly higher chance of a short wait if the queue drains. Yield per batch is tracked for diagnostics; the client does not currently auto-scale request count from yield." },
             { tag: "feature", title: "Smooth transitions + \"LLM is thinking\" indicator", body: "While the next title loads, the current card dims to 45% opacity so the layout doesn't jump. A fixed pill at the bottom reads \"LLM is thinking…\" with bouncing dots, visible regardless of scroll position. When the response arrives, the card fades out, content swaps, then fades back in. With the prefetch queue in place, the indicator almost never appears after the first load." },
             { tag: "ux", title: "Removed reveal popup", body: "After adding the prefetch queue, advancing to the next card became nearly instant — the modal that showed your score / AI score / error flashed for only a few milliseconds before disappearing, which felt worse than nothing. Removed it. The last result is still shown inline in the chart panel." },
             { tag: "ux", title: "Mobile-responsive layout", body: "On small screens the movie card now stacks vertically: the poster becomes a full-width banner image (cropped to a fixed height) above the metadata and rating controls. The nav bar hides the brand name on xs to give the four links room. Long movie titles in the recent ratings list truncate with ellipsis rather than overflowing." },
@@ -76,12 +84,17 @@ export default function JournalPage() {
             { tag: "feature", title: "RT-divergence taste signals", body: "RatingEntry now stores rtScore. The server curates two extra taste signals beyond raw ratings: want-to-watch items with low RT scores (user liked what critics didn't), and not-interested items with high RT scores (user dismissed what critics loved). Both are stored in localStorage and sent with each request. These are the most informative signals the LLM can receive about how this user's taste differs from the mainstream." },
             { tag: "feature", title: "Taste profile card (second person)", body: "A separate /api/taste-summary endpoint generates a 2–4 sentence taste profile addressed directly to the viewer in second person ('You tend to prefer…'). It runs in the background after the first rating and every 5 thereafter — decoupled from the movie batch so it doesn't slow down recommendations. The profile is stored in localStorage and displayed as a card with a purple left border between the accuracy chart and the movie card." },
             { tag: "feature", title: "Diversity lenses — the key to scaling", body: "Without explicit direction the LLM defaults to the same ~300 culturally visible titles. The fix: each batch request carries a rotating 'diversity lens' — a hard constraint like 'films from the 1970s' or 'South Korean cinema' or 'overlooked gems with low name recognition'. 24 lenses cycle through decades, world regions, and genres. With 3 concurrent batches running, three different corners of cinema are explored simultaneously. This unlocked the full breadth of the LLM's knowledge." },
-            { tag: "feature", title: "Daisy-chain replenishment — always filling", body: "The old approach triggered replenishment only when the queue dropped below a threshold. If LLM latency spiked or yield was low, the queue drained to empty and the user waited. The new approach daisy-chains: each completed batch immediately starts another if the queue is below the high-water mark (12 items) and a slot is free. Up to 3 concurrent fetches run continuously. A zero-yield streak counter (resets on any user action) stops the chain after 3 consecutive zero-yield batches to avoid an infinite loop when the LLM is stuck." },
+            { tag: "feature", title: "Daisy-chain replenishment — always filling", body: "The old approach triggered replenishment only when the queue dropped below a threshold. If LLM latency spiked or yield was low, the queue drained to empty and the user waited. The new approach daisy-chains: each completed batch immediately starts another if the queue is below the high-water mark (6 items) and a slot is free. Up to 3 concurrent fetches run continuously. A zero-yield streak counter (resets on any user action) stops the chain after 3 consecutive zero-yield batches to avoid an infinite loop when the LLM is stuck." },
             { tag: "fix", title: "Pre-display exclusion check", body: "A race condition could allow a title to sit in the prefetch queue and then be rated or skipped before it was displayed. The fetchNext pop loop now checks each candidate against the live excluded set (history + skipped + watchlist) and silently discards any stale entry before showing it." },
             { tag: "feature", title: "Re-rate and reconsider from history lists", body: "Any row in the All Ratings list or the Not Interested list is now clickable. Clicking a rated title removes it from history and loads it as the current card so you can change your score. Clicking a not-interested title removes it from the skipped and not-interested lists and loads it as the current card — you can then rate it or add it to the watchlist. Deleting a title from the Watchlist page now also moves it to Not Interested (adds to skipped + not-interested) instead of just discarding it." },
             { tag: "feature", title: "Trailer-based rating — TikTok for movies", body: "When TMDB returns a YouTube trailer key for a title, the card shows the trailer instead of the poster. The trailer autoplays and a progress bar reflects watch time. A Trailers/Posters toggle in the controls lets you switch layouts. Volume is restored between cards (session-only, using a module-level variable)." },
-            { tag: "feature", title: "Star rating system — replaces slider and buttons", body: "The 0–100 slider and Not interested / Want to watch buttons are gone. Each card now shows two rows of 5 stars: red (I've seen it) and blue (my interest level). Clicking any star submits immediately and advances. In poster mode both rows start at 3. In trailer mode both start at 1 and fill as the video plays — auto-submits red 5 when the trailer ends. Blue 4–5 stars add to the watchlist; blue 1–3 are logged as not-interested taste signals." },
+            { tag: "feature", title: "Star rating system — compact one-line bar", body: "Red stars (Seen it) submit in one tap when you’ve seen the film. If you haven’t, tap Not yet first, then blue stars (Interest); I have seen it switches back. Trailer and poster layouts share the same controls: one horizontal row with compact StarRow, Not yet, and Next (with horizontal scroll on very narrow screens). Blue 4–5 stars add to the global watchlist; blue 1–3 mark not interested. Trailer embed uses the YouTube IFrame API; no live watch-% auto-rating in the current build." },
             { tag: "feature", title: "User request field — hard constraint", body: "A free-text input below the controls steers every batch: 'Japanese cinema', 'slow-burn thrillers', '90s Hong Kong action'. When a request is set it replaces the diversity lens entirely and is phrased as a hard constraint — every item returned must match it. The prefetch queue is flushed on change (debounced 600ms) so the next card comes from a batch that already knew about the request." },
+            { tag: "feature", title: "Channels, per-channel prefetch, and starter pack", body: "Each channel is its own recommendation island: separate prefetch queue, separate activeChannel payload to the LLM, and separate history rows (channelId). The same title can exist more than once in movie-recs-history with different channelIds and different user vs predicted scores — e.g. loving a film in a narrow-genre channel but rating it lower in “All”. Users define channels on /channels; active channel is stored separately; queue key movie-recs-prefetch-queue:{id}. factory-channels.json seeds on first visit; Settings and the home row offer merge of starter channels without wiping data. Channel pills wrap; stronger labels; non-All chips get hover × + confirm to delete." },
+            { tag: "feature", title: "Channel history, unseen log, and watchlist promotion", body: "The /channels right panel is Channel history: seen rows match /ratings → Seen; unseen rows come from movie-recs-unseen-interest-log with pills (Added / Not on list vs Not interested). Add to watchlist promotes titles not already on the global watchlist that meet the minimum blue stars — high-interest skips and want rows you removed from the list — then strips skips from skipped + not-interested and runs streaming lookup." },
+            { tag: "feature", title: "Ratings views: delta vs AI, no critic badge", body: "The /ratings “Seen” tab and seen rows on /channels no longer show the Rotten Tomatoes badge on each row. Instead they show the user’s red stars plus a signed half-star delta (user rating minus predicted rating), e.g. +1.5 or −2, color-coded vs zero. A sort bar toggles between sorting by the user’s stars vs. by delta (vs predicted). Shared formatting lives in app/lib/ratingDelta.ts. On the “All” channel, seen history includes legacy rows with no channelId as well as channelId === \"all\"." },
+            { tag: "ux", title: "Poster-only titles link to YouTube", body: "When the card is in poster layout because there is no embedded trailer (no trailerKey), the title links to a YouTube search in a new tab (title + year + “movie trailer” / “TV series trailer”) so users can still find footage quickly." },
+            { tag: "ux", title: "Star row labels easier to read", body: "The “Rate it” / “Level of interest” labels beside the star rows on the main card use larger, darker type (text-sm font-semibold text-zinc-800) so they are not lost against the background." },
           ].map(({ tag, title, body }) => (
             <div className="j-card" key={title}>
               <span className={`j-tag ${tag}`}>{tag === "ux" ? "UX" : "Feature"}</span>
@@ -129,9 +142,17 @@ export default function JournalPage() {
           <h2>Files</h2>
           <ul className="j-file-list">
             {[
-              ["app/page.tsx", "main UI — card, chart, prefetch queue, controls"],
+              ["app/page.tsx", "main UI — card, chart, per-channel prefetch, channel chips, controls"],
               ["app/layout.tsx", "root layout — renders shared NavBar above all pages"],
-              ["app/components/NavBar.tsx", "sticky nav bar with live watchlist count"],
+              ["app/components/NavBar.tsx", "sticky nav — App, Watchlist, Channels, Settings, Help"],
+              ["app/channels/page.tsx", "channel CRUD, per-channel ratings list with delta + sort"],
+              ["app/settings/page.tsx", "settings, export/import backup, merge starter channels, reset"],
+              ["app/ratings/page.tsx", "Seen / Watchlist / Not interested tabs; Seen uses delta + sort"],
+              ["app/lib/factoryChannels.ts", "bootstrap + merge from factory-channels.json"],
+              ["app/lib/ratingDelta.ts", "starDelta + formatStarDelta for ratings UIs"],
+              ["app/lib/unseenInterestLog.ts", "append/load unseen blue-star log keyed by channel"],
+              ["app/lib/storageKeys.ts", "prefetch queue key helpers, export key listing"],
+              ["factory-channels.json", "bundled example channels + prefetch queues for first-run seed"],
               ["app/watchlist/page.tsx", "watchlist — poster, metadata, streaming pills, remove"],
               ["app/journal/page.tsx", "this page"],
               ["app/prompt/page.tsx", "reconstruction prompt with copy button"],
@@ -167,7 +188,7 @@ export default function JournalPage() {
             <span className="j-tag prompt">Prompt</span>
             <h3>Build this app from scratch</h3>
             <p>A complete specification you can paste into any coding agent to rebuild a near-identical app.</p>
-            <p style={{ marginTop: 10 }}><a href="/prompt" style={{ color: "#7e22ce", fontWeight: 600 }}>Open prompt &rarr;</a></p>
+            <p style={{ marginTop: 10 }}><a href="/prompt" style={{ color: "#7e22ce", fontWeight: 600 }}>Prompt History &rarr;</a></p>
           </div>
         </div>
 
