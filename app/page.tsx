@@ -314,7 +314,7 @@ const StarRow = memo(function StarRow({
       className={`flex min-w-0 flex-wrap items-center ${compact ? "justify-center gap-x-1.5 gap-y-1 sm:gap-x-2 sm:gap-y-0" : "gap-3"}`}
     >
       <span
-        className={`font-medium text-zinc-800 shrink-0 leading-snug ${compact ? "text-left text-xs w-12 sm:w-16 sm:text-sm" : "text-right text-sm w-28"}`}
+        className={`font-medium text-zinc-200 shrink-0 leading-snug ${compact ? "text-left text-xs w-12 sm:w-16 sm:text-sm" : "text-right text-sm w-28"}`}
       >
         {label}
       </span>
@@ -334,7 +334,7 @@ const StarRow = memo(function StarRow({
             className={`relative leading-none select-none ${compact ? "text-2xl sm:text-3xl" : "text-3xl"}`}
             style={{ touchAction: "manipulation" }}
           >
-            <span className="text-zinc-200">★</span>
+            <span className="text-zinc-600">★</span>
             {active >= n && (
               <span className={`absolute inset-0 ${filledColor}`}>★</span>
             )}
@@ -398,8 +398,8 @@ const SeenOrNotRadios = memo(function SeenOrNotRadios({
         <label
           className={`inline-flex cursor-pointer touch-manipulation items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[11px] sm:text-xs font-medium transition-colors ${
             value === null
-              ? "border-zinc-300 bg-white text-zinc-900 shadow-sm"
-              : "border-transparent text-zinc-500 hover:bg-zinc-100/80"
+              ? "border-zinc-600 bg-zinc-800 text-white shadow-sm"
+              : "border-transparent text-zinc-500 hover:bg-zinc-800/60"
           }`}
         >
           <input
@@ -414,8 +414,8 @@ const SeenOrNotRadios = memo(function SeenOrNotRadios({
         <label
           className={`inline-flex cursor-pointer touch-manipulation items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[11px] sm:text-xs font-medium transition-colors ${
             value === "unseen"
-              ? "border-zinc-300 bg-white text-zinc-900 shadow-sm"
-              : "border-transparent text-zinc-500 hover:bg-zinc-100/80"
+              ? "border-zinc-600 bg-zinc-800 text-white shadow-sm"
+              : "border-transparent text-zinc-500 hover:bg-zinc-800/60"
           }`}
         >
           <input
@@ -438,35 +438,36 @@ let _lastVolume: number | null = null;
 /** Reserves the same space as the loaded movie card so initial fetch does not reflow the layout. */
 function MovieCardSkeleton({ mode }: { mode: "trailers" | "posters" }) {
   const ratingBlock = (
-    <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-2 py-2 sm:px-3 sm:py-2.5">
+    <div className="rounded-xl border border-zinc-700 bg-zinc-900 px-2 py-2 sm:px-3 sm:py-2.5">
       <div className="flex min-w-0 flex-col gap-3">
         <div className="flex justify-center">
-          <div className="h-12 w-36 animate-pulse rounded-xl bg-zinc-200 sm:h-14 sm:w-44" />
+          <div className="h-12 w-36 animate-pulse rounded-xl bg-zinc-700 sm:h-14 sm:w-44" />
         </div>
         <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
-          <div className="h-8 w-24 animate-pulse rounded-lg bg-zinc-200" />
-          <div className="h-8 w-24 animate-pulse rounded-lg bg-zinc-200" />
+          <div className="h-8 w-24 animate-pulse rounded-lg bg-zinc-700" />
+          <div className="h-8 w-24 animate-pulse rounded-lg bg-zinc-700" />
         </div>
-        <div className="mx-auto h-10 max-w-sm animate-pulse rounded-lg bg-zinc-100" />
+        <div className="mx-auto h-10 max-w-sm animate-pulse rounded-lg bg-zinc-800" />
       </div>
     </div>
   );
 
   if (mode === "trailers") {
     return (
-      <div className="flex flex-col gap-4 p-4 sm:p-6" aria-busy="true" aria-label="Loading movie">
-        {/* Same footprint as TrailerPlayer + metadata + rating */}
-        <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-xl bg-black">
+      <div className="bg-black" aria-busy="true" aria-label="Loading movie">
+        <div className="relative aspect-video w-full shrink-0 overflow-hidden bg-black">
           <div className="absolute inset-0 animate-pulse bg-zinc-800/40" aria-hidden />
         </div>
-        <div className="space-y-3 animate-pulse">
-          <div className="h-3 w-28 rounded bg-zinc-200" />
-          <div className="h-8 max-w-lg rounded bg-zinc-200" />
-          <div className="h-4 w-full rounded bg-zinc-100" />
-          <div className="h-4 w-full rounded bg-zinc-100" />
-          <div className="h-4 w-2/3 rounded bg-zinc-100" />
+        <div className="flex flex-col gap-4 p-4 sm:p-6">
+          <div className="space-y-3 animate-pulse">
+            <div className="h-3 w-28 rounded bg-zinc-700" />
+            <div className="h-8 max-w-lg rounded bg-zinc-700" />
+            <div className="h-4 w-full rounded bg-zinc-800" />
+            <div className="h-4 w-full rounded bg-zinc-800" />
+            <div className="h-4 w-2/3 rounded bg-zinc-800" />
+          </div>
+          {ratingBlock}
         </div>
-        {ratingBlock}
       </div>
     );
   }
@@ -475,14 +476,14 @@ function MovieCardSkeleton({ mode }: { mode: "trailers" | "posters" }) {
     <div className="flex flex-col gap-4 p-4 sm:p-6" aria-busy="true" aria-label="Loading movie">
       <div className="flex gap-4 sm:items-start">
         <div
-          className="h-[10.5rem] w-28 shrink-0 animate-pulse rounded-xl bg-zinc-200 sm:h-[18rem] sm:w-48"
+          className="h-[10.5rem] w-28 shrink-0 animate-pulse rounded-xl bg-zinc-700 sm:h-[18rem] sm:w-48"
           aria-hidden
         />
         <div className="min-w-0 flex-1 space-y-3 animate-pulse">
-          <div className="h-3 w-24 rounded bg-zinc-200" />
-          <div className="h-8 w-4/5 rounded bg-zinc-200" />
-          <div className="h-4 w-full rounded bg-zinc-100" />
-          <div className="h-4 w-full rounded bg-zinc-100" />
+          <div className="h-3 w-24 rounded bg-zinc-700" />
+          <div className="h-8 w-4/5 rounded bg-zinc-700" />
+          <div className="h-4 w-full rounded bg-zinc-800" />
+          <div className="h-4 w-full rounded bg-zinc-800" />
         </div>
       </div>
       {ratingBlock}
@@ -537,13 +538,13 @@ const PrefetchQueuePanel = memo(function PrefetchQueuePanel({
   onRemoveAtIndex: (index: number) => void;
 }) {
   return (
-    <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 sm:p-4">
+    <div className="rounded-xl border border-zinc-700 bg-zinc-900 p-3 sm:p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-sm font-semibold text-zinc-900">Upcoming queue</h2>
-        <span className="text-xs text-zinc-400 tabular-nums">
+        <h2 className="text-sm font-semibold text-zinc-100">Upcoming queue</h2>
+        <span className="text-xs text-zinc-500 tabular-nums">
           {prefetchQueueUi.length} title{prefetchQueueUi.length === 1 ? "" : "s"}
           {channels.length > 0 && activeChannelId ? (
-            <span className="font-medium text-zinc-600">
+            <span className="font-medium text-zinc-400">
               {" "}
               · {channels.find((c) => c.id === activeChannelId)?.name ?? "channel"}
             </span>
@@ -554,9 +555,9 @@ const PrefetchQueuePanel = memo(function PrefetchQueuePanel({
         Click a title to play it now. Remove drops it from the list. Saved per channel when Settings backup includes the prefetch queue.
       </p>
       {prefetchQueueUi.length === 0 ? (
-        <p className="text-sm text-zinc-400 mt-3">Nothing queued yet — titles appear here as the model responds.</p>
+        <p className="text-sm text-zinc-500 mt-3">Nothing queued yet — titles appear here as the model responds.</p>
       ) : (
-        <ul className="mt-3 divide-y divide-zinc-100 max-h-56 overflow-y-auto rounded-lg border border-zinc-100 bg-white">
+        <ul className="mt-3 divide-y divide-zinc-700 max-h-56 overflow-y-auto rounded-lg border border-zinc-700 bg-zinc-800">
           {prefetchQueueUi.map((m, index) => (
             <li
               key={`${canonicalTitleKey(m.title)}-${index}`}
@@ -565,14 +566,14 @@ const PrefetchQueuePanel = memo(function PrefetchQueuePanel({
               <button
                 type="button"
                 onClick={() => onPlayAtIndex(index)}
-                className="min-w-0 flex-1 flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-zinc-800 hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300"
+                className="min-w-0 flex-1 flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-zinc-200 hover:bg-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
                 aria-label={`Play ${m.title} now`}
               >
                 <span className="min-w-0 flex-1 truncate" title={m.title}>
                   {m.title}
-                  {m.year != null && <span className="text-zinc-400 font-normal"> · {m.year}</span>}
+                  {m.year != null && <span className="text-zinc-500 font-normal"> · {m.year}</span>}
                 </span>
-                <span className="shrink-0 text-[10px] uppercase tracking-wide text-zinc-400">
+                <span className="shrink-0 text-[10px] uppercase tracking-wide text-zinc-500">
                   {m.type === "tv" ? "TV" : "Film"}
                 </span>
               </button>
@@ -582,7 +583,7 @@ const PrefetchQueuePanel = memo(function PrefetchQueuePanel({
                   e.stopPropagation();
                   onRemoveAtIndex(index);
                 }}
-                className="shrink-0 self-center rounded-lg px-2 py-1 text-xs font-medium text-zinc-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+                className="shrink-0 self-center rounded-lg px-2 py-1 text-xs font-medium text-zinc-400 hover:bg-red-900/40 hover:text-red-400 transition-colors"
                 aria-label={`Remove ${m.title} from queue`}
               >
                 Remove
@@ -682,7 +683,7 @@ const TrailerPlayer = memo(function TrailerPlayer({ videoId }: { videoId: string
   return (
     <div
       ref={wrapperRef}
-      className="relative aspect-video w-full shrink-0 overflow-hidden rounded-xl bg-black"
+      className="relative aspect-video w-full shrink-0 overflow-hidden bg-black"
       style={{ backgroundColor: "#000" }}
     />
   );
@@ -699,16 +700,16 @@ const TrailerMetadata = memo(function TrailerMetadata({ movie }: { movie: Curren
         </span>
         {movie.rtScore && <RTBadge score={movie.rtScore} />}
       </div>
-      <h2 className="text-2xl font-bold text-zinc-900 mt-1 leading-tight">{movie.title}</h2>
+      <h2 className="text-2xl font-bold text-white mt-1 leading-tight">{movie.title}</h2>
       {movie.director && (
-        <p className="mt-1 text-sm text-zinc-500">
+        <p className="mt-1 text-sm text-zinc-300">
           <span className="text-zinc-400">{movie.type === "tv" ? "Created by" : "Dir."}</span> {movie.director}
         </p>
       )}
       {movie.actors.length > 0 && (
-        <p className="mt-0.5 text-sm text-zinc-500">{movie.actors.join(" · ")}</p>
+        <p className="mt-0.5 text-sm text-zinc-300">{movie.actors.join(" · ")}</p>
       )}
-      {movie.plot && <p className="mt-2 text-sm text-zinc-600 leading-relaxed">{movie.plot}</p>}
+      {movie.plot && <p className="mt-2 text-sm text-zinc-300 leading-relaxed">{movie.plot}</p>}
     </div>
   );
 });
@@ -755,13 +756,13 @@ const PosterMovieTop = memo(function PosterMovieTop({
           </span>
           {movie.rtScore && <RTBadge score={movie.rtScore} />}
         </div>
-        <h2 className="text-xl sm:text-2xl font-bold text-zinc-900 mt-0.5 leading-tight">
+        <h2 className="text-xl sm:text-2xl font-bold text-white mt-0.5 leading-tight">
           {!movie.trailerKey ? (
             <a
               href={youtubeSearchUrlForMovie(movie.title, movie.type, movie.year)}
               target="_blank"
               rel="noopener noreferrer"
-              className="underline decoration-zinc-300 decoration-2 underline-offset-2 hover:text-indigo-700 hover:decoration-indigo-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 rounded-sm"
+              className="underline decoration-zinc-600 decoration-2 underline-offset-2 hover:text-indigo-400 hover:decoration-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 rounded-sm"
               aria-label={`Search YouTube for ${movie.title} trailer`}
             >
               {movie.title}
@@ -771,15 +772,15 @@ const PosterMovieTop = memo(function PosterMovieTop({
           )}
         </h2>
         {movie.director && (
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="mt-1 text-sm text-zinc-300">
             <span className="text-zinc-400">{movie.type === "tv" ? "Created by" : "Dir."}</span> {movie.director}
           </p>
         )}
         {movie.actors.length > 0 && (
-          <p className="mt-0.5 text-sm text-zinc-500">{movie.actors.join(" · ")}</p>
+          <p className="mt-0.5 text-sm text-zinc-300">{movie.actors.join(" · ")}</p>
         )}
         {movie.plot && (
-          <p className="mt-2 text-sm text-zinc-600 leading-relaxed line-clamp-3 sm:line-clamp-none">{movie.plot}</p>
+          <p className="mt-2 text-sm text-zinc-300 leading-relaxed line-clamp-3 sm:line-clamp-none">{movie.plot}</p>
         )}
       </div>
     </div>
@@ -809,7 +810,7 @@ const MovieRatingBlock = memo(function MovieRatingBlock({
   }, []);
 
   return (
-    <div className="rounded-xl bg-zinc-50 border border-zinc-200 px-2 py-2 sm:px-3 sm:py-2.5">
+    <div className="rounded-xl bg-zinc-900 border border-zinc-700 px-2 py-2 sm:px-3 sm:py-2.5">
       <div className="flex min-w-0 flex-col gap-3">
         <div className="flex justify-center">
           <PassNextButton prominent onPass={passCurrentCardStable} />
@@ -863,13 +864,13 @@ const ChannelsToolbar = memo(function ChannelsToolbar({
           <button
             type="button"
             onClick={onLoadStarter}
-            className="shrink-0 rounded-full border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-900 shadow-sm transition-colors hover:border-indigo-300 hover:bg-indigo-100"
+            className="shrink-0 rounded-full border border-indigo-700 bg-indigo-950 px-4 py-2 text-sm font-semibold text-indigo-200 shadow-sm transition-colors hover:border-indigo-500 hover:bg-indigo-900"
           >
             Load starter channels
           </button>
           <Link
             href="/channels?new=1"
-            className="shrink-0 flex size-8 items-center justify-center rounded-full border border-dashed border-zinc-300 bg-white text-lg font-light leading-none text-zinc-500 transition-colors hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-600"
+            className="shrink-0 flex size-8 items-center justify-center rounded-full border border-dashed border-zinc-700 bg-zinc-900 text-lg font-light leading-none text-zinc-400 transition-colors hover:border-indigo-500 hover:bg-indigo-950 hover:text-indigo-400"
             title="Create a new channel"
             aria-label="Create a new channel"
           >
@@ -890,7 +891,7 @@ const ChannelsToolbar = memo(function ChannelsToolbar({
                   } ${
                     activeChannelId === ch.id
                       ? "bg-zinc-900 text-white shadow-sm"
-                      : "bg-white border border-zinc-200 text-zinc-800 hover:border-zinc-300 hover:bg-zinc-50"
+                      : "bg-zinc-900 border border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:bg-zinc-800"
                   }`}
                 >
                   <span className="block truncate">{ch.name}</span>
@@ -906,7 +907,7 @@ const ChannelsToolbar = memo(function ChannelsToolbar({
                     className={`absolute right-1 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-sm leading-none opacity-100 transition-opacity sm:pointer-events-none sm:opacity-0 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 ${
                       activeChannelId === ch.id
                         ? "text-zinc-300 hover:bg-white/10 hover:text-red-300"
-                        : "text-zinc-400 hover:bg-red-50 hover:text-red-600"
+                        : "text-zinc-500 hover:bg-red-900/30 hover:text-red-400"
                     }`}
                     aria-label={`Delete channel ${ch.name}`}
                   >
@@ -918,7 +919,7 @@ const ChannelsToolbar = memo(function ChannelsToolbar({
           })}
           <Link
             href="/channels?new=1"
-            className="shrink-0 flex size-8 items-center justify-center rounded-full border border-dashed border-zinc-300 bg-white text-lg font-light leading-none text-zinc-500 transition-colors hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-600"
+            className="shrink-0 flex size-8 items-center justify-center rounded-full border border-dashed border-zinc-700 bg-zinc-900 text-lg font-light leading-none text-zinc-400 transition-colors hover:border-indigo-500 hover:bg-indigo-950 hover:text-indigo-400"
             title="Create a new channel"
             aria-label="Create a new channel"
           >
@@ -957,6 +958,8 @@ export default function Home() {
   const replenishGenRef = useRef(0);
   const savedPrefetchChannelRef = useRef<string | null>(null);
   const replenishInFlight = useRef(0);
+  /** In-flight replenish count for the current gen — reset to 0 on every gen bump so fetchNext knows when to kick off a fresh batch. */
+  const replenishGenInFlight = useRef(0);
   const batchYieldRef = useRef<number[]>([]); // rolling yield fractions (fresh / requested)
 
   const tasteSummaryRef = useRef(tasteSummary);
@@ -1180,6 +1183,7 @@ export default function Home() {
 
     const genAtStart = replenishGenRef.current;
     replenishInFlight.current++;
+    replenishGenInFlight.current++;
     lensIndexRef.current++; // advance lens so concurrent batches each explore a different area
     const seenThisBatch = new Set<string>();
 
@@ -1227,6 +1231,7 @@ export default function Home() {
       persistPrefetchQueue();
     } finally {
       replenishInFlight.current--;
+      if (genAtStart === replenishGenRef.current) replenishGenInFlight.current = Math.max(0, replenishGenInFlight.current - 1);
       // Daisy-chain: keep filling until high-water mark, but stop if recent batches are all dupes.
       // zeroYieldStreak >= 3 means the LLM is stuck — no point hammering it further.
       if (
@@ -1275,7 +1280,7 @@ export default function Home() {
       // Queue empty — wait for whatever is already in-flight, or start a fresh batch.
       try {
         zeroYieldStreakRef.current = 0; // reset so the daisy-chain can run
-        if (replenishInFlight.current === 0) replenish(opts); // nothing running — kick one off
+        if (replenishGenInFlight.current === 0) replenish(opts); // no current-gen batch running — kick one off
         const deadline = Date.now() + 90_000;
         while (prefetchRef.current.length === 0 && replenishInFlight.current > 0 && Date.now() < deadline) {
           await new Promise((r) => setTimeout(r, 200));
@@ -1346,6 +1351,7 @@ export default function Home() {
       if (current && canonicalTitleKey(movie.title) === canonicalTitleKey(current.title)) return;
       clearAdvanceAfterRating();
       replenishGenRef.current += 1;
+      replenishGenInFlight.current = 0;
       prefetchRef.current = q.filter((_, i) => i !== index);
       persistPrefetchQueue();
       setCurrent(movie);
@@ -1458,6 +1464,7 @@ export default function Home() {
     if (!current) return;
     if (mediaType !== "both" && current.type !== mediaType) {
       replenishGenRef.current += 1;
+      replenishGenInFlight.current = 0;
       prefetchRef.current = [];
       persistPrefetchQueue();
       batchYieldRef.current = [];
@@ -1478,6 +1485,7 @@ export default function Home() {
     prevUserRequestForFlushRef.current = userRequest;
     const t = setTimeout(() => {
       replenishGenRef.current += 1;
+      replenishGenInFlight.current = 0;
       prefetchRef.current = [];
       persistPrefetchQueue();
       batchYieldRef.current = [];
@@ -1494,6 +1502,7 @@ export default function Home() {
     const prev = savedPrefetchChannelRef.current;
     if (prev !== null && prev !== activeChannelId) {
       replenishGenRef.current += 1;
+      replenishGenInFlight.current = 0;
       try {
         localStorage.setItem(prefetchQueueStorageKey(prev), JSON.stringify(prefetchRef.current));
       } catch {
@@ -1531,6 +1540,7 @@ export default function Home() {
     if (activeChannelId === id) {
       const fallback = next[0]?.id ?? "all";
       replenishGenRef.current += 1;
+      replenishGenInFlight.current = 0;
       savedPrefetchChannelRef.current = fallback;
       loadPrefetchIntoRefForChannel(fallback);
       persistPrefetchQueue();
@@ -1569,6 +1579,7 @@ export default function Home() {
       activeChannelIdRef.current = active;
       setActiveChannelId(active);
       replenishGenRef.current += 1;
+      replenishGenInFlight.current = 0;
       savedPrefetchChannelRef.current = active;
       loadPrefetchIntoRefForChannel(active);
       persistPrefetchQueue();
@@ -1736,7 +1747,7 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="flex min-h-screen w-full flex-col items-center bg-zinc-50 px-4 py-6 sm:py-10">
+    <div className="flex min-h-screen w-full flex-col items-center bg-black px-4 py-6 sm:py-10">
       <div className="w-full max-w-3xl space-y-4 sm:space-y-6">
         <HomeHero />
 
@@ -1751,7 +1762,7 @@ export default function Home() {
         {/* Movie card */}
         <div
           ref={cardRef}
-          className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden scroll-mt-4 sm:scroll-mt-8 md:scroll-mt-14"
+          className="bg-zinc-950 rounded-2xl border border-zinc-800 shadow-sm overflow-hidden scroll-mt-4 sm:scroll-mt-8 md:scroll-mt-14"
         >
           {initialLoading ? (
             <MovieCardSkeleton mode={displayMode} />
@@ -1759,25 +1770,26 @@ export default function Home() {
             <div>
               {current.trailerKey && displayMode === "trailers" ? (
                 /* ── TRAILER LAYOUT ── */
-                <div className="flex flex-col gap-4 p-4 sm:p-6">
+                <div className="bg-black">
                   <TrailerPlayer videoId={current.trailerKey} />
+                  <div className="flex flex-col gap-4 p-4 sm:p-6">
+                    <TrailerMetadata movie={current} />
 
-                  <TrailerMetadata movie={current} />
-
-                  <MovieRatingBlock
-                    passCurrentCardStable={passCurrentCardStable}
-                    rateSeenStable={rateSeenStable}
-                    rateUnseenStable={rateUnseenStable}
-                    movieTitle={current.title}
-                    starKeyPrefix="tr"
-                  />
-                  <PrefetchQueuePanel
-                    prefetchQueueUi={prefetchQueueUi}
-                    channels={channels}
-                    activeChannelId={activeChannelId}
-                    onPlayAtIndex={playPrefetchAtIndex}
-                    onRemoveAtIndex={removeFromPrefetchQueue}
-                  />
+                    <MovieRatingBlock
+                      passCurrentCardStable={passCurrentCardStable}
+                      rateSeenStable={rateSeenStable}
+                      rateUnseenStable={rateUnseenStable}
+                      movieTitle={current.title}
+                      starKeyPrefix="tr"
+                    />
+                    <PrefetchQueuePanel
+                      prefetchQueueUi={prefetchQueueUi}
+                      channels={channels}
+                      activeChannelId={activeChannelId}
+                      onPlayAtIndex={playPrefetchAtIndex}
+                      onRemoveAtIndex={removeFromPrefetchQueue}
+                    />
+                  </div>
                 </div>
               ) : (
                 /* ── POSTER LAYOUT (no trailer) ── */
@@ -1806,9 +1818,9 @@ export default function Home() {
 
         {/* Taste profile card */}
         {tasteSummary && (
-          <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm p-4">
-            <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">AI&apos;s model of your taste</p>
-            <p className="text-sm text-zinc-700 leading-relaxed" style={{ borderLeft: "3px solid #a78bfa", paddingLeft: "12px" }}>
+          <div className="bg-zinc-950 rounded-2xl border border-zinc-800 shadow-sm p-4">
+            <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">AI&apos;s model of your taste</p>
+            <p className="text-sm text-zinc-300 leading-relaxed" style={{ borderLeft: "3px solid #a78bfa", paddingLeft: "12px" }}>
               {tasteSummary}
             </p>
           </div>

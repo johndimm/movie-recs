@@ -16,6 +16,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Trailer Vision",
   description: "Trailer-first taste calibration — find films you haven't seen but will love",
+  icons: {
+    icon: "/icon.png",
+    apple: "/icon.png",
+  },
 };
 
 export default function RootLayout({

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import type { RatingEntry, WatchlistEntry } from "../page";
 import { StaticStars } from "../components/Stars";
 import { migrateRatingValue } from "../lib/ratingScale";
@@ -259,6 +260,7 @@ function ChannelForm({
 // ── Main page ──────────────────────────────────────────────────────────────────
 
 export default function ChannelsPage() {
+  const router = useRouter();
   const [channels, setChannels] = useState<Channel[]>([]);
   const [history, setHistory] = useState<RatingEntry[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -316,8 +318,8 @@ export default function ChannelsPage() {
     const ch: Channel = { ...data, id: crypto.randomUUID() };
     const next = [...channels, ch];
     saveChannels(next);
-    setShowNew(false);
-    setSelectedId(ch.id);
+    localStorage.setItem(ACTIVE_CHANNEL_KEY, ch.id);
+    router.push("/");
   };
 
   const updateChannel = (id: string, data: Omit<Channel, "id">) => {
