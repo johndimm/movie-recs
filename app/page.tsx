@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useId } from "react";
 import Link from "next/link";
 import type { Channel } from "./channels/page";
 import { ALL_CHANNEL } from "./channels/page";
@@ -304,24 +304,25 @@ function StarRow({
   const filledColor = color === "red" ? "text-red-500" : "text-blue-500";
 
   return (
-    <div className={`flex items-center ${compact ? "gap-1.5 sm:gap-2" : "gap-3"}`}>
+    <div
+      className={`flex min-w-0 flex-wrap items-center ${compact ? "justify-center gap-x-1.5 gap-y-1 sm:gap-x-2 sm:gap-y-0" : "gap-3"}`}
+    >
       <span
-        className={`font-medium text-zinc-800 shrink-0 text-right leading-snug ${
-          compact ? "text-xs w-12 sm:w-16 sm:text-sm" : "text-sm w-28"
-        }`}
+        className={`font-medium text-zinc-800 shrink-0 leading-snug ${compact ? "text-left text-xs w-12 sm:w-16 sm:text-sm" : "text-right text-sm w-28"}`}
       >
         {label}
       </span>
-      <div className={`flex ${compact ? "gap-px sm:gap-0.5" : "gap-1"}`} onMouseLeave={() => setHover(0)}>
+      <div className={`flex min-w-0 shrink ${compact ? "gap-px sm:gap-0.5" : "gap-1"}`} onMouseLeave={() => setHover(0)}>
         {[1, 2, 3, 4, 5].map((n) => (
           <button
             key={n}
+            type="button"
+            /* mousedown preventDefault: avoid focus() scrolling the page on click (keyboard still focuses on keydown) */
+            onMouseDown={(e) => e.preventDefault()}
             onMouseMove={(e) => setHover(halfStarValue(e.clientX, e.currentTarget.getBoundingClientRect(), n))}
-            onClick={(e) => onRate(halfStarValue(e.clientX, e.currentTarget.getBoundingClientRect(), n))}
-            onTouchStart={(e) => {
-              const t = e.touches[0];
-              onRate(halfStarValue(t.clientX, e.currentTarget.getBoundingClientRect(), n));
-            }}
+            onClick={(e) =>
+              onRate(halfStarValue(e.clientX, e.currentTarget.getBoundingClientRect(), n))
+            }
             className={`relative leading-none select-none ${compact ? "text-2xl sm:text-3xl" : "text-3xl"}`}
             style={{ touchAction: "manipulation" }}
           >
@@ -339,24 +340,86 @@ function StarRow({
   );
 }
 
-function PassNextButton({ onPass, compact = false }: { onPass: () => void; compact?: boolean }) {
+function PassNextButton({
+  onPass,
+  compact = false,
+  prominent = false,
+}: {
+  onPass: () => void;
+  compact?: boolean;
+  /** Larger, hero-style — use when Next is the primary control above the rating row */
+  prominent?: boolean;
+}) {
+  const sizing = prominent
+    ? "gap-2 rounded-xl px-8 py-3.5 text-base font-semibold shadow-lg sm:px-10 sm:py-4 sm:text-lg"
+    : compact
+      ? "gap-1 rounded-lg px-2.5 py-1.5 text-xs shadow-md"
+      : "gap-1.5 rounded-lg px-4 py-2 text-sm shadow-md";
+  const iconClass = prominent ? "h-5 w-5 sm:h-6 sm:w-6" : compact ? "h-3.5 w-3.5" : "h-4 w-4";
   return (
     <button
       type="button"
       onClick={onPass}
-      className={`inline-flex items-center rounded-lg bg-zinc-900 font-semibold text-white shadow-md transition-colors hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 shrink-0 ${
-        compact
-          ? "gap-1 px-2.5 py-1.5 text-xs"
-          : "gap-1.5 px-4 py-2 text-sm"
-      }`}
+      className={`inline-flex items-center bg-zinc-900 font-semibold text-white transition-colors hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 shrink-0 ${sizing}`}
       title="Show another title without saving a rating"
       aria-label="Next title without rating"
     >
       Next
-      <svg className={`text-white/90 ${compact ? "h-3.5 w-3.5" : "h-4 w-4"}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+      <svg className={`text-white/90 ${iconClass}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden>
         <path fillRule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clipRule="evenodd" />
       </svg>
     </button>
+  );
+}
+
+/** Native radios: "Seen it" vs "Not yet" — mutually exclusive, proper keyboard + SR semantics. */
+function SeenOrNotRadios({
+  name,
+  value,
+  onChange,
+}: {
+  name: string;
+  value: "unseen" | null;
+  onChange: (v: "unseen" | null) => void;
+}) {
+  return (
+    <fieldset className="min-w-0 border-0 p-0 m-0">
+      <legend className="sr-only">Have you seen this title?</legend>
+      <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 sm:gap-6">
+        <label
+          className={`inline-flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[11px] sm:text-xs font-medium transition-colors ${
+            value === null
+              ? "border-zinc-300 bg-white text-zinc-900 shadow-sm"
+              : "border-transparent text-zinc-500 hover:bg-zinc-100/80"
+          }`}
+        >
+          <input
+            type="radio"
+            name={name}
+            className="h-3.5 w-3.5 shrink-0 accent-zinc-900 sm:h-4 sm:w-4"
+            checked={value === null}
+            onChange={() => onChange(null)}
+          />
+          <span>Seen it</span>
+        </label>
+        <label
+          className={`inline-flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[11px] sm:text-xs font-medium transition-colors ${
+            value === "unseen"
+              ? "border-zinc-300 bg-white text-zinc-900 shadow-sm"
+              : "border-transparent text-zinc-500 hover:bg-zinc-100/80"
+          }`}
+        >
+          <input
+            type="radio"
+            name={name}
+            className="h-3.5 w-3.5 shrink-0 accent-zinc-900 sm:h-4 sm:w-4"
+            checked={value === "unseen"}
+            onChange={() => onChange("unseen")}
+          />
+          <span>Not yet</span>
+        </label>
+      </div>
+    </fieldset>
   );
 }
 
@@ -468,6 +531,7 @@ export default function Home() {
   /** null = show seen (red) stars first; "unseen" = user chose not seen, show blue stars only. */
   const [seenStatus, setSeenStatus] = useState<"unseen" | null>(null);
   const seenStatusRef = useRef<"unseen" | null>(null);
+  const seenRadioGroupName = useId();
   const cardRef = useRef<HTMLDivElement>(null);
   const prefetchRef = useRef<CurrentMovie[]>([]);
   const [prefetchQueueUi, setPrefetchQueueUi] = useState<CurrentMovie[]>([]);
@@ -1256,38 +1320,35 @@ export default function Home() {
   );
 
   return (
-    <div className="min-h-screen bg-zinc-50 flex flex-col items-center py-6 sm:py-10 px-4">
+    <div className="flex min-h-screen w-full flex-col items-center bg-zinc-50 px-4 py-6 sm:py-10">
       <div className="w-full max-w-3xl space-y-4 sm:space-y-6">
-
-        {/* Header — text-free photo (no baked-in lettering); left scrim for UI copy */}
-        <div className="relative flex min-h-[clamp(13rem,36vw,22rem)] flex-col overflow-hidden rounded-2xl border border-zinc-200/90 shadow-sm ring-1 ring-black/5">
-          <div
+        {/* Header — img scales to container width (full image width visible); height follows aspect ratio (no cover crop) */}
+        <div className="relative overflow-hidden rounded-2xl border border-zinc-200/90 shadow-sm ring-1 ring-black/5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/banner.png"
+            alt=""
+            className="pointer-events-none block h-auto w-full select-none"
             aria-hidden
-            className="pointer-events-none absolute inset-0 origin-top scale-[1.18] bg-cover bg-top bg-no-repeat"
-            style={{
-              backgroundImage: "url(/cozy-evening-forest-campsite.png)",
-              /* Top origin + zoom: clip below the trailer opening (campfire/ground) */
-              backgroundPosition: "center top",
-            }}
           />
           <div
-            className="pointer-events-none absolute inset-0"
+            className="pointer-events-none absolute inset-0 z-[1]"
             aria-hidden
             style={{
-              /* Light left vignette only — keeps photo (face, props) visible */
+              /* Darken the right third so type stays readable over the quieter side of the art */
               background:
-                "linear-gradient(to right, rgba(0, 0, 0, 0.38) 0%, rgba(0, 0, 0, 0.12) 32%, transparent 52%)",
+                "linear-gradient(to left, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.14) 38%, transparent 58%)",
             }}
           />
-          <div className="relative z-10 flex flex-1 flex-col justify-center px-4 py-6 sm:px-5 sm:py-8">
-            <div className="w-full max-w-md">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white [text-shadow:1px_0_0_rgba(0,0,0,0.85),-1px_0_0_rgba(0,0,0,0.85),0_1px_0_rgba(0,0,0,0.85),0_-1px_0_rgba(0,0,0,0.85),1px_1px_0_rgba(0,0,0,0.75),-1px_-1px_0_rgba(0,0,0,0.75),1px_-1px_0_rgba(0,0,0,0.75),-1px_1px_0_rgba(0,0,0,0.75),0_2px_12px_rgba(0,0,0,0.45)]">
+          <div className="absolute inset-0 z-10 flex flex-col justify-center items-end px-4 py-6 sm:px-6 sm:py-8">
+            <div className="max-w-xl text-right">
+              <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl [text-shadow:1px_0_0_rgba(0,0,0,0.85),-1px_0_0_rgba(0,0,0,0.85),0_1px_0_rgba(0,0,0,0.85),0_-1px_0_rgba(0,0,0,0.85),1px_1px_0_rgba(0,0,0,0.75),-1px_-1px_0_rgba(0,0,0,0.75),1px_-1px_0_rgba(0,0,0,0.75),-1px_1px_0_rgba(0,0,0,0.75),0_2px_12px_rgba(0,0,0,0.45)]">
                 Trailer Vision
               </h1>
-              <p className="mt-1 text-sm font-semibold leading-snug text-white [text-shadow:1px_0_0_rgba(0,0,0,0.8),-1px_0_0_rgba(0,0,0,0.8),0_1px_0_rgba(0,0,0,0.8),0_-1px_0_rgba(0,0,0,0.8),1px_1px_0_rgba(0,0,0,0.65),-1px_-1px_0_rgba(0,0,0,0.65),0_1px_10px_rgba(0,0,0,0.4)]">
+              <p className="mt-2 text-base font-semibold leading-snug text-white sm:text-lg [text-shadow:1px_0_0_rgba(0,0,0,0.8),-1px_0_0_rgba(0,0,0,0.8),0_1px_0_rgba(0,0,0,0.8),0_-1px_0_rgba(0,0,0,0.8),1px_1px_0_rgba(0,0,0,0.65),-1px_-1px_0_rgba(0,0,0,0.65),0_1px_10px_rgba(0,0,0,0.4)]">
                 Discover films you haven&apos;t seen but will love.
               </p>
-              <p className="mt-1 text-xs font-semibold leading-snug text-white/95 [text-shadow:1px_0_0_rgba(0,0,0,0.75),-1px_0_0_rgba(0,0,0,0.75),0_1px_0_rgba(0,0,0,0.75),0_-1px_0_rgba(0,0,0,0.75),1px_1px_0_rgba(0,0,0,0.6),-1px_-1px_0_rgba(0,0,0,0.6),0_1px_8px_rgba(0,0,0,0.35)] hidden sm:block">
+              <p className="mt-2 text-sm font-semibold leading-snug text-white/95 sm:text-base [text-shadow:1px_0_0_rgba(0,0,0,0.75),-1px_0_0_rgba(0,0,0,0.75),0_1px_0_rgba(0,0,0,0.75),0_-1px_0_rgba(0,0,0,0.75),1px_1px_0_rgba(0,0,0,0.6),-1px_-1px_0_rgba(0,0,0,0.6),0_1px_8px_rgba(0,0,0,0.35)] hidden sm:block">
                 Rate what you&apos;ve seen — the AI learns your taste to find them.
               </p>
             </div>
@@ -1408,52 +1469,42 @@ export default function Home() {
 
                   {/* Rating UI */}
                   <div className="rounded-xl bg-zinc-50 border border-zinc-200 px-2 py-2 sm:px-3 sm:py-2.5">
-                    {seenStatus === null ? (
-                      <div className="flex flex-nowrap items-center gap-1.5 sm:gap-2 min-w-0 overflow-x-auto [scrollbar-width:thin]">
-                        <StarRow
-                          key={`tr-seen-${current.title}`}
-                          compact
-                          filled={0}
-                          color="red"
-                          label="Seen it"
-                          onRate={(n) => submitRating(n, "seen")}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            seenStatusRef.current = "unseen";
-                            setSeenStatus("unseen");
-                          }}
-                          className="shrink-0 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-[11px] sm:text-xs font-medium text-zinc-700 whitespace-nowrap hover:bg-zinc-50 transition-colors"
-                          title="Haven't seen it — rate interest with blue stars"
-                        >
-                          Not yet
-                        </button>
-                        <PassNextButton compact onPass={passCurrentCard} />
+                    <div className="flex min-w-0 flex-col gap-3">
+                      <div className="flex justify-center">
+                        <PassNextButton prominent onPass={passCurrentCard} />
                       </div>
-                    ) : (
-                      <div className="flex flex-nowrap items-center gap-1.5 sm:gap-2 min-w-0 overflow-x-auto [scrollbar-width:thin]">
-                        <StarRow
-                          key={`tr-unseen-${current.title}`}
-                          compact
-                          filled={0}
-                          color="blue"
-                          label="Interest"
-                          onRate={(n) => submitRating(n, "unseen")}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            seenStatusRef.current = null;
-                            setSeenStatus(null);
-                          }}
-                          className="shrink-0 text-[11px] sm:text-xs text-zinc-500 hover:text-zinc-800 transition-colors whitespace-nowrap"
-                        >
-                          I have seen it
-                        </button>
-                        <PassNextButton compact onPass={passCurrentCard} />
+                      <SeenOrNotRadios
+                        name={seenRadioGroupName}
+                        value={seenStatus}
+                        onChange={(v) => {
+                          seenStatusRef.current = v;
+                          setSeenStatus(v);
+                        }}
+                      />
+                      <div className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-2 sm:gap-2 min-w-0">
+                        <div className="min-w-0">
+                          {seenStatus === null ? (
+                            <StarRow
+                              key={`tr-seen-${current.title}`}
+                              compact
+                              filled={0}
+                              color="red"
+                              label="Rating"
+                              onRate={(n) => submitRating(n, "seen")}
+                            />
+                          ) : (
+                            <StarRow
+                              key={`tr-unseen-${current.title}`}
+                              compact
+                              filled={0}
+                              color="blue"
+                              label="Interest"
+                              onRate={(n) => submitRating(n, "unseen")}
+                            />
+                          )}
+                        </div>
                       </div>
-                    )}
+                    </div>
                   </div>
                   {prefetchQueueBlock}
                 </div>
@@ -1526,52 +1577,42 @@ export default function Home() {
                   </div>
                   {/* Rating UI */}
                   <div className="rounded-xl bg-zinc-50 border border-zinc-200 px-2 py-2 sm:px-3 sm:py-2.5">
-                    {seenStatus === null ? (
-                      <div className="flex flex-nowrap items-center gap-1.5 sm:gap-2 min-w-0 overflow-x-auto [scrollbar-width:thin]">
-                        <StarRow
-                          key={`po-seen-${current.title}`}
-                          compact
-                          filled={0}
-                          color="red"
-                          label="Seen it"
-                          onRate={(n) => submitRating(n, "seen")}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            seenStatusRef.current = "unseen";
-                            setSeenStatus("unseen");
-                          }}
-                          className="shrink-0 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-[11px] sm:text-xs font-medium text-zinc-700 whitespace-nowrap hover:bg-zinc-50 transition-colors"
-                          title="Haven't seen it — rate interest with blue stars"
-                        >
-                          Not yet
-                        </button>
-                        <PassNextButton compact onPass={passCurrentCard} />
+                    <div className="flex min-w-0 flex-col gap-3">
+                      <div className="flex justify-center">
+                        <PassNextButton prominent onPass={passCurrentCard} />
                       </div>
-                    ) : (
-                      <div className="flex flex-nowrap items-center gap-1.5 sm:gap-2 min-w-0 overflow-x-auto [scrollbar-width:thin]">
-                        <StarRow
-                          key={`po-unseen-${current.title}`}
-                          compact
-                          filled={0}
-                          color="blue"
-                          label="Interest"
-                          onRate={(n) => submitRating(n, "unseen")}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            seenStatusRef.current = null;
-                            setSeenStatus(null);
-                          }}
-                          className="shrink-0 text-[11px] sm:text-xs text-zinc-500 hover:text-zinc-800 transition-colors whitespace-nowrap"
-                        >
-                          I have seen it
-                        </button>
-                        <PassNextButton compact onPass={passCurrentCard} />
+                      <SeenOrNotRadios
+                        name={seenRadioGroupName}
+                        value={seenStatus}
+                        onChange={(v) => {
+                          seenStatusRef.current = v;
+                          setSeenStatus(v);
+                        }}
+                      />
+                      <div className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-2 sm:gap-2 min-w-0">
+                        <div className="min-w-0">
+                          {seenStatus === null ? (
+                            <StarRow
+                              key={`po-seen-${current.title}`}
+                              compact
+                              filled={0}
+                              color="red"
+                              label="Rating"
+                              onRate={(n) => submitRating(n, "seen")}
+                            />
+                          ) : (
+                            <StarRow
+                              key={`po-unseen-${current.title}`}
+                              compact
+                              filled={0}
+                              color="blue"
+                              label="Interest"
+                              onRate={(n) => submitRating(n, "unseen")}
+                            />
+                          )}
+                        </div>
                       </div>
-                    )}
+                    </div>
                   </div>
                   {prefetchQueueBlock}
                 </div>
