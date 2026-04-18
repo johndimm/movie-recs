@@ -1620,7 +1620,6 @@ export default function Home() {
     const n = newHistory.length;
     if (n === 1 || n % 5 === 0) updateTasteSummary(newHistory, llm);
     replenish({ mediaType, llm });
-    scheduleAdvanceAfterRating();
   };
 
   /** Single entry point for all star clicks. Red = seen (goes to history). Blue = unseen (4-5 → watchlist, 1-3 → not-interested). */
@@ -1722,7 +1721,6 @@ export default function Home() {
     watchlistRef.current = newWatchlist;
     zeroYieldStreakRef.current = 0; // new exclusion may unblock the LLM
     replenish({ mediaType, llm });
-    scheduleAdvanceAfterRating();
   };
 
   const submitRatingRef = useRef(submitRating);
