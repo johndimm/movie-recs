@@ -311,14 +311,14 @@ const StarRow = memo(function StarRow({
 
   return (
     <div
-      className={`flex min-w-0 flex-wrap items-center ${compact ? "justify-center gap-x-1.5 gap-y-1 sm:gap-x-2 sm:gap-y-0" : "gap-3"}`}
+      className={`flex min-w-0 flex-wrap items-center ${compact ? "justify-center gap-x-2 gap-y-1 sm:gap-x-3 sm:gap-y-0" : "gap-3"}`}
     >
       <span
-        className={`font-medium text-zinc-200 shrink-0 leading-snug ${compact ? "text-left text-xs w-12 sm:w-16 sm:text-sm" : "text-right text-sm w-28"}`}
+        className={`font-medium text-zinc-200 shrink-0 leading-snug ${compact ? "text-left text-sm w-16 sm:w-20 sm:text-base" : "text-right text-sm w-28"}`}
       >
         {label}
       </span>
-      <div className={`flex min-w-0 shrink ${compact ? "gap-px sm:gap-0.5" : "gap-1"}`} onMouseLeave={() => setHover(0)}>
+      <div className={`flex min-w-0 shrink items-center ${compact ? "gap-0.5 sm:gap-1" : "gap-1"}`} onMouseLeave={() => setHover(0)}>
         {[1, 2, 3, 4, 5].map((n) => (
           <button
             key={n}
@@ -331,7 +331,7 @@ const StarRow = memo(function StarRow({
               setCommitted(v);
               onRate(v);
             }}
-            className={`relative leading-none select-none ${compact ? "text-2xl sm:text-3xl" : "text-3xl"}`}
+            className={`relative leading-none select-none ${compact ? "text-4xl sm:text-5xl" : "text-3xl"}`}
             style={{ touchAction: "manipulation" }}
           >
             <span className="text-zinc-600">★</span>
@@ -362,19 +362,22 @@ const PassNextButton = memo(function PassNextButton({
     ? "gap-2 rounded-xl px-8 py-3.5 text-base font-semibold shadow-lg sm:px-10 sm:py-4 sm:text-lg"
     : compact
       ? "gap-1 rounded-lg px-2.5 py-1.5 text-xs shadow-md"
-      : "gap-1.5 rounded-lg px-4 py-2 text-sm shadow-md";
-  const iconClass = prominent ? "h-5 w-5 sm:h-6 sm:w-6" : compact ? "h-3.5 w-3.5" : "h-4 w-4";
+      : "gap-2 rounded-xl px-5 py-3 text-sm font-bold shadow-lg sm:px-6 sm:py-3.5 sm:text-base";
+  const iconClass = prominent ? "h-5 w-5 sm:h-6 sm:w-6" : compact ? "h-3.5 w-3.5" : "h-5 w-5";
+  const surface = compact
+    ? "border border-zinc-600 bg-zinc-800 text-white hover:bg-zinc-700 focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900"
+    : "border-2 border-indigo-200/90 bg-indigo-600 text-white shadow-lg shadow-indigo-950/40 hover:border-white/90 hover:bg-indigo-500 hover:shadow-xl active:scale-[0.98] active:brightness-95 focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900";
   return (
     <button
       type="button"
       onPointerDown={(e) => e.preventDefault()}
       onClick={onPass}
-      className={`inline-flex items-center bg-zinc-900 font-semibold text-white transition-colors hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 shrink-0 touch-manipulation ${sizing}`}
+      className={`inline-flex items-center shrink-0 touch-manipulation transition-all select-none ${surface} focus-visible:outline-none ${sizing}`}
       title="Go to the next title"
       aria-label="Next title"
     >
       Next
-      <svg className={`text-white/90 ${iconClass}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+      <svg className={`text-white ${iconClass}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden>
         <path fillRule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clipRule="evenodd" />
       </svg>
     </button>
@@ -440,14 +443,14 @@ function MovieCardSkeleton({ mode }: { mode: "trailers" | "posters" }) {
   const ratingBlock = (
     <div className="rounded-xl border border-zinc-700 bg-zinc-900 px-2 py-2 sm:px-3 sm:py-2.5">
       <div className="flex min-w-0 flex-col gap-3">
-        <div className="flex justify-center">
-          <div className="h-12 w-36 animate-pulse rounded-xl bg-zinc-700 sm:h-14 sm:w-44" />
-        </div>
         <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
           <div className="h-8 w-24 animate-pulse rounded-lg bg-zinc-700" />
           <div className="h-8 w-24 animate-pulse rounded-lg bg-zinc-700" />
         </div>
-        <div className="mx-auto h-10 max-w-sm animate-pulse rounded-lg bg-zinc-800" />
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-3">
+          <div className="h-12 w-56 max-w-[min(100%,22rem)] animate-pulse rounded-lg bg-zinc-800 sm:h-14 sm:w-64" />
+          <div className="h-10 w-20 animate-pulse rounded-lg bg-zinc-700" />
+        </div>
       </div>
     </div>
   );
@@ -815,12 +818,9 @@ const MovieRatingBlock = memo(function MovieRatingBlock({
   return (
     <div className="rounded-xl bg-zinc-900 border border-zinc-700 px-2 py-2 sm:px-3 sm:py-2.5">
       <div className="flex min-w-0 flex-col gap-3">
-        <div className="flex justify-center">
-          <PassNextButton prominent onPass={passCurrentCardStable} />
-        </div>
         <SeenOrNotRadios name={seenRadioGroupName} value={seenStatus} onChange={onSeenStatusChange} />
-        <div className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-2 sm:gap-2 min-w-0">
-          <div className="min-w-0">
+        <div className="flex min-w-0 flex-wrap items-center justify-center gap-x-4 gap-y-3 sm:gap-x-5">
+          <div className="min-w-0 flex shrink">
             {seenStatus === null ? (
               <StarRow
                 key={`${starKeyPrefix}-seen-${movieTitle}`}
@@ -841,6 +841,7 @@ const MovieRatingBlock = memo(function MovieRatingBlock({
               />
             )}
           </div>
+          <PassNextButton onPass={passCurrentCardStable} />
         </div>
       </div>
     </div>
