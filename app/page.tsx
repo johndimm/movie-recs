@@ -545,9 +545,11 @@ const PrefetchQueuePanel = memo(function PrefetchQueuePanel({
         <span className="text-xs text-zinc-500 tabular-nums">
           {prefetchQueueUi.length} title{prefetchQueueUi.length === 1 ? "" : "s"}
           {channels.length > 0 && activeChannelId ? (
-            <span className="font-medium text-zinc-400">
-              {" "}
-              · {channels.find((c) => c.id === activeChannelId)?.name ?? "channel"}
+            <span className="ml-1.5 inline-flex items-center gap-1 rounded-md bg-indigo-950/80 px-2 py-0.5 ring-1 ring-indigo-500/40">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-indigo-300/90">Channel</span>
+              <span className="font-semibold text-indigo-100">
+                {channels.find((c) => c.id === activeChannelId)?.name ?? "—"}
+              </span>
             </span>
           ) : null}
         </span>
@@ -887,11 +889,13 @@ const ChannelsToolbar = memo(function ChannelsToolbar({
                 <button
                   type="button"
                   onClick={() => onSelectChannel(ch.id)}
+                  aria-pressed={activeChannelId === ch.id}
+                  aria-current={activeChannelId === ch.id ? "true" : undefined}
                   className={`max-w-[240px] rounded-full py-1.5 text-sm font-semibold whitespace-nowrap transition-colors pl-3.5 ${
                     deletable ? "pr-9" : "pr-3.5"
                   } ${
                     activeChannelId === ch.id
-                      ? "bg-zinc-900 text-white shadow-sm"
+                      ? "bg-indigo-600 text-white shadow-md ring-2 ring-indigo-400/90 ring-offset-2 ring-offset-black"
                       : "bg-zinc-900 border border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:bg-zinc-800"
                   }`}
                 >
@@ -1750,8 +1754,6 @@ export default function Home() {
   return (
     <div className="flex min-h-screen w-full flex-col items-center bg-black px-4 py-6 sm:py-10">
       <div className="w-full max-w-3xl space-y-4 sm:space-y-6">
-        <HomeHero />
-
         <ChannelsToolbar
           channels={channels}
           activeChannelId={activeChannelId}

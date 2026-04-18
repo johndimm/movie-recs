@@ -322,12 +322,11 @@ import { resolveHistoryForPrompt } from "./historySessionStore";
 interface ChannelPayload {
   id: string;
   name: string;
-  /** Subset of movie / TV / miniseries; omitted or empty = no extra format line. */
-  mediums?: ("movie" | "tv" | "miniseries")[];
+  /** Subset of movie / TV; omitted or empty = no extra format line. */
+  mediums?: ("movie" | "tv")[];
   genres: string[];
   timePeriods: string[];
   language: string;
-  region: string;
   artists: string;
   freeText: string;
   popularity: number;
@@ -335,16 +334,14 @@ interface ChannelPayload {
 
 function buildMediumsConstraintLine(mediums: ChannelPayload["mediums"]): string | null {
   if (!mediums?.length) return null;
-  const uniq = [...new Set(mediums)].filter((m): m is "movie" | "tv" | "miniseries" =>
-    m === "movie" || m === "tv" || m === "miniseries"
+  const uniq = [...new Set(mediums)].filter((m): m is "movie" | "tv" =>
+    m === "movie" || m === "tv"
   );
-  if (uniq.length === 0 || uniq.length === 3) return null;
+  if (uniq.length === 0 || uniq.length === 2) return null;
   const parts = uniq.map((m) =>
     m === "movie"
       ? "theatrical feature films (each item type must be \"movie\")"
-      : m === "tv"
-        ? "TV series / episodic shows (each item type must be \"tv\")"
-        : "limited series, miniseries, or anthology-style seasons (use type \"tv\" in JSON; clarify in plot if it is a miniseries)"
+      : "TV series / episodic shows (each item type must be \"tv\")"
   );
   return `- Format / medium: Only recommend titles that fit: ${parts.join(" OR ")}.`;
 }
@@ -356,7 +353,6 @@ function buildChannelConstraint(ch: ChannelPayload): string {
   if (ch.genres.length) lines.push(`- Genres: ${ch.genres.join(", ")}`);
   if (ch.timePeriods.length) lines.push(`- Time periods: ${ch.timePeriods.join(", ")}`);
   if (ch.language.trim()) lines.push(`- Language: ${ch.language.trim()}`);
-  if (ch.region.trim()) lines.push(`- Region/Country: ${ch.region.trim()}`);
   if (ch.artists.trim()) lines.push(`- Focus on work by: ${ch.artists.trim()}`);
   if (ch.freeText.trim()) lines.push(`- Additional: ${ch.freeText.trim()}`);
 

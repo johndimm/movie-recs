@@ -14,7 +14,6 @@
         "genres": [],
         "timePeriods": [],
         "language": "",
-        "region": "",
         "artists": "",
         "freeText": "",
         "popularity": 50
@@ -26,7 +25,6 @@
         ],
         "timePeriods": [],
         "language": "Japanese",
-        "region": "Japan",
         "artists": "",
         "freeText": "godzilla, mothra, etc",
         "popularity": 0,
@@ -43,7 +41,6 @@
           "1960s"
         ],
         "language": "French",
-        "region": "France",
         "artists": "",
         "freeText": "",
         "popularity": 50,
@@ -61,7 +58,6 @@
           "1970s"
         ],
         "language": "Italian",
-        "region": "Italy",
         "artists": "Sergio Leone",
         "freeText": "",
         "popularity": 50,
@@ -74,7 +70,6 @@
         ],
         "timePeriods": [],
         "language": "Korean",
-        "region": "Korea",
         "artists": "",
         "freeText": "",
         "popularity": 50,
@@ -175,8 +170,8 @@
         "predictedRating": 4,
         "actors": [
           "Atsuko Tanaka",
-          "Akio Ōtsuka",
-          "Kōichi Yamadera",
+          "Akio \u014ctsuka",
+          "K\u014dichi Yamadera",
           "Yutaka Nakano"
         ],
         "plot": "A cyborg policewoman hunts a mysterious hacker known as the Puppet Master in a technologically advanced future.",
@@ -240,7 +235,7 @@
         "title": "Jules and Jim",
         "type": "movie",
         "year": 1962,
-        "director": "François Truffaut",
+        "director": "Fran\u00e7ois Truffaut",
         "predictedRating": 4.5,
         "actors": [
           "Jeanne Moreau",
@@ -256,7 +251,7 @@
         "title": "Shoot the Piano Player",
         "type": "movie",
         "year": 1960,
-        "director": "François Truffaut",
+        "director": "Fran\u00e7ois Truffaut",
         "predictedRating": 3.5,
         "actors": [
           "Charles Aznavour",
@@ -343,12 +338,12 @@
         "title": "The Snow Woman",
         "type": "movie",
         "year": 1968,
-        "director": "Tokuzō Tanaka",
+        "director": "Tokuz\u014d Tanaka",
         "predictedRating": 4,
         "actors": [
-          "Shin'ichirō Mikami",
-          "Kazuo Katō",
-          "Machiko Kyō"
+          "Shin'ichir\u014d Mikami",
+          "Kazuo Kat\u014d",
+          "Machiko Ky\u014d"
         ],
         "plot": "A woodcarver encounters a supernatural snow spirit who spares his life on the condition he never speaks of her, testing his vow years later.",
         "posterUrl": "https://image.tmdb.org/t/p/w500/4vFYCaNLBvHiZ210HuP4spnWWeB.jpg",
@@ -364,7 +359,7 @@
         "actors": [
           "Shigeru Amachi",
           "Utako Mitsuya",
-          "Yōichi Numata"
+          "Y\u014dichi Numata"
         ],
         "plot": "A theology student is dragged into a series of tragic events that lead him to a vividly depicted Buddhist hell of torture and demons.",
         "posterUrl": "https://image.tmdb.org/t/p/w500/ehiMOuKE7i9WHgvs7dSIZelsHwA.jpg",
@@ -394,7 +389,7 @@
         "director": "Masaki Kobayashi",
         "predictedRating": 4,
         "actors": [
-          "Rentarō Mikuni",
+          "Rentar\u014d Mikuni",
           "Michiyo Aratama",
           "Tatsuya Nakadai"
         ],
@@ -413,7 +408,7 @@
         "predictedRating": 4,
         "actors": [
           "Clint Eastwood",
-          "Gian Maria Volontè",
+          "Gian Maria Volont\u00e8",
           "Marianne Koch",
           "Wolfgang Lukschy"
         ],
@@ -431,7 +426,7 @@
         "actors": [
           "Clint Eastwood",
           "Lee Van Cleef",
-          "Gian Maria Volontè",
+          "Gian Maria Volont\u00e8",
           "Klaus Kinski"
         ],
         "plot": "Two bounty hunters with the same target form an uneasy alliance to track down a ruthless outlaw.",
@@ -519,7 +514,7 @@
           "Clint Eastwood",
           "Eli Wallach",
           "Lee Van Cleef",
-          "Aldo Giuffrè"
+          "Aldo Giuffr\u00e8"
         ],
         "plot": "Three gunslingers compete to find a fortune in buried Confederate gold amid the chaos of the American Civil War.",
         "posterUrl": "https://image.tmdb.org/t/p/w500/bX2xnavhMYjWDoZp1VM6VnU1xwe.jpg",

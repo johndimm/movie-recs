@@ -197,7 +197,7 @@ Help explains end-user usage and links to Dev Journal (/journal) and Prompt Hist
 Ratings (/ratings) is not in the bar. Active page is highlighted.
 
 ## Channels (/channels) and per-channel prefetch
-- Channel model: id, name, genres[], timePeriods[], language, region, artists, freeText, popularity.
+- Channel model: id, name, mediums[], genres[], timePeriods[], language, artists, freeText, popularity.
 - Immutable first channel id "all" named "All". CRUD for other channels; export/import includes
   movie-recs-channels and movie-recs-active-channel.
 - **Recommendation islands:** Each channel is an independent recommendation context: its own

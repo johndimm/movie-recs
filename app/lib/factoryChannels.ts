@@ -10,7 +10,6 @@ const DEFAULT_ALL = {
   genres: [] as string[],
   timePeriods: [] as string[],
   language: "",
-  region: "",
   artists: "",
   freeText: "",
   popularity: 50,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import type { RatingEntry, WatchlistEntry } from "../page";
 import { StaticStars } from "../components/Stars";
@@ -16,31 +16,31 @@ import {
 import { ConfirmDialog } from "../components/ConfirmDialog";
 
 /** What kinds of titles this channel should surface (empty = no extra format filter beyond app settings). */
-export type ChannelMedium = "movie" | "tv" | "miniseries";
+export type ChannelMedium = "movie" | "tv";
 
-const VALID_MEDIUMS = new Set<ChannelMedium>(["movie", "tv", "miniseries"]);
+const VALID_MEDIUMS = new Set<ChannelMedium>(["movie", "tv"]);
 
 export interface Channel {
   id: string;
   name: string;
-  /** Feature films, episodic TV, and/or limited series / miniseries. Empty = any format. */
+  /** Feature films and/or episodic TV. Empty = any format. */
   mediums: ChannelMedium[];
   genres: string[];
   timePeriods: string[];
   language: string;
-  region: string;
   artists: string;
   freeText: string;
   popularity: number;
 }
 
-/** Ensure persisted channels (pre–mediums field) get a valid `mediums` array. */
-export function normalizeChannel(c: Channel): Channel {
+/** Ensure persisted channels (pre–mediums field) get a valid `mediums` array; drop legacy `region`. */
+export function normalizeChannel(c: Channel & { region?: string }): Channel {
+  const { region: _r, ...rest } = c;
   const raw = (c as { mediums?: unknown }).mediums;
   const mediums = Array.isArray(raw)
     ? raw.filter((x): x is ChannelMedium => typeof x === "string" && VALID_MEDIUMS.has(x as ChannelMedium))
     : [];
-  return { ...c, mediums };
+  return { ...rest, mediums };
 }
 
 export function channelToFormInitial(ch: Channel): Omit<Channel, "id"> {
@@ -51,6 +51,7 @@ export function channelToFormInitial(ch: Channel): Omit<Channel, "id"> {
 export const CHANNELS_KEY = "movie-recs-channels";
 export const ACTIVE_CHANNEL_KEY = "movie-recs-active-channel";
 const STORAGE_KEY = "movie-recs-history";
+const RECONSIDER_KEY = "movie-recs-reconsider";
 const WATCHLIST_KEY = "movie-recs-watchlist";
 const SKIPPED_KEY = "movie-recs-skipped";
 const NOT_INTERESTED_KEY = "movie-recs-not-interested";
@@ -67,6 +68,54 @@ function readLlmFromLocalSettings(): string {
   }
 }
 
+/** Cache LLM artist suggestions by filter signature (same tab + reload via sessionStorage). */
+const ARTIST_SUGGEST_CACHE_STORAGE = "movie-recs-artist-suggestions-v1";
+const artistSuggestMemCache = new Map<string, string[]>();
+
+function stableArtistSuggestKey(
+  genres: string[],
+  timePeriods: string[],
+  language: string,
+  freeText: string,
+  llm: string,
+): string {
+  return JSON.stringify({
+    g: [...genres].sort(),
+    t: [...timePeriods].sort(),
+    l: language.trim(),
+    f: freeText.trim(),
+    m: llm,
+  });
+}
+
+function getArtistSuggestCached(key: string): string[] | undefined {
+  if (artistSuggestMemCache.has(key)) return artistSuggestMemCache.get(key)!;
+  try {
+    const raw = sessionStorage.getItem(ARTIST_SUGGEST_CACHE_STORAGE);
+    if (!raw) return undefined;
+    const all = JSON.parse(raw) as Record<string, string[]>;
+    if (!Object.prototype.hasOwnProperty.call(all, key)) return undefined;
+    const arr = all[key];
+    if (!Array.isArray(arr)) return undefined;
+    artistSuggestMemCache.set(key, arr);
+    return arr;
+  } catch {
+    return undefined;
+  }
+}
+
+function setArtistSuggestCached(key: string, artists: string[]) {
+  artistSuggestMemCache.set(key, artists);
+  try {
+    const raw = sessionStorage.getItem(ARTIST_SUGGEST_CACHE_STORAGE);
+    const all = raw ? (JSON.parse(raw) as Record<string, string[]>) : {};
+    all[key] = artists;
+    sessionStorage.setItem(ARTIST_SUGGEST_CACHE_STORAGE, JSON.stringify(all));
+  } catch {
+    /* quota */
+  }
+}
+
 export const ALL_CHANNEL: Channel = {
   id: "all",
   name: "All",
@@ -74,7 +123,6 @@ export const ALL_CHANNEL: Channel = {
   genres: [],
   timePeriods: [],
   language: "",
-  region: "",
   artists: "",
   freeText: "",
   popularity: 50,
@@ -93,9 +141,26 @@ const TIME_OPTIONS = [
 
 const MEDIUM_OPTIONS: { id: ChannelMedium; label: string; hint: string }[] = [
   { id: "movie", label: "Movies", hint: "Theatrical feature films" },
-  { id: "tv", label: "TV series", hint: "Episodic / ongoing series" },
-  { id: "miniseries", label: "Miniseries", hint: "Limited series, anthology seasons" },
+  { id: "tv", label: "TV series", hint: "Episodic / ongoing TV series" },
 ];
+
+const LANGUAGE_OPTIONS = [
+  "English", "French", "Italian", "Spanish", "German", "Japanese",
+  "Korean", "Mandarin", "Cantonese", "Hindi", "Portuguese", "Russian",
+  "Arabic", "Persian", "Swedish", "Danish", "Norwegian", "Finnish",
+  "Polish", "Greek", "Turkish", "Hebrew",
+];
+
+function csvToArray(csv: string): string[] {
+  return csv.split(",").map((s) => s.trim()).filter(Boolean);
+}
+
+function toggleCsv(csv: string, val: string): string {
+  const items = csvToArray(csv);
+  return items.includes(val)
+    ? items.filter((x) => x !== val).join(", ")
+    : [...items, val].join(", ");
+}
 
 export function popularityLabel(n: number): string {
   if (n <= 15) return "Hidden gems only";
@@ -113,13 +178,45 @@ const EMPTY: Omit<Channel, "id"> = {
   genres: [],
   timePeriods: [],
   language: "",
-  region: "",
   artists: "",
   freeText: "",
   popularity: 50,
 };
 
 // ── Components ─────────────────────────────────────────────────────────────────
+
+function ChipRow({
+  options,
+  selected,
+  onToggle,
+}: {
+  options: string[];
+  selected: string[];
+  onToggle: (val: string) => void;
+}) {
+  return (
+    <div className="mt-2 flex flex-wrap gap-2">
+      {options.map((opt) => (
+        <button
+          key={opt}
+          type="button"
+          onClick={() => onToggle(opt)}
+          className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+            selected.includes(opt)
+              ? "bg-indigo-600 text-white"
+              : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+          }`}
+        >
+          {opt}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+type Suggestions = { artists: string[] };
+
+const EMPTY_SUGGESTIONS: Suggestions = { artists: [] };
 
 function ChannelForm({
   initial,
@@ -128,9 +225,15 @@ function ChannelForm({
 }: {
   initial: Omit<Channel, "id">;
   onSave: (data: Omit<Channel, "id">) => void;
-  onCancel: () => void;
+  onCancel?: () => void;
 }) {
   const [form, setForm] = useState(initial);
+  const formRef = useRef(form);
+  formRef.current = form;
+  const [suggestions, setSuggestions] = useState<Suggestions>(EMPTY_SUGGESTIONS);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const toggleArr = (arr: string[], val: string) =>
     arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val];
@@ -140,6 +243,108 @@ function ChannelForm({
 
   const field = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
+
+  const hasSelections =
+    form.genres.length > 0 ||
+    form.timePeriods.length > 0 ||
+    form.language.trim() !== "" ||
+    form.freeText.trim() !== "";
+
+  const llmChoice = readLlmFromLocalSettings();
+  const artistSuggestKey = useMemo(
+    () =>
+      stableArtistSuggestKey(
+        form.genres,
+        form.timePeriods,
+        form.language,
+        form.freeText,
+        llmChoice,
+      ),
+    [form.genres.join(","), form.timePeriods.join(","), form.language, form.freeText, llmChoice],
+  );
+
+  useEffect(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    abortRef.current?.abort();
+
+    if (!hasSelections) {
+      setSuggestions(EMPTY_SUGGESTIONS);
+      setLoadingSuggestions(false);
+      return;
+    }
+
+    const cached = getArtistSuggestCached(artistSuggestKey);
+    if (cached !== undefined) {
+      setSuggestions({ artists: cached });
+      setLoadingSuggestions(false);
+      return;
+    }
+
+    const scheduleKey = artistSuggestKey;
+    debounceRef.current = setTimeout(async () => {
+      const f = formRef.current;
+      const llm = readLlmFromLocalSettings();
+      const bodyKey = stableArtistSuggestKey(
+        f.genres,
+        f.timePeriods,
+        f.language,
+        f.freeText,
+        llm,
+      );
+      if (bodyKey !== scheduleKey) return;
+
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+      setLoadingSuggestions(true);
+      try {
+        const res = await fetch("/api/suggest-artists", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            genres: f.genres,
+            timePeriods: f.timePeriods,
+            language: f.language,
+            freeText: f.freeText,
+            llm,
+          }),
+          signal: controller.signal,
+        });
+        if (controller.signal.aborted) return;
+        const after = stableArtistSuggestKey(
+          formRef.current.genres,
+          formRef.current.timePeriods,
+          formRef.current.language,
+          formRef.current.freeText,
+          readLlmFromLocalSettings(),
+        );
+        if (after !== bodyKey) return;
+        if (res.ok) {
+          const data = (await res.json()) as Suggestions;
+          const artists = Array.isArray(data.artists) ? data.artists : [];
+          setArtistSuggestCached(bodyKey, artists);
+          setSuggestions({ artists });
+        }
+      } catch (e) {
+        if ((e as { name?: string }).name !== "AbortError") console.error("[suggest-artists]", e);
+      }
+      if (!controller.signal.aborted) setLoadingSuggestions(false);
+    }, 600);
+
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
+    };
+  }, [hasSelections, artistSuggestKey]);
+
+  const artistOptions = hasSelections && suggestions.artists.length > 0
+    ? [...new Set([...suggestions.artists, ...csvToArray(form.artists)])]
+    : csvToArray(form.artists);
 
   return (
     <div className="space-y-4 py-4 border-t border-zinc-100">
@@ -156,9 +361,6 @@ function ChannelForm({
 
       <div>
         <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Medium</label>
-        <p className="mt-0.5 text-xs text-zinc-400">
-          Leave all off to allow any format (still respects the app&apos;s movie/TV filter). Select one or more to restrict this channel.
-        </p>
         <div className="mt-2 flex flex-wrap gap-2">
           {MEDIUM_OPTIONS.map(({ id, label, hint }) => (
             <button
@@ -176,48 +378,28 @@ function ChannelForm({
 
       <div>
         <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Genres</label>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {GENRE_OPTIONS.map((g) => (
-            <button key={g} type="button"
-              onClick={() => field("genres", toggleArr(form.genres, g))}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${form.genres.includes(g) ? "bg-indigo-600 text-white" : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"}`}
-            >{g}</button>
-          ))}
-        </div>
+        <ChipRow options={GENRE_OPTIONS} selected={form.genres} onToggle={(g) => field("genres", toggleArr(form.genres, g))} />
       </div>
 
       <div>
         <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Time periods</label>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {TIME_OPTIONS.map((t) => (
-            <button key={t} type="button"
-              onClick={() => field("timePeriods", toggleArr(form.timePeriods, t))}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${form.timePeriods.includes(t) ? "bg-indigo-600 text-white" : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"}`}
-            >{t}</button>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Language</label>
-          <input type="text" value={form.language} onChange={(e) => field("language", e.target.value)}
-            placeholder="e.g. French, Japanese, any"
-            className="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-800 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-300" />
-        </div>
-        <div>
-          <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Region / Country</label>
-          <input type="text" value={form.region} onChange={(e) => field("region", e.target.value)}
-            placeholder="e.g. Iran, Scandinavia, Latin America"
-            className="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-800 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-300" />
-        </div>
+        <ChipRow options={TIME_OPTIONS} selected={form.timePeriods} onToggle={(t) => field("timePeriods", toggleArr(form.timePeriods, t))} />
       </div>
 
       <div>
-        <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Directors / Actors</label>
-        <input type="text" value={form.artists} onChange={(e) => field("artists", e.target.value)}
-          placeholder="Comma-separated — e.g. Kubrick, Tarkovsky, Cate Blanchett"
-          className="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-800 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+        <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Language</label>
+        <ChipRow options={LANGUAGE_OPTIONS} selected={csvToArray(form.language)} onToggle={(l) => field("language", toggleCsv(form.language, l))} />
+      </div>
+
+      <div>
+        <div className="flex items-center gap-2 mb-1">
+          <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Directors / Actors</label>
+          {loadingSuggestions && <span className="text-xs text-zinc-400">updating…</span>}
+        </div>
+        {artistOptions.length > 0
+          ? <ChipRow options={artistOptions} selected={csvToArray(form.artists)} onToggle={(a) => field("artists", toggleCsv(form.artists, a))} />
+          : <p className="mt-1 text-xs text-zinc-400">{hasSelections ? "No suggestions yet — select genres, time period, or language first." : "Select at least one filter above to see suggestions."}</p>
+        }
       </div>
 
       <div>
@@ -237,16 +419,18 @@ function ChannelForm({
       <div>
         <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Additional hints</label>
         <textarea value={form.freeText} onChange={(e) => field("freeText", e.target.value)}
-          placeholder="Any extra instructions for the AI"
+          placeholder="Any extra instructions for the AI — names not in the list above, specific films, vibes, etc."
           rows={3}
           className="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-800 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none" />
       </div>
 
       <div className="flex justify-end gap-2 pt-1">
-        <button type="button" onClick={onCancel}
-          className="px-4 py-1.5 rounded-lg border border-zinc-200 text-zinc-600 text-sm font-medium hover:bg-zinc-50 transition-colors">
-          Cancel
-        </button>
+        {onCancel && (
+          <button type="button" onClick={onCancel}
+            className="px-4 py-1.5 rounded-lg border border-zinc-200 text-zinc-600 text-sm font-medium hover:bg-zinc-50 transition-colors">
+            Cancel
+          </button>
+        )}
         <button type="button" onClick={() => { if (form.name.trim()) onSave(form); }}
           disabled={!form.name.trim()}
           className="px-4 py-1.5 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors disabled:opacity-40">
@@ -264,10 +448,10 @@ export default function ChannelsPage() {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [history, setHistory] = useState<RatingEntry[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [editExpanded, setEditExpanded] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [seenSort, setSeenSort] = useState<"user" | "delta">("user");
+  const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const [unseenLog, setUnseenLog] = useState<UnseenInterestEntry[]>([]);
   const [minPromoteStars, setMinPromoteStars] = useState(3.5);
   const [promoteMessage, setPromoteMessage] = useState<string | null>(null);
@@ -286,7 +470,9 @@ export default function ChannelsPage() {
           localStorage.setItem(CHANNELS_KEY, JSON.stringify(chs));
         }
         setChannels(chs);
-        setSelectedId(chs[0].id);
+        const activeId = localStorage.getItem(ACTIVE_CHANNEL_KEY);
+        const initialId = activeId && chs.find((c) => c.id === activeId) ? activeId : chs[0].id;
+        setSelectedId(initialId);
         const h = localStorage.getItem(STORAGE_KEY);
         if (h) setHistory(JSON.parse(h));
         setUnseenLog(loadUnseenInterestLog());
@@ -302,7 +488,7 @@ export default function ChannelsPage() {
     window.history.replaceState({}, "", "/channels");
     queueMicrotask(() => {
       setShowNew(true);
-      setEditExpanded(false);
+
     });
   }, []);
 
@@ -324,7 +510,6 @@ export default function ChannelsPage() {
 
   const updateChannel = (id: string, data: Omit<Channel, "id">) => {
     saveChannels(channels.map((c) => (c.id === id ? { ...data, id } : c)));
-    setEditExpanded(false);
   };
 
   const confirmDeleteChannel = () => {
@@ -335,8 +520,18 @@ export default function ChannelsPage() {
     const next = channels.filter((c) => c.id !== id);
     saveChannels(next);
     setSelectedId(next.length > 0 ? next[0].id : null);
-    setEditExpanded(false);
     setPendingDeleteId(null);
+  };
+
+  /** Sidebar / picker: switch channel + keep app active channel in sync with the player. */
+  const selectChannel = (id: string) => {
+    setSelectedId(id);
+    setShowNew(false);
+    try {
+      localStorage.setItem(ACTIVE_CHANNEL_KEY, id);
+    } catch {
+      /* ignore */
+    }
   };
 
   const selected = channels.find((c) => c.id === selectedId) ?? null;
@@ -359,6 +554,35 @@ export default function ChannelsPage() {
     }
     return copy;
   }, [channelRatings, seenSort]);
+
+  // Maps each index in sortedChannelRatings → its index in the full history array.
+  const historyIndicesForSorted = useMemo(() => {
+    const usedSet = new Set<number>();
+    return sortedChannelRatings.map((entry) => {
+      const idx = history.findIndex(
+        (h, i) =>
+          !usedSet.has(i) &&
+          h.title === entry.title &&
+          h.userRating === entry.userRating &&
+          h.predictedRating === entry.predictedRating &&
+          (h.channelId ?? null) === (entry.channelId ?? null)
+      );
+      if (idx >= 0) usedSet.add(idx);
+      return idx;
+    });
+  }, [sortedChannelRatings, history]);
+
+  const deleteHistoryEntries = useCallback((rowIndices: number[]) => {
+    const toRemove = new Set(rowIndices.map((r) => historyIndicesForSorted[r]).filter((i) => i >= 0));
+    const next = history.filter((_, i) => !toRemove.has(i));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    setHistory(next);
+    setSelectedRows((prev) => {
+      const updated = new Set(prev);
+      rowIndices.forEach((r) => updated.delete(r));
+      return updated;
+    });
+  }, [history, historyIndicesForSorted]);
 
   const channelUnseen = useMemo(() => {
     if (!selected) return [];
@@ -478,21 +702,6 @@ export default function ChannelsPage() {
     }
   }, [selected, unseenLog, minPromoteStars]);
 
-  // Chips shown in the settings summary row
-  const settingChips = selected
-    ? [
-        ...selected.mediums.map((m) =>
-          m === "movie" ? "Movies" : m === "tv" ? "TV series" : "Miniseries"
-        ),
-        ...selected.genres,
-        ...selected.timePeriods,
-        ...(selected.language ? [selected.language] : []),
-        ...(selected.region ? [selected.region] : []),
-        ...(selected.artists ? selected.artists.split(",").map((s) => s.trim()).filter(Boolean) : []),
-        popularityLabel(selected.popularity),
-      ]
-    : [];
-
   return (
     <>
     <ConfirmDialog
@@ -540,9 +749,7 @@ export default function ChannelsPage() {
                 value={selectedId ?? ""}
                 disabled={channels.length === 0}
                 onChange={(e) => {
-                  setSelectedId(e.target.value);
-                  setEditExpanded(false);
-                  setShowNew(false);
+                  selectChannel(e.target.value);
                 }}
               >
                 {channels.length === 0 ? (
@@ -559,7 +766,7 @@ export default function ChannelsPage() {
                 type="button"
                 onClick={() => {
                   setShowNew(true);
-                  setEditExpanded(false);
+            
                 }}
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-white text-lg font-light leading-none text-zinc-500 transition-colors hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-600"
                 title="New channel"
@@ -576,7 +783,7 @@ export default function ChannelsPage() {
           <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100">
             <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Channels</span>
             <button
-              onClick={() => { setShowNew(true); setEditExpanded(false); }}
+              onClick={() => { setShowNew(true); }}
               className="text-zinc-400 hover:text-indigo-600 transition-colors text-lg leading-none"
               title="New channel"
             >+</button>
@@ -585,7 +792,8 @@ export default function ChannelsPage() {
             {channels.map((ch) => (
               <button
                 key={ch.id}
-                onClick={() => { setSelectedId(ch.id); setEditExpanded(false); setShowNew(false); }}
+                type="button"
+                onClick={() => selectChannel(ch.id)}
                 className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${
                   selectedId === ch.id
                     ? "bg-zinc-100 text-zinc-900"
@@ -609,6 +817,7 @@ export default function ChannelsPage() {
             <div className="p-4 sm:p-6">
               <p className="text-sm font-semibold text-zinc-700 mb-0">New channel</p>
               <ChannelForm
+                key="new-channel"
                 initial={EMPTY}
                 onSave={createChannel}
                 onCancel={() => setShowNew(false)}
@@ -620,46 +829,24 @@ export default function ChannelsPage() {
           {!showNew && selected && (
             <div className="p-4 sm:p-6 space-y-6">
 
-              {/* Settings summary row */}
-              <div>
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex flex-wrap gap-1.5">
-                    {settingChips.length > 0
-                      ? settingChips.map((chip) => (
-                          <span key={chip} className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-zinc-100 text-zinc-600">
-                            {chip}
-                          </span>
-                        ))
-                      : <span className="text-sm text-zinc-400">No filters set</span>
-                    }
+              {/* Edit form */}
+              {selected.id !== "all" && (
+                <div>
+                  <div className="flex justify-end mb-2">
+                    <button
+                      onClick={() => setPendingDeleteId(selected.id)}
+                      className="text-xs text-zinc-400 hover:text-red-500 transition-colors"
+                    >
+                      Delete channel
+                    </button>
                   </div>
-                  {selected.id !== "all" && (
-                    <div className="flex items-center gap-3 shrink-0">
-                      <button
-                        onClick={() => setEditExpanded((v) => !v)}
-                        className="text-sm text-zinc-500 hover:text-zinc-800 transition-colors whitespace-nowrap flex items-center gap-1"
-                      >
-                        Edit settings <span className="text-xs">{editExpanded ? "▲" : "▼"}</span>
-                      </button>
-                      <button
-                        onClick={() => setPendingDeleteId(selected.id)}
-                        className="text-xs text-zinc-400 hover:text-red-500 transition-colors"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Expandable edit form */}
-                {editExpanded && selected.id !== "all" && (
                   <ChannelForm
+                    key={selected.id}
                     initial={channelToFormInitial(selected)}
                     onSave={(data) => updateChannel(selected.id, data)}
-                    onCancel={() => setEditExpanded(false)}
                   />
-                )}
-              </div>
+                </div>
+              )}
 
               {/* Channel history: seen + unseen */}
               <div>
@@ -709,7 +896,33 @@ export default function ChannelsPage() {
                     {channelRatings.length > 0 && (
                       <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
                         <div className="px-3 py-2 border-b border-zinc-100 bg-zinc-50/80">
-                          <p className="text-xs font-semibold text-zinc-600 mb-2">Seen</p>
+                          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                aria-label="Select all"
+                                checked={selectedRows.size === sortedChannelRatings.length && sortedChannelRatings.length > 0}
+                                onChange={(ev) => {
+                                  if (ev.target.checked) {
+                                    setSelectedRows(new Set(sortedChannelRatings.map((_, i) => i)));
+                                  } else {
+                                    setSelectedRows(new Set());
+                                  }
+                                }}
+                                className="accent-indigo-600"
+                              />
+                              <p className="text-xs font-semibold text-zinc-600">Seen</p>
+                            </div>
+                            {selectedRows.size > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => deleteHistoryEntries([...selectedRows])}
+                                className="text-xs font-semibold text-rose-600 hover:text-rose-800 transition-colors"
+                              >
+                                Delete selected ({selectedRows.size})
+                              </button>
+                            )}
+                          </div>
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <span className="text-xs font-medium text-zinc-500">Sort by</span>
                             <div className="flex rounded-lg border border-zinc-200 bg-white p-0.5 text-xs font-medium">
@@ -729,19 +942,33 @@ export default function ChannelsPage() {
                                   seenSort === "delta" ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-50"
                                 }`}
                               >
-                                vs predicted
+                                vs audience
                               </button>
                             </div>
                           </div>
                         </div>
                         <div className="divide-y divide-zinc-50">
-                          {sortedChannelRatings.map((e) => {
+                          {sortedChannelRatings.map((e, i) => {
                             const d = starDelta(e.userRating, e.predictedRating);
                             return (
                               <div
-                                key={`${e.title}-${e.userRating}-${e.predictedRating}`}
-                                className="flex items-center gap-3 py-2 px-3 hover:bg-zinc-50 transition-colors"
+                                key={`${e.title}-${e.userRating}-${e.predictedRating}-${i}`}
+                                className={`flex items-center gap-3 py-2 px-3 transition-colors ${
+                                  selectedRows.has(i) ? "bg-indigo-50" : "hover:bg-zinc-50"
+                                }`}
                               >
+                                <input
+                                  type="checkbox"
+                                  checked={selectedRows.has(i)}
+                                  onChange={(ev) => {
+                                    setSelectedRows((prev) => {
+                                      const next = new Set(prev);
+                                      ev.target.checked ? next.add(i) : next.delete(i);
+                                      return next;
+                                    });
+                                  }}
+                                  className="accent-indigo-600 shrink-0"
+                                />
                                 {e.posterUrl ? (
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img
@@ -754,7 +981,20 @@ export default function ChannelsPage() {
                                   <div className="w-8 h-12 rounded bg-zinc-100 flex-shrink-0" />
                                 )}
                                 <div className="flex-1 min-w-0">
-                                  <span className="font-medium text-zinc-800 text-sm">{e.title}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      localStorage.setItem(RECONSIDER_KEY, JSON.stringify({
+                                        title: e.title, type: e.type, year: null, director: null,
+                                        predictedRating: e.predictedRating, actors: [], plot: "",
+                                        posterUrl: e.posterUrl ?? null, trailerKey: null, rtScore: e.rtScore ?? null,
+                                      }));
+                                      router.push("/");
+                                    }}
+                                    className="font-medium text-zinc-800 text-sm hover:text-indigo-600 transition-colors text-left"
+                                  >
+                                    {e.title}
+                                  </button>
                                   <span className="ml-2 text-xs text-zinc-400">{e.type === "tv" ? "TV" : "Film"}</span>
                                 </div>
                                 <div className="flex items-center justify-end gap-2 shrink-0">
@@ -762,13 +1002,22 @@ export default function ChannelsPage() {
                                     className={`w-12 shrink-0 text-right tabular-nums text-sm font-semibold ${
                                       d > 0 ? "text-emerald-700" : d < 0 ? "text-rose-700" : "text-zinc-500"
                                     }`}
-                                    title="Your rating minus predicted (stars)"
+                                    title="Your rating minus audience rating (stars)"
                                   >
                                     {formatStarDelta(d)}
                                   </span>
                                   <div className="w-20 shrink-0 flex justify-end">
                                     <StaticStars rating={migrateRatingValue(e.userRating)} color="red" />
                                   </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteHistoryEntries([i])}
+                                    className="ml-1 text-zinc-300 hover:text-rose-500 transition-colors text-base leading-none shrink-0"
+                                    title="Delete this entry"
+                                    aria-label="Delete"
+                                  >
+                                    ×
+                                  </button>
                                 </div>
                               </div>
                             );
@@ -809,16 +1058,8 @@ export default function ChannelsPage() {
                               <div className="flex-1 min-w-0">
                                 <span className="font-medium text-zinc-800 text-sm">{e.title}</span>
                                 <span className="ml-2 text-xs text-zinc-400">{e.type === "tv" ? "TV" : "Film"}</span>
-                              </div>
-                              <div className="flex items-center justify-end gap-2 shrink-0">
-                                <span className="w-12 shrink-0 text-right tabular-nums text-sm font-semibold invisible select-none" aria-hidden>
-                                  0
-                                </span>
-                                <div className="w-20 shrink-0 flex justify-end">
-                                  <StaticStars rating={migrateRatingValue(e.interestStars)} color="blue" />
-                                </div>
                                 <span
-                                  className={`shrink-0 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${
+                                  className={`ml-2 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${
                                     e.kind === "want"
                                       ? "bg-emerald-100 text-emerald-800"
                                       : "bg-zinc-100 text-zinc-600"
@@ -837,6 +1078,14 @@ export default function ChannelsPage() {
                                       : "Not on list"
                                     : "Not interested"}
                                 </span>
+                              </div>
+                              <div className="flex items-center justify-end gap-2 shrink-0">
+                                <span className="w-12 shrink-0 text-right tabular-nums text-sm font-semibold invisible select-none" aria-hidden>
+                                  0
+                                </span>
+                                <div className="w-20 shrink-0 flex justify-end">
+                                  <StaticStars rating={migrateRatingValue(e.interestStars)} color="blue" />
+                                </div>
                               </div>
                             </div>
                           ))}
