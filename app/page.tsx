@@ -795,14 +795,12 @@ const PosterMovieTop = memo(function PosterMovieTop({
 
 const MovieRatingBlock = memo(function MovieRatingBlock({
   passCurrentCardStable,
-  rateSeenStable,
-  rateUnseenStable,
+  onRate,
   movieTitle,
   starKeyPrefix,
 }: {
   passCurrentCardStable: () => void;
-  rateSeenStable: (n: number) => void;
-  rateUnseenStable: (n: number) => void;
+  onRate: (stars: number, mode: "seen" | "unseen") => void;
   movieTitle: string;
   starKeyPrefix: "tr" | "po";
 }) {
@@ -828,7 +826,7 @@ const MovieRatingBlock = memo(function MovieRatingBlock({
                 filled={0}
                 color="red"
                 label="Rating"
-                onRate={rateSeenStable}
+                onRate={(v) => onRate(v, "seen")}
               />
             ) : (
               <StarRow
@@ -837,7 +835,7 @@ const MovieRatingBlock = memo(function MovieRatingBlock({
                 filled={0}
                 color="blue"
                 label="Interest"
-                onRate={rateUnseenStable}
+                onRate={(v) => onRate(v, "unseen")}
               />
             )}
           </div>
@@ -951,6 +949,9 @@ export default function Home() {
   /** True while fetchNext is loading the next title (after first card). Not tied to card opacity — avoids collapsing the layout. */
   const [isAdvancingCard, setIsAdvancingCard] = useState(false);
   const advanceFetchDepthRef = useRef(0);
+  const [pendingRating, setPendingRating] = useState<{ stars: number; mode: "seen" | "unseen" } | null>(null);
+  const pendingRatingRef = useRef(pendingRating);
+  pendingRatingRef.current = pendingRating;
   /** Delayed advance after star rating — cleared if user uses Next or queue before it fires. */
   const advanceAfterRatingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
@@ -1448,6 +1449,24 @@ export default function Home() {
   }, [fetchNext, loadPrefetchIntoRefForChannel, persistPrefetchQueue]);
 
 
+  // Reset pending rating when a new card loads
+  useEffect(() => {
+    setPendingRating(null);
+  }, [current?.title]);
+
+  // Submit pending rating on unmount (Next.js client-side navigation) or page unload
+  useEffect(() => {
+    const handleUnload = () => {
+      const p = pendingRatingRef.current;
+      if (p) submitRatingRef.current(p.stars, p.mode);
+    };
+    window.addEventListener("beforeunload", handleUnload);
+    return () => {
+      handleUnload();
+      window.removeEventListener("beforeunload", handleUnload);
+    };
+  }, []);
+
   // On mobile, nudge the card into view when a new title loads — only if needed; avoid smooth scroll (feels like a jump on tap)
   const isFirstCard = useRef(true);
   useEffect(() => {
@@ -1631,14 +1650,20 @@ export default function Home() {
     }
   };
 
-  /** Advance without a rating — title is excluded from future picks but not counted as not interested. */
+  /** Advance — submits any pending star rating, otherwise marks title as passed (no rating). */
   const passCurrentCard = () => {
     if (!current) return;
     clearAdvanceAfterRating();
-    const t = current.title;
-    const newPassed = [...passedRef.current, t];
-    localStorage.setItem(PASSED_KEY, JSON.stringify(newPassed));
-    passedRef.current = newPassed;
+    const p = pendingRatingRef.current;
+    if (p) {
+      submitRatingRef.current(p.stars, p.mode);
+      setPendingRating(null);
+    } else {
+      const t = current.title;
+      const newPassed = [...passedRef.current, t];
+      localStorage.setItem(PASSED_KEY, JSON.stringify(newPassed));
+      passedRef.current = newPassed;
+    }
     zeroYieldStreakRef.current = 0;
     fetchNext({ mediaType, llm });
   };
@@ -1725,11 +1750,8 @@ export default function Home() {
 
   const submitRatingRef = useRef(submitRating);
   submitRatingRef.current = submitRating;
-  const rateSeenStable = useCallback((n: number) => {
-    submitRatingRef.current(n, "seen");
-  }, []);
-  const rateUnseenStable = useCallback((n: number) => {
-    submitRatingRef.current(n, "unseen");
+  const handlePendingChange = useCallback((stars: number, mode: "seen" | "unseen") => {
+    setPendingRating({ stars, mode });
   }, []);
 
   const passCurrentCardRef = useRef(passCurrentCard);
@@ -1779,8 +1801,7 @@ export default function Home() {
 
                     <MovieRatingBlock
                       passCurrentCardStable={passCurrentCardStable}
-                      rateSeenStable={rateSeenStable}
-                      rateUnseenStable={rateUnseenStable}
+                      onRate={handlePendingChange}
                       movieTitle={current.title}
                       starKeyPrefix="tr"
                     />
@@ -1800,8 +1821,7 @@ export default function Home() {
 
                   <MovieRatingBlock
                     passCurrentCardStable={passCurrentCardStable}
-                    rateSeenStable={rateSeenStable}
-                    rateUnseenStable={rateUnseenStable}
+                    onRate={handlePendingChange}
                     movieTitle={current.title}
                     starKeyPrefix="po"
                   />
