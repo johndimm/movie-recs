@@ -174,6 +174,7 @@ interface CurrentMovie {
   posterUrl: string | null;
   trailerKey: string | null;
   rtScore: string | null;
+  reason: string | null;
 }
 
 export interface WatchlistEntry {
@@ -1435,6 +1436,7 @@ export default function Home() {
           posterUrl: m.posterUrl ?? null,
           trailerKey: m.trailerKey ?? null,
           rtScore: m.rtScore ?? null,
+          reason: null,
         };
         setCurrent(movie);
         setInitialLoading(false);
@@ -1798,6 +1800,11 @@ export default function Home() {
                   <TrailerPlayer videoId={current.trailerKey} />
                   <div className="flex flex-col gap-4 p-4 sm:p-6">
                     <TrailerMetadata movie={current} />
+                    {current.reason && (
+                      <p className="text-xs text-zinc-400 italic leading-relaxed border-l-2 border-zinc-700 pl-3">
+                        {current.reason}
+                      </p>
+                    )}
 
                     <MovieRatingBlock
                       passCurrentCardStable={passCurrentCardStable}
@@ -1818,6 +1825,11 @@ export default function Home() {
                 /* ── POSTER LAYOUT (no trailer) ── */
                 <div className="flex flex-col gap-4 p-4 sm:p-6">
                   <PosterMovieTop movie={current} onOpenPoster={openPosterLightbox} />
+                  {current.reason && (
+                    <p className="text-xs text-zinc-400 italic leading-relaxed border-l-2 border-zinc-700 pl-3">
+                      {current.reason}
+                    </p>
+                  )}
 
                   <MovieRatingBlock
                     passCurrentCardStable={passCurrentCardStable}

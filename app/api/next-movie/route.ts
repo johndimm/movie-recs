@@ -19,6 +19,7 @@ export interface NextMovieResponse {
   posterUrl: string | null;
   trailerKey: string | null;
   rtScore: string | null;
+  reason: string | null;
 }
 
 /** One entry inside the LLM "items" array — snake_case from model output */
@@ -31,6 +32,7 @@ interface RawItem {
   actors?: string[];
   plot?: string;
   rt_score?: string | null;
+  reason?: string | null;
 }
 
 import {
@@ -490,9 +492,9 @@ Many cards have no Rotten Tomatoes score — that is normal.
 Your job each turn:
 1. Propose ${batchCount} titles (aim for variety). The client removes duplicates against a large exclusion set you do not receive in full — repeats are OK; the app will filter.
 2. For each title, predict the rating they would give on a **0.5–5 star scale (half-star steps only)**.
-3. Return title, year, director, top 3-4 actors, a 1-2 sentence plot summary, and Rotten Tomatoes Tomatometer when known.
+3. Return title, year, director, top 3-4 actors, a 1-2 sentence plot summary, Rotten Tomatoes Tomatometer when known, and a one-sentence reason explaining why this title fits this user's taste.
 4. Respond with ONLY valid JSON — no markdown, no explanation:
-{"items":[{"title":"...","type":"movie","year":1994,"director":"...","predicted_rating":3.5,"actors":["...","..."],"plot":"...","rt_score":"94%"}]}
+{"items":[{"title":"...","type":"movie","year":1994,"director":"...","predicted_rating":3.5,"actors":["...","..."],"plot":"...","rt_score":"94%","reason":"..."}]}
 
 Rules:
 - Return exactly ${batchCount} objects in "items" (unless absolutely impossible — then return as many distinct valid picks as you can)
@@ -599,6 +601,7 @@ ${history.length === 0 && allExcluded.length === 0
       posterUrl: null,
       trailerKey: null,
       rtScore: raw.rt_score ?? null,
+      reason: raw.reason?.trim() || null,
     });
   }
 

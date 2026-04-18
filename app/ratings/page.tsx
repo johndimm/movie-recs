@@ -99,6 +99,24 @@ export default function RatingsPage() {
     router.push("/");
   };
 
+  const reconsiderWatchlist = (entry: WatchlistEntry) => {
+    const newWatchlist = watchlist.filter((w) => w.title !== entry.title);
+    localStorage.setItem(WATCHLIST_KEY, JSON.stringify(newWatchlist));
+    const movie = {
+      title: entry.title, type: entry.type, year: entry.year, director: entry.director,
+      predictedRating: 3, actors: entry.actors, plot: entry.plot,
+      posterUrl: entry.posterUrl, trailerKey: null, rtScore: entry.rtScore ?? null,
+    };
+    localStorage.setItem(RECONSIDER_KEY, JSON.stringify(movie));
+    router.push("/");
+  };
+
+  const deleteFromWatchlist = (entry: WatchlistEntry) => {
+    const newWatchlist = watchlist.filter((w) => w.title !== entry.title);
+    localStorage.setItem(WATCHLIST_KEY, JSON.stringify(newWatchlist));
+    setWatchlist(newWatchlist);
+  };
+
   const reconsiderNotInterested = (item: { title: string; rtScore?: string | null }) => {
     const newSkipped = skipped.filter((s) => s !== item.title);
     localStorage.setItem(SKIPPED_KEY, JSON.stringify(newSkipped));
@@ -234,7 +252,12 @@ export default function RatingsPage() {
           <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm">
             <ul className="divide-y divide-zinc-50">
               {watchlist.map((w, i) => (
-                <li key={`${w.title}-${i}`} className="px-4 py-3 flex items-start gap-3 text-sm min-w-0">
+                <li
+                  key={`${w.title}-${i}`}
+                  onClick={() => reconsiderWatchlist(w)}
+                  className="px-4 py-3 flex items-start gap-3 text-sm min-w-0 cursor-pointer hover:bg-zinc-50 active:bg-zinc-100 transition-colors"
+                  title="Click to rate after watching"
+                >
                   {w.posterUrl && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -261,6 +284,14 @@ export default function RatingsPage() {
                       </div>
                     )}
                   </div>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); deleteFromWatchlist(w); }}
+                    className="text-zinc-300 hover:text-red-400 transition-colors flex-shrink-0 text-lg leading-none self-start mt-0.5"
+                    title="Remove from watchlist"
+                  >
+                    ×
+                  </button>
                 </li>
               ))}
             </ul>
