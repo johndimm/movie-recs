@@ -4,8 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const LINKS = [
-  { href: "/", label: "App" },
+  { href: "/", label: "Player" },
   { href: "/channels", label: "Channels" },
+  { href: "/history", label: "History" },
   { href: "/watchlist", label: "Watchlist" },
   { href: "/settings", label: "Settings" },
   { href: "/help", label: "Help" },

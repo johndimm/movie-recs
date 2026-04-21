@@ -492,7 +492,7 @@ Many cards have no Rotten Tomatoes score — that is normal.
 Your job each turn:
 1. Propose ${batchCount} titles (aim for variety). The client removes duplicates against a large exclusion set you do not receive in full — repeats are OK; the app will filter.
 2. For each title, predict the rating they would give on a **0.5–5 star scale (half-star steps only)**.
-3. Return title, year, director, top 3-4 actors, a 1-2 sentence plot summary, Rotten Tomatoes Tomatometer when known, and a one-sentence reason explaining why this title fits this user's taste.
+3. Return title, year, director, top 3-4 actors, a 1-2 sentence plot summary, Rotten Tomatoes Tomatometer when known, and a one-sentence reason explaining why this title fits the user's taste — write it in second person, addressing the user as "you" (e.g. "You rated X highly" not "The user rated X highly").
 4. Respond with ONLY valid JSON — no markdown, no explanation:
 {"items":[{"title":"...","type":"movie","year":1994,"director":"...","predicted_rating":3.5,"actors":["...","..."],"plot":"...","rt_score":"94%","reason":"..."}]}
 

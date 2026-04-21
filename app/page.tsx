@@ -332,7 +332,7 @@ const StarRow = memo(function StarRow({
               setCommitted(v);
               onRate(v);
             }}
-            className={`relative leading-none select-none ${compact ? "text-4xl sm:text-5xl" : "text-3xl"}`}
+            className={`relative leading-none select-none ${compact ? "text-5xl sm:text-6xl" : "text-3xl"}`}
             style={{ touchAction: "manipulation" }}
           >
             <span className="text-zinc-600">★</span>
@@ -573,16 +573,21 @@ const PrefetchQueuePanel = memo(function PrefetchQueuePanel({
               <button
                 type="button"
                 onClick={() => onPlayAtIndex(index)}
-                className="min-w-0 flex-1 flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-zinc-200 hover:bg-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+                className="min-w-0 flex-1 flex flex-col gap-0.5 rounded-lg px-2 py-1.5 text-left text-zinc-200 hover:bg-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
                 aria-label={`Play ${m.title} now`}
               >
-                <span className="min-w-0 flex-1 truncate" title={m.title}>
-                  {m.title}
-                  {m.year != null && <span className="text-zinc-500 font-normal"> · {m.year}</span>}
-                </span>
-                <span className="shrink-0 text-[10px] uppercase tracking-wide text-zinc-500">
-                  {m.type === "tv" ? "TV" : "Film"}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="min-w-0 flex-1 truncate font-medium" title={m.title}>
+                    {m.title}
+                    {m.year != null && <span className="text-zinc-500 font-normal"> · {m.year}</span>}
+                  </span>
+                  <span className="shrink-0 text-[10px] uppercase tracking-wide text-zinc-500">
+                    {m.type === "tv" ? "TV" : "Film"}
+                  </span>
+                </div>
+                {m.reason && (
+                  <p className="text-xs text-violet-300 italic line-clamp-2">{m.reason}</p>
+                )}
               </button>
               <button
                 type="button"
@@ -840,7 +845,7 @@ const MovieRatingBlock = memo(function MovieRatingBlock({
               />
             )}
           </div>
-          <PassNextButton onPass={passCurrentCardStable} />
+          <PassNextButton onPass={passCurrentCardStable} prominent />
         </div>
       </div>
     </div>
@@ -960,7 +965,9 @@ export default function Home() {
   const [displayMode, setDisplayMode] = useState<"trailers" | "posters">(() => loadSetting("displayMode", "trailers" as const));
   const [llm, setLlm] = useState<string>(() => loadSetting("llm", "deepseek"));
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [isTrailerFullscreen, setIsTrailerFullscreen] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
+  const videoContainerRef = useRef<HTMLDivElement>(null);
   const prefetchRef = useRef<CurrentMovie[]>([]);
   const [prefetchQueueUi, setPrefetchQueueUi] = useState<CurrentMovie[]>([]);
   const replenishGenRef = useRef(0);
@@ -1031,9 +1038,22 @@ export default function Home() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") { setLightboxUrl(null); }
+      if (e.key === "ArrowRight") {
+        const active = document.activeElement;
+        if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA")) return;
+        passCurrentCardRef.current();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  useEffect(() => {
+    const onChange = () => {
+      setIsTrailerFullscreen(document.fullscreenElement === videoContainerRef.current);
+    };
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
   }, []);
 
   useEffect(() => {
@@ -1797,11 +1817,57 @@ export default function Home() {
               {current.trailerKey && displayMode === "trailers" ? (
                 /* ── TRAILER LAYOUT ── */
                 <div className="bg-black">
-                  <TrailerPlayer videoId={current.trailerKey} />
+                  <div ref={videoContainerRef} className="relative bg-black">
+                    <TrailerPlayer videoId={current.trailerKey} />
+                    {/* Fullscreen enter button — overlaid top-right of video */}
+                    {!isTrailerFullscreen && (
+                      <button
+                        type="button"
+                        onPointerDown={(e) => e.preventDefault()}
+                        onClick={() => videoContainerRef.current?.requestFullscreen?.()}
+                        className="absolute top-2 right-2 z-10 rounded-md bg-black/40 p-1.5 text-white/60 hover:bg-black/75 hover:text-white transition-colors"
+                        title="Enter fullscreen — Next button available in fullscreen"
+                        aria-label="Enter fullscreen"
+                      >
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                        </svg>
+                      </button>
+                    )}
+                    {/* Fullscreen overlay controls */}
+                    {isTrailerFullscreen && (
+                      <>
+                        <button
+                          type="button"
+                          onPointerDown={(e) => e.preventDefault()}
+                          onClick={passCurrentCardStable}
+                          className="fixed top-5 right-5 z-50 inline-flex items-center gap-2 rounded-xl border-2 border-indigo-200/90 bg-indigo-600 px-6 py-3 text-base font-semibold text-white shadow-lg shadow-indigo-950/40 hover:bg-indigo-500 hover:border-white/90 transition-all select-none"
+                          aria-label="Next title"
+                        >
+                          Next
+                          <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+                            <path fillRule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          onPointerDown={(e) => e.preventDefault()}
+                          onClick={() => document.exitFullscreen?.()}
+                          className="fixed top-5 left-5 z-50 rounded-xl bg-black/50 p-2.5 text-white/70 hover:bg-black/80 hover:text-white transition-colors select-none"
+                          title="Exit fullscreen"
+                          aria-label="Exit fullscreen"
+                        >
+                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9L4 4m0 0v4m0-4h4M15 9l5-5m0 0v4m0-4h-4M9 15l-5 5m0 0v-4m0 4h4M15 15l5 5m0 0v-4m0 4h-4" />
+                          </svg>
+                        </button>
+                      </>
+                    )}
+                  </div>
                   <div className="flex flex-col gap-4 p-4 sm:p-6">
                     <TrailerMetadata movie={current} />
                     {current.reason && (
-                      <p className="text-xs text-zinc-400 italic leading-relaxed border-l-2 border-zinc-700 pl-3">
+                      <p className="text-sm text-violet-300 italic leading-relaxed border-l-2 border-violet-700 pl-3">
                         {current.reason}
                       </p>
                     )}
@@ -1826,7 +1892,7 @@ export default function Home() {
                 <div className="flex flex-col gap-4 p-4 sm:p-6">
                   <PosterMovieTop movie={current} onOpenPoster={openPosterLightbox} />
                   {current.reason && (
-                    <p className="text-xs text-zinc-400 italic leading-relaxed border-l-2 border-zinc-700 pl-3">
+                    <p className="text-sm text-violet-300 italic leading-relaxed border-l-2 border-violet-700 pl-3">
                       {current.reason}
                     </p>
                   )}
@@ -1857,6 +1923,11 @@ export default function Home() {
             <p className="text-sm text-zinc-300 leading-relaxed" style={{ borderLeft: "3px solid #a78bfa", paddingLeft: "12px" }}>
               {tasteSummary}
             </p>
+            <div className="flex gap-3 mt-3 pt-3 border-t border-zinc-800">
+              <Link href={`/channels${activeChannelId && activeChannelId !== "all" ? `?select=${activeChannelId}` : ""}`} className="text-sm font-medium text-indigo-400 hover:text-indigo-300 transition-colors">Edit Channel</Link>
+              <span className="text-zinc-700 text-sm select-none">·</span>
+              <Link href="/channel-history" className="text-sm font-medium text-indigo-400 hover:text-indigo-300 transition-colors">Channel History</Link>
+            </div>
           </div>
         )}
 
