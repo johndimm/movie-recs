@@ -492,6 +492,8 @@ export default function ChannelsPage() {
 
   const updateChannel = (id: string, data: Omit<Channel, "id">) => {
     saveChannels(channels.map((c) => (c.id === id ? { ...data, id } : c)));
+    localStorage.setItem(ACTIVE_CHANNEL_KEY, id);
+    router.push("/");
   };
 
   const confirmDeleteChannel = () => {

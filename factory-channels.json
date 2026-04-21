@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "exportedAt": "2026-04-17T00:38:36.952Z",
+  "exportedAt": "2026-04-21T20:03:40.933Z",
   "options": {
     "channels": true,
     "queue": true,
@@ -11,6 +11,7 @@
       {
         "id": "all",
         "name": "All",
+        "mediums": [],
         "genres": [],
         "timePeriods": [],
         "language": "",
@@ -28,7 +29,8 @@
         "artists": "",
         "freeText": "godzilla, mothra, etc",
         "popularity": 0,
-        "id": "78d64353-337e-46fc-b602-b3abdad9f716"
+        "id": "78d64353-337e-46fc-b602-b3abdad9f716",
+        "mediums": []
       },
       {
         "name": "Nouvelle Vague",
@@ -44,7 +46,8 @@
         "artists": "",
         "freeText": "",
         "popularity": 50,
-        "id": "1b90b4b2-25c9-43c1-9f2e-bba10e4a480b"
+        "id": "1b90b4b2-25c9-43c1-9f2e-bba10e4a480b",
+        "mediums": []
       },
       {
         "name": "Spaghetti Westerns",
@@ -61,7 +64,8 @@
         "artists": "Sergio Leone",
         "freeText": "",
         "popularity": 50,
-        "id": "92419e89-efd6-450b-8385-f042171621bd"
+        "id": "92419e89-efd6-450b-8385-f042171621bd",
+        "mediums": []
       },
       {
         "name": "Korean Horror",
@@ -73,195 +77,1020 @@
         "artists": "",
         "freeText": "",
         "popularity": 50,
-        "id": "690d995f-f6b7-4dfa-85ab-4b1650991ce0"
+        "id": "690d995f-f6b7-4dfa-85ab-4b1650991ce0",
+        "mediums": []
+      },
+      {
+        "name": "Cinecitta",
+        "mediums": [],
+        "genres": [],
+        "timePeriods": [
+          "1950s",
+          "1960s",
+          "1970s",
+          "1980s"
+        ],
+        "language": "Italian",
+        "artists": "",
+        "freeText": "",
+        "popularity": 50,
+        "id": "2a1ee1e9-4599-489d-8398-0b0b8df7b35a"
+      },
+      {
+        "name": "New German Cinema",
+        "mediums": [],
+        "genres": [],
+        "timePeriods": [
+          "1970s",
+          "1980s",
+          "1960s"
+        ],
+        "language": "German",
+        "artists": "Werner Herzog, Rainer Werner Fassbinder, Wim Wenders, Volker Schlöndorff, Fassbinder",
+        "freeText": "",
+        "popularity": 50,
+        "id": "a5eb35f6-f44d-4946-8802-24b4e2db98ba"
+      },
+      {
+        "name": "Film Noir",
+        "mediums": [
+          "movie"
+        ],
+        "genres": [
+          "Action",
+          "Adventure",
+          "Crime",
+          "Drama",
+          "Thriller",
+          "Mystery"
+        ],
+        "timePeriods": [
+          "1950s",
+          "1960s"
+        ],
+        "language": "English",
+        "artists": "Marlon Brando, Stanley Kubrick, Otto Preminger, William Wyler, James Dean, Robert Mitchum",
+        "freeText": "",
+        "popularity": 29,
+        "id": "32183611-7b02-4701-b0e4-77dc20e7b84c"
+      },
+      {
+        "name": "Persian",
+        "mediums": [
+          "movie"
+        ],
+        "genres": [
+          "Action",
+          "Adventure",
+          "Crime",
+          "Drama",
+          "Thriller"
+        ],
+        "timePeriods": [],
+        "language": "Persian",
+        "artists": "Abbas Kiarostami",
+        "freeText": "Iranian directors",
+        "popularity": 40,
+        "id": "5452914c-bb0b-49c3-830f-25bc84b5dba6"
       }
     ],
-    "movie-recs-prefetch-queue:075b7096-763a-420f-b1d3-29d9e9e68b3d": [
-      {
-        "title": "The Matrix",
-        "type": "movie",
-        "year": 1999,
-        "director": "Lana & Lilly Wachowski",
-        "predictedRating": 5,
-        "actors": [
-          "Keanu Reeves",
-          "Laurence Fishburne",
-          "Carrie-Anne Moss",
-          "Hugo Weaving"
-        ],
-        "plot": "A computer hacker learns from rebels about the true nature of his reality and his role in the war against its controllers.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/aOIuZAjPaRIE6CMzbazvcHuHXDc.jpg",
-        "trailerKey": "d0XTFAMmhrE",
-        "rtScore": "83%"
-      },
-      {
-        "title": "2001: A Space Odyssey",
-        "type": "movie",
-        "year": 1968,
-        "director": "Stanley Kubrick",
-        "predictedRating": 4.5,
-        "actors": [
-          "Keir Dullea",
-          "Gary Lockwood",
-          "William Sylvester",
-          "Douglas Rain"
-        ],
-        "plot": "Humanity finds a mysterious monolith on the moon and sends a spacecraft to Jupiter with the sentient computer HAL 9000.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/ve72VxNqjGM69Uky4WTo2bK6rfq.jpg",
-        "trailerKey": "kR2r-A9H3Kg",
-        "rtScore": "92%"
-      },
-      {
-        "title": "Blade Runner 2049",
-        "type": "movie",
-        "year": 2017,
-        "director": "Denis Villeneuve",
-        "predictedRating": 4,
-        "actors": [
-          "Ryan Gosling",
-          "Harrison Ford",
-          "Ana de Armas",
-          "Sylvia Hoeks"
-        ],
-        "plot": "A young blade runner's discovery of a long-buried secret leads him to track down former blade runner Rick Deckard, who's been missing for thirty years.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/gajva2L0rPYkEWjzgFlBXCAVBE5.jpg",
-        "trailerKey": "geFtxCSz8xI",
-        "rtScore": "88%"
-      },
-      {
-        "title": "Upgrade",
-        "type": "movie",
-        "year": 2018,
-        "director": "Leigh Whannell",
-        "predictedRating": 3.5,
-        "actors": [
-          "Logan Marshall-Green",
-          "Betty Gabriel",
-          "Harrison Gilbertson",
-          "Benedict Hardie"
-        ],
-        "plot": "After a mugging leaves him paralyzed, a man receives an experimental computer chip implant that allows him to control his body again.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/woLGROUdPWdBnLVFKYdGD3kFkPY.jpg",
-        "trailerKey": "gEnRNIvEKu8",
-        "rtScore": "88%"
-      },
-      {
-        "title": "Altered Carbon",
-        "type": "tv",
-        "year": 2018,
-        "director": "Laeta Kalogridis",
-        "predictedRating": 3.5,
-        "actors": [
-          "Joel Kinnaman",
-          "James Purefoy",
-          "Martha Higareda",
-          "Chris Conner"
-        ],
-        "plot": "In a future where consciousness can be transferred to new bodies, a former soldier is hired to solve a murder.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/66rKwpSexUZ3yTv5lBS1bjU4Ykk.jpg",
-        "trailerKey": "sm_SlyHGYfE",
-        "rtScore": "67%"
-      },
-      {
-        "title": "Ghost in the Shell",
-        "type": "movie",
-        "year": 1995,
-        "director": "Mamoru Oshii",
-        "predictedRating": 4,
-        "actors": [
-          "Atsuko Tanaka",
-          "Akio \u014ctsuka",
-          "K\u014dichi Yamadera",
-          "Yutaka Nakano"
-        ],
-        "plot": "A cyborg policewoman hunts a mysterious hacker known as the Puppet Master in a technologically advanced future.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/9gC88zYUBARRSThcG93MvW14sqx.jpg",
-        "trailerKey": "8RF09G8Ymqg",
-        "rtScore": "96%"
-      },
-      {
-        "title": "Dredd",
-        "type": "movie",
-        "year": 2012,
-        "director": "Pete Travis",
-        "predictedRating": 3.5,
-        "actors": [
-          "Karl Urban",
-          "Olivia Thirlby",
-          "Lena Headey",
-          "Wood Harris"
-        ],
-        "plot": "In a violent, futuristic city, a judge teams with a trainee to take down a drug lord operating from a 200-story slum tower.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/wLx65gtGVnUFCxceHWGszcruCZj.jpg",
-        "trailerKey": "3Sp-2FvUNv0",
-        "rtScore": "79%"
-      },
-      {
-        "title": "Blade Runner",
-        "type": "movie",
-        "year": 1982,
-        "director": "Ridley Scott",
-        "predictedRating": 4.5,
-        "actors": [
-          "Harrison Ford",
-          "Rutger Hauer",
-          "Sean Young",
-          "Edward James Olmos"
-        ],
-        "plot": "A retired blade runner is forced to hunt down replicants, bioengineered beings, in a dystopian future Los Angeles.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/63N9uy8nd9j7Eog2axPQ8lbr3Wj.jpg",
-        "trailerKey": "qoEyZoOTtss",
-        "rtScore": "89%"
-      }
-    ],
+    "movie-recs-active-channel": "32183611-7b02-4701-b0e4-77dc20e7b84c",
     "movie-recs-prefetch-queue:1b90b4b2-25c9-43c1-9f2e-bba10e4a480b": [
       {
-        "title": "Breathless",
+        "title": "The 400 Blows",
+        "type": "movie",
+        "year": 1959,
+        "director": "François Truffaut",
+        "predictedRating": 4,
+        "actors": [
+          "Jean-Pierre Léaud",
+          "Claire Maurier",
+          "Albert Rémy"
+        ],
+        "plot": "A young boy in Paris, neglected by his parents, turns to petty crime and rebellion in this semi-autobiographical coming-of-age story.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/12PuU23kkDLvTd0nb8hMlE3oShB.jpg",
+        "trailerKey": "ICGZfU-9Yl0",
+        "rtScore": "100%",
+        "reason": "Truffaut's seminal work that launched the French New Wave, testing your response to critically adored foundational films."
+      },
+      {
+        "title": "Les Diaboliques",
+        "type": "movie",
+        "year": 1955,
+        "director": "Henri-Georges Clouzot",
+        "predictedRating": 4,
+        "actors": [
+          "Simone Signoret",
+          "Véra Clouzot",
+          "Paul Meurisse"
+        ],
+        "plot": "The wife and mistress of a cruel headmaster conspire to murder him, but his body disappears and strange events begin to haunt them.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/jE8ygUYBUGyUcM4sR6iinPqYeDK.jpg",
+        "trailerKey": "BzbGtjtfZwA",
+        "rtScore": "100%",
+        "reason": "A French thriller masterpiece from the era, testing your taste for suspense given your high ratings for 'Le Samouraï' and classic films."
+      },
+      {
+        "title": "Belle de Jour",
+        "type": "movie",
+        "year": 1967,
+        "director": "Luis Buñuel",
+        "predictedRating": 3.5,
+        "actors": [
+          "Catherine Deneuve",
+          "Jean Sorel",
+          "Michel Piccoli"
+        ],
+        "plot": "A bored housewife begins working at a brothel during the afternoons, exploring her hidden desires and the consequences of her double life.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/iUAFECovwPA0cVV9bo4uNGLJSGL.jpg",
+        "trailerKey": "gC1lO7lqMuw",
+        "rtScore": "93%",
+        "reason": "A provocative French drama with psychological thrills, testing your taste for risqué themes within the channel's romance/drama blend."
+      },
+      {
+        "title": "La Jetée",
+        "type": "movie",
+        "year": 1962,
+        "director": "Chris Marker",
+        "predictedRating": 3.5,
+        "actors": [
+          "Hélène Chatelain",
+          "Davos Hanich",
+          "Jacques Ledoux"
+        ],
+        "plot": "A post-apocalyptic time travel story told almost entirely through still images, following a prisoner sent to the past and future.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/elGidsRHXkk8UyrtLbcMhaptDyp.jpg",
+        "trailerKey": "jO4W6TPkSD8",
+        "rtScore": "96%",
+        "reason": "Experimental short film that blends sci-fi thriller with romance, challenging your taste with unconventional storytelling."
+      },
+      {
+        "title": "Bay of Angels",
+        "type": "movie",
+        "year": 1963,
+        "director": "Jacques Demy",
+        "predictedRating": 3.5,
+        "actors": [
+          "Jeanne Moreau",
+          "Claude Mann",
+          "Paul Guers"
+        ],
+        "plot": "A young bank clerk becomes obsessed with gambling and falls for an experienced gambler as they travel the French Riviera casinos.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/7gMfVJur6DgujNyt1297GIGYMwJ.jpg",
+        "trailerKey": "qZJp381jgLs",
+        "rtScore": "88%",
+        "reason": "Demy's romantic drama about obsession and chance, featuring Jeanne Moreau in a performance similar to 'Jules and Jim.'"
+      },
+      {
+        "title": "Le Trou",
         "type": "movie",
         "year": 1960,
+        "director": "Jacques Becker",
+        "predictedRating": 4.5,
+        "actors": [
+          "Michel Constantin",
+          "Jean Keraudy",
+          "Philippe Leroy"
+        ],
+        "plot": "Four inmates in a French prison meticulously plan an escape, building tension through their careful preparations and growing camaraderie.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/xyZhiOz5NHVBUKlpioxjwajy7pm.jpg",
+        "trailerKey": "g2Sbo6JpDsY",
+        "rtScore": "100%",
+        "reason": "A gripping prison thriller with perfect critical acclaim that matches your high ratings for tightly constructed genre films."
+      },
+      {
+        "title": "Army of Shadows",
+        "type": "movie",
+        "year": 1969,
+        "director": "Jean-Pierre Melville",
+        "predictedRating": 4,
+        "actors": [
+          "Lino Ventura",
+          "Paul Meurisse",
+          "Jean-Pierre Cassel"
+        ],
+        "plot": "French Resistance fighters during World War II navigate betrayal, danger, and moral ambiguity in their underground struggle against Nazi occupation.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/aqNZWM9bspt8zaDvVRIRiWxRVJ7.jpg",
+        "trailerKey": "sxnCZ0nR2a4",
+        "rtScore": "97%",
+        "reason": "Melville's tense, atmospheric thriller explores loyalty and survival, similar to the cool precision you appreciated in 'Le Samouraï'."
+      },
+      {
+        "title": "La Collectionneuse",
+        "type": "movie",
+        "year": 1967,
+        "director": "Éric Rohmer",
+        "predictedRating": 3,
+        "actors": [
+          "Patrick Bauchau",
+          "Haydée Politoff",
+          "Daniel Pommereulle"
+        ],
+        "plot": "A young art dealer and his friend spend the summer at a villa, where they become fascinated and disturbed by a free-spirited woman who collects lovers.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/rMVluFrpfeCtcCUtDkjklbBirry.jpg",
+        "trailerKey": "dBK-cedrRt8",
+        "rtScore": "88%",
+        "reason": "Rohmer's talkative, philosophical drama challenges with its subtle character study, testing your tolerance for less plot-driven French New Wave."
+      },
+      {
+        "title": "Alphaville",
+        "type": "movie",
+        "year": 1965,
         "director": "Jean-Luc Godard",
         "predictedRating": 4,
         "actors": [
-          "Jean-Paul Belmondo",
-          "Jean Seberg",
-          "Daniel Boulanger"
+          "Eddie Constantine",
+          "Anna Karina",
+          "Akim Tamiroff"
         ],
-        "plot": "A small-time thief steals a car and impulsively murders a motorcycle policeman, then tries to persuade a girlfriend to flee to Italy with him.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/9Wx0Wdn2EOqeCZU4SP6tlS3LOml.jpg",
-        "trailerKey": "UoICuMPOWrk",
-        "rtScore": "97%"
+        "plot": "A secret agent travels to a dystopian city controlled by a supercomputer, where he must rescue a scientist and destroy the oppressive system.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/fFJP3D5fJDFxN7ChqSye1DZ0fTL.jpg",
+        "trailerKey": "CzaATgGHmy0",
+        "rtScore": "92%",
+        "reason": "Godard's sci-fi thriller noir expands your Nouvelle Vague exposure with genre-blending innovation, testing your taste for unconventional narratives."
       },
       {
-        "title": "Jules and Jim",
+        "title": "La Prisonnière",
+        "type": "movie",
+        "year": 1968,
+        "director": "Henri-Georges Clouzot",
+        "predictedRating": 3,
+        "actors": [
+          "Laurent Terzieff",
+          "Elisabeth Wiener",
+          "Bernard Fresson"
+        ],
+        "plot": "A gallery owner becomes obsessed with a young woman who enjoys being psychologically dominated, exploring dark desires and manipulation.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/z3Da5Fn4C1CfL0AWwyDGlK387aE.jpg",
+        "trailerKey": null,
+        "rtScore": "67%",
+        "reason": "A psychological thriller from late 1960s France testing your taste for darker, more challenging relationship dynamics within the channel."
+      }
+    ],
+    "movie-recs-prefetch-queue:2a1ee1e9-4599-489d-8398-0b0b8df7b35a": [
+      {
+        "title": "Il Sorpasso",
         "type": "movie",
         "year": 1962,
-        "director": "Fran\u00e7ois Truffaut",
-        "predictedRating": 4.5,
+        "director": "Dino Risi",
+        "predictedRating": 4,
         "actors": [
-          "Jeanne Moreau",
-          "Oskar Werner",
-          "Henri Serre"
+          "Vittorio Gassman",
+          "Jean-Louis Trintignant",
+          "Catherine Spaak"
         ],
-        "plot": "Decades in the life of a love triangle involving two friends and an impulsive woman they both adore.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/kuFjZlcZhQFDtIjuI3GQJjsQG03.jpg",
-        "trailerKey": "X9OzdWczCfQ",
-        "rtScore": "100%"
+        "plot": "A brash playboy takes an uptight law student on a reckless road trip across Italy on a single day, leading to a life-altering friendship.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/4h1ckrJQVcQYjeOkqS8i9BqZ9MI.jpg",
+        "trailerKey": "bFf2VID8-qg",
+        "rtScore": "97%",
+        "reason": "Given the user's taste for genre-defining classics, this influential Italian comedy-drama might resonate with their adventurous cinematic interests."
       },
       {
-        "title": "Shoot the Piano Player",
+        "title": "The Working Class Goes to Heaven",
         "type": "movie",
-        "year": 1960,
-        "director": "Fran\u00e7ois Truffaut",
+        "year": 1971,
+        "director": "Elio Petri",
         "predictedRating": 3.5,
         "actors": [
-          "Charles Aznavour",
-          "Marie Dubois",
-          "Nicole Berger"
+          "Gian Maria Volonté",
+          "Mariangela Melato",
+          "Gino Pernice"
         ],
-        "plot": "A former concert pianist working as a bar pianist gets drawn into his brothers' criminal troubles.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/6UhMIZaaoe2HUU7sEIwYpuYgugh.jpg",
-        "trailerKey": "wCq3Q2jUg20",
-        "rtScore": "88%"
+        "plot": "A factory worker becomes politically conscious after a workplace accident prompts him to challenge exploitation and seek justice.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/gulAszCUPjuBtDd6NudgLTBu3i5.jpg",
+        "trailerKey": "RRUz45GVOAM",
+        "rtScore": "93%",
+        "reason": "The user's appreciation for nuanced narratives might find Petri's critically acclaimed critique of industrial life an intriguing exploration of socio-economic issues."
+      },
+      {
+        "title": "Rome, Open City",
+        "type": "movie",
+        "year": 1945,
+        "director": "Roberto Rossellini",
+        "predictedRating": 4,
+        "actors": [
+          "Aldo Fabrizi",
+          "Anna Magnani",
+          "Marcello Pagliero"
+        ],
+        "plot": "During the Nazi occupation of Rome in 1944, a resistance leader seeks refuge with a priest.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/ijGV4v8JxgbNzgEhqKdzHdaZn8a.jpg",
+        "trailerKey": "JM_KpDmdF98",
+        "rtScore": "100%",
+        "reason": "This neorealistic film could resonate with the user's taste for films with historical and emotional depth."
+      },
+      {
+        "title": "Bread and Tulips",
+        "type": "movie",
+        "year": 2000,
+        "director": "Silvio Soldini",
+        "predictedRating": 4,
+        "actors": [
+          "Licia Maglietta",
+          "Bruno Ganz",
+          "Giuseppe Battiston"
+        ],
+        "plot": "A housewife unexpectedly finds freedom and romance after being left behind on a family trip.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/ijCBLF08KQsam3cOBAnit05iiV3.jpg",
+        "trailerKey": "JVWLl6TBS1Q",
+        "rtScore": "61%",
+        "reason": "This charming romantic comedy offers a different flavor of Italian cinema that could pleasantly surprise the user."
+      },
+      {
+        "title": "The Bicycle Thief",
+        "type": "movie",
+        "year": 1948,
+        "director": "Vittorio De Sica",
+        "predictedRating": 4,
+        "actors": [
+          "Lamberto Maggiorani",
+          "Enzo Staiola",
+          "Lianella Carell"
+        ],
+        "plot": "A poor father searches post-WWII Rome for his stolen bicycle, essential for his job.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/iPdVqIpmR3bRvOQJPrn4pr2KR3q.jpg",
+        "trailerKey": "H2P4xo9kmPM",
+        "rtScore": "99%",
+        "reason": "Given the user's consistent favoring of classic and meaningful cinema, this iconic neorealism work fits well."
+      },
+      {
+        "title": "Amarcord",
+        "type": "movie",
+        "year": 1973,
+        "director": "Federico Fellini",
+        "predictedRating": 4,
+        "actors": [
+          "Pupella Maggio",
+          "Armando Brancia",
+          "Magali Noël"
+        ],
+        "plot": "A coming-of-age tale set in 1930s Italy, capturing the day-to-day life of a small town with surreal, comic flare.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/kS7i093sQpkLTawUEdgf4HVOHSc.jpg",
+        "trailerKey": "BtG9ZM-ZHnY",
+        "rtScore": "88%",
+        "reason": "Another visually and narratively rich Fellini film, aligning with the user's appreciation of visual storytelling and classic film."
+      },
+      {
+        "title": "Divorce Italian Style",
+        "type": "movie",
+        "year": 1961,
+        "director": "Pietro Germi",
+        "predictedRating": 3.5,
+        "actors": [
+          "Marcello Mastroianni",
+          "Daniela Rocca",
+          "Stefania Sandrelli"
+        ],
+        "plot": "A Sicilian nobleman wants to marry his young cousin, but first must find a reason to leave his wife.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/vZbdSpUFyFiDBBTY0AiSrN9f303.jpg",
+        "trailerKey": "mDQj_kgEw0Y",
+        "rtScore": "84%",
+        "reason": "Your interest in Italian classics suggests you might enjoy this early '60s comedy that combines wit with cultural critique."
+      },
+      {
+        "title": "The Battle of Algiers",
+        "type": "movie",
+        "year": 1966,
+        "director": "Gillo Pontecorvo",
+        "predictedRating": 4,
+        "actors": [
+          "Jean Martin",
+          "Saadi Yacef",
+          "Braham Haggiag"
+        ],
+        "plot": "The film depicts the Algerian struggle for independence from French colonial rule, highlighting guerrilla warfare in Algiers.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/2p3AFtOHFvP6OeVMqlnL1zLKOqL.jpg",
+        "trailerKey": "vhhoS3zOskE",
+        "rtScore": "99%",
+        "reason": "You have a strong appreciation for critically acclaimed classics, and this film is renowned for its realistic portrayal and lasting impact."
+      }
+    ],
+    "movie-recs-prefetch-queue:32183611-7b02-4701-b0e4-77dc20e7b84c": [
+      {
+        "title": "The Young Lions",
+        "type": "movie",
+        "year": 1958,
+        "director": "Edward Dmytryk",
+        "predictedRating": 4.5,
+        "actors": [
+          "Marlon Brando",
+          "Montgomery Clift",
+          "Dean Martin"
+        ],
+        "plot": "The story follows three soldiers from different backgrounds during World War II, exploring their perspectives and struggles.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/7o0UhkzH01DhAP3JsMLoNPQnoqc.jpg",
+        "trailerKey": "5I8Gg4B1fXc",
+        "rtScore": null,
+        "reason": "Marlon Brando stars, and you tend to appreciate films with deep character portrayals and classic narratives."
+      },
+      {
+        "title": "Pursued",
+        "type": "movie",
+        "year": 1947,
+        "director": "Raoul Walsh",
+        "predictedRating": 4,
+        "actors": [
+          "Robert Mitchum",
+          "Teresa Wright",
+          "Judith Anderson"
+        ],
+        "plot": "In the post-Civil War era, a man investigates his conflicted past and the shadowy events surrounding his family.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/5UjUTgSGytAYsU4WCXmaBXLtlSY.jpg",
+        "trailerKey": null,
+        "rtScore": 100,
+        "reason": "Robert Mitchum's performance in noir settings resonates with your taste for classic, moody thrillers."
+      },
+      {
+        "title": "The Killing",
+        "type": "movie",
+        "year": 1956,
+        "director": "Stanley Kubrick",
+        "predictedRating": 4,
+        "actors": [
+          "Sterling Hayden",
+          "Coleen Gray",
+          "Vince Edwards"
+        ],
+        "plot": "A heist at a racetrack is meticulously planned and executed with unforeseen complications.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/A6VzUPcADZGYdGHlVdWvpMNDF5d.jpg",
+        "trailerKey": "c0Odg-GY40w",
+        "rtScore": "97%",
+        "reason": "You value Kubrick’s skill and this heist feature complements your praise for crime dramas like 'The Sting'."
+      },
+      {
+        "title": "Edge of the City",
+        "type": "movie",
+        "year": 1957,
+        "director": "Martin Ritt",
+        "predictedRating": 3.5,
+        "actors": [
+          "John Cassavetes",
+          "Sidney Poitier",
+          "Jack Warden"
+        ],
+        "plot": "A dock worker and a black laborer forge a friendship amidst racial tension and tough working conditions.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/eixbelLNo7TJJf7jMgCKZB22bxq.jpg",
+        "trailerKey": "gC3_S_4ql5c",
+        "rtScore": "80%",
+        "reason": "You might resonate with the film's social themes, akin to your appreciation for nuanced dramas."
+      },
+      {
+        "title": "Sweet Smell of Success",
+        "type": "movie",
+        "year": 1957,
+        "director": "Alexander Mackendrick",
+        "predictedRating": 4,
+        "actors": [
+          "Burt Lancaster",
+          "Tony Curtis",
+          "Susan Harrison"
+        ],
+        "plot": "An unsavory press agent stops at nothing to get his stories in the influential columnist's paper.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/akzvV8JasNrgEl5iAP9K6zPHGJe.jpg",
+        "trailerKey": "gBbPlyHxj8c",
+        "rtScore": "98%",
+        "reason": "Given your interest in films with sharp dialogue and strong performances, this should align with your tastes."
+      },
+      {
+        "title": "The Big Knife",
+        "type": "movie",
+        "year": 1955,
+        "director": "Robert Aldrich",
+        "predictedRating": 3.5,
+        "actors": [
+          "Jack Palance",
+          "Ida Lupino",
+          "Rod Steiger"
+        ],
+        "plot": "A movie star with a contract under siege reaches a breaking point in the ruthless Hollywood studio system.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/1cnE5SXHNSKUwjSBPXR6Uf7pzCV.jpg",
+        "trailerKey": "pXFx-MMwIvs",
+        "rtScore": "75%",
+        "reason": "Your appreciation for dramatic narratives similar to 'The Graduate' indicates you might enjoy this lesser-known film about the dark side of Hollywood."
+      },
+      {
+        "title": "The Manchurian Candidate",
+        "type": "movie",
+        "year": 1962,
+        "director": "John Frankenheimer",
+        "predictedRating": 4.5,
+        "actors": [
+          "Frank Sinatra",
+          "Laurence Harvey",
+          "Janet Leigh"
+        ],
+        "plot": "A former Korean War POW is brainwashed by Communists into becoming a sleeper agent in the United States' political scene.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/2xQ856kd9hw6bB3OnusGyTvvkwB.jpg",
+        "trailerKey": "tgCyowLRfvA",
+        "rtScore": "98%",
+        "reason": "You appreciate political thrillers with strong narratives, as seen in your high rating for 'A Fistful of Dollars'."
+      },
+      {
+        "title": "On the Waterfront",
+        "type": "movie",
+        "year": 1954,
+        "director": "Elia Kazan",
+        "predictedRating": 4,
+        "actors": [
+          "Marlon Brando",
+          "Karl Malden",
+          "Lee J. Cobb"
+        ],
+        "plot": "An ex-prize fighter turned longshoreman struggles to stand up to his corrupt union bosses.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/v1RtJ1qR4v9nrnfoBVBl6hjTW9.jpg",
+        "trailerKey": "boekTHsOIY8",
+        "rtScore": "99%",
+        "reason": "You have a keen interest in Marlon Brando's work, which is a central element in this classic tale of redemption."
+      },
+      {
+        "title": "The Asphalt Jungle",
+        "type": "movie",
+        "year": 1950,
+        "director": "John Huston",
+        "predictedRating": 4,
+        "actors": [
+          "Sterling Hayden",
+          "Louis Calhern",
+          "Jean Hagen"
+        ],
+        "plot": "A jewel heist is executed with precision but starts unraveling due to personal betrayals and unforeseen complications.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/8xsUnT0P2fJWQv9jGDhs3i9Zx2l.jpg",
+        "trailerKey": "IXrP6Uo4nUI",
+        "rtScore": "97%",
+        "reason": "Your enjoyment of crime dramas suggests you'll be drawn to this tightly woven tale of a heist gone wrong."
+      },
+      {
+        "title": "Crime in the Streets",
+        "type": "movie",
+        "year": 1956,
+        "director": "Don Siegel",
+        "predictedRating": 3.5,
+        "actors": [
+          "James Whitmore",
+          "John Cassavetes",
+          "Sal Mineo"
+        ],
+        "plot": "A troubled young man is influenced by his rough neighborhood and becomes involved with a gang.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/gxSJPpedReAAUrny8CEqjTbfyFv.jpg",
+        "trailerKey": "lENNs3BP1cA",
+        "rtScore": "71%",
+        "reason": "You show an appreciation for gritty crime dramas, making this lesser-known film an intriguing choice."
+      },
+      {
+        "title": "The Young Savages",
+        "type": "movie",
+        "year": 1961,
+        "director": "John Frankenheimer",
+        "predictedRating": 3.5,
+        "actors": [
+          "Burt Lancaster",
+          "Dina Merrill",
+          "Shelley Winters"
+        ],
+        "plot": "A prosecutor investigates gang murders and finds hidden truths about his own community.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/wwuzTM314iVSqodZxBtYHvUFeBM.jpg",
+        "trailerKey": "2x8q0EHcSW4",
+        "rtScore": null,
+        "reason": "You have a tendency to rate social issue dramas highly, especially those with a legal twist and strong narratives."
+      },
+      {
+        "title": "Baby Doll",
+        "type": "movie",
+        "year": 1956,
+        "director": "Elia Kazan",
+        "predictedRating": 4,
+        "actors": [
+          "Karl Malden",
+          "Carroll Baker",
+          "Eli Wallach"
+        ],
+        "plot": "In the deep South, tensions rise in a love triangle involving a naive girl, her older husband, and a vengeful rival.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/1Wj0H6HA7xCy8kWYWOTytqwOqWk.jpg",
+        "trailerKey": "KiU9EuGSjgY",
+        "rtScore": "87%",
+        "reason": "You value films with intense personal and emotional conflicts, particularly within rural settings and against societal norms."
+      },
+      {
+        "title": "Murder My Sweet",
+        "type": "movie",
+        "year": 1944,
+        "director": "Edward Dmytryk",
+        "predictedRating": 4,
+        "actors": [
+          "Dick Powell",
+          "Claire Trevor",
+          "Anne Shirley"
+        ],
+        "plot": "A private detective takes on a case that leads him into a web of deception and murder.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/tbyzfN1AUKTvzh058L9ZcOpS9Vn.jpg",
+        "trailerKey": "PHRDGxSL2o4",
+        "rtScore": "86%",
+        "reason": "You consistently rate classic noir films like 'Kiss Me Deadly' highly, and this film is a staple of the genre."
+      },
+      {
+        "title": "Angel Face",
+        "type": "movie",
+        "year": 1953,
+        "director": "Otto Preminger",
+        "predictedRating": 3.5,
+        "actors": [
+          "Robert Mitchum",
+          "Jean Simmons",
+          "Mona Freeman"
+        ],
+        "plot": "A wealthy woman's daughter becomes the prime suspect in a murder plot when her romantic involvement with a chauffeur leads to a deadly outcome.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/c4wrCYEgEtLXxoyEZf4pBl6XD4V.jpg",
+        "trailerKey": "da4jHmpKFU0",
+        "rtScore": "89%",
+        "reason": "You value movies directed by Preminger, and Mitchum's inclusion aligns with your interest in actors from this period."
+      },
+      {
+        "title": "The Harder They Fall",
+        "type": "movie",
+        "year": 1956,
+        "director": "Mark Robson",
+        "predictedRating": 4,
+        "actors": [
+          "Humphrey Bogart",
+          "Rod Steiger",
+          "Jan Sterling"
+        ],
+        "plot": "A sportswriter is drawn into the corrupt world of boxing, where he becomes a press agent for an aging fighter.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/93pUA2kAOeVlyvO1EeW8YmYIapt.jpg",
+        "trailerKey": "BOHE4-FVddI",
+        "rtScore": "80%",
+        "reason": "Your appreciation for film noir and classic dramas suggests you'll enjoy this gritty story involving moral dilemmas and boxing corruption."
+      },
+      {
+        "title": "The Sweet Smell of Success",
+        "type": "movie",
+        "year": 1957,
+        "director": "Alexander Mackendrick",
+        "predictedRating": 4.5,
+        "actors": [
+          "Burt Lancaster",
+          "Tony Curtis",
+          "Susan Harrison"
+        ],
+        "plot": "A powerful newspaper columnist uses his influence to ruin those around him, including the career of an ambitious publicist.",
+        "posterUrl": null,
+        "trailerKey": null,
+        "rtScore": "98%",
+        "reason": "Your taste for intense dramas with complex characters is evidenced by your high rating of 'Shoot the Piano Player', making this a strong match for you."
+      },
+      {
+        "title": "The Haunting",
+        "type": "movie",
+        "year": 1963,
+        "director": "Robert Wise",
+        "predictedRating": 4,
+        "actors": [
+          "Julie Harris",
+          "Claire Bloom",
+          "Richard Johnson"
+        ],
+        "plot": "A group of people are invited to stay at a large, eerie mansion with a ghostly past.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/fmpTnUKTcrpuxLSY23gQMUf9qu7.jpg",
+        "trailerKey": "noW6c70Yrbs",
+        "rtScore": "87%",
+        "reason": "You have a strong appreciation for classic thrillers with atmospheric tension, similar to how you rated 'Breathless'."
+      },
+      {
+        "title": "The Strange One",
+        "type": "movie",
+        "year": 1957,
+        "director": "Jack Garfein",
+        "predictedRating": 3.5,
+        "actors": [
+          "Ben Gazzara",
+          "Pat Hingle",
+          "George Peppard"
+        ],
+        "plot": "A sadistic cadet manipulates his military school environment to exert control over others.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/b0SrpyJp7R2UG8cLFEo5qsZ1QHx.jpg",
+        "trailerKey": "bLVfGjqVQ94",
+        "rtScore": null,
+        "reason": "You seem to appreciate psychological dramas that explore dark themes, as evidenced by your rating for 'The Graduate'."
+      },
+      {
+        "title": "Party Girl",
+        "type": "movie",
+        "year": 1958,
+        "director": "Nicholas Ray",
+        "predictedRating": 3,
+        "actors": [
+          "Robert Taylor",
+          "Cyd Charisse",
+          "Lee J. Cobb"
+        ],
+        "plot": "A mob lawyer starts a relationship with a showgirl while beginning to challenge his morally compromised lifestyle.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/AqCFJKx2C6pqdDQOP2d7aXvN7OO.jpg",
+        "trailerKey": "u6pR6HXLhyE",
+        "rtScore": null,
+        "reason": "You might enjoy exploring lesser-known crime dramas with a noir twist, as you did with films like 'Shoot the Piano Player.'"
+      },
+      {
+        "title": "Murder by Contract",
+        "type": "movie",
+        "year": 1958,
+        "director": "Irving Lerner",
+        "predictedRating": 4,
+        "actors": [
+          "Vince Edwards",
+          "Phillip Pine",
+          "Herschel Bernardi"
+        ],
+        "plot": "A methodical contract killer finds his latest assignment complicated by unexpected challenges when he's hired to take out a singer in Los Angeles.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/rY0liv7kkpJ4kc7ItSSDngZLVcp.jpg",
+        "trailerKey": "XH7t-h8rb2c",
+        "rtScore": "100%",
+        "reason": "This obscure film noir fits your taste for classic crime dramas that closely align with both your ratings and critical acclaim."
+      },
+      {
+        "title": "The Prowler",
+        "type": "movie",
+        "year": 1951,
+        "director": "Joseph Losey",
+        "predictedRating": 3.5,
+        "actors": [
+          "Van Heflin",
+          "Evelyn Keyes",
+          "John Maxwell"
+        ],
+        "plot": "After responding to a woman's complaint of a prowler, a police officer begins an illicit affair with her, leading to disastrous consequences.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/7i5jflxPAWYRz0cxgmabiCYfXDe.jpg",
+        "trailerKey": "uF14oWy_ujM",
+        "rtScore": "91%",
+        "reason": "This lesser-known noir thriller might intrigue you with its themes of obsession and moral decay, similar to those you appreciated in 'Shoot the Piano Player'."
+      },
+      {
+        "title": "The Last Wagon",
+        "type": "movie",
+        "year": 1956,
+        "director": "Delmer Daves",
+        "predictedRating": 3.5,
+        "actors": [
+          "Richard Widmark",
+          "Felicia Farr",
+          "Susan Kohner"
+        ],
+        "plot": "A man convicted of murder must lead a group of survivors through treacherous terrain after an Apache attack leaves them stranded.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/2FHbwL1RZCeAsBRSBVuxYRj9Mhl.jpg",
+        "trailerKey": "Lba7Kmt7qXo",
+        "rtScore": "100%",
+        "reason": "Blending adventure and psychological drama, this film's tension and character dynamics could resonate with your taste for classic thrillers."
+      },
+      {
+        "title": "Seconds",
+        "type": "movie",
+        "year": 1966,
+        "director": "John Frankenheimer",
+        "predictedRating": 4,
+        "actors": [
+          "Rock Hudson",
+          "Salome Jens",
+          "John Randolph"
+        ],
+        "plot": "A middle-aged banker undergoes an elaborate surgery to fake his death and start a new life, only to find the new identity comes with unforeseen consequences.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/5G3q3OvulFTnFdiouaZdD8wjtIc.jpg",
+        "trailerKey": "65OnfXgxvXU",
+        "rtScore": "89%",
+        "reason": "This suspenseful thriller fits your preference for classic films with intriguing plots and psychological depth."
+      },
+      {
+        "title": "The Night of the Hunter",
+        "type": "movie",
+        "year": 1955,
+        "director": "Charles Laughton",
+        "predictedRating": 4.5,
+        "actors": [
+          "Robert Mitchum",
+          "Shelley Winters",
+          "Lillian Gish"
+        ],
+        "plot": "A sinister preacher pursues two orphaned children who hold the secret to a stash of stolen money.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/rBka0nFWiHxabHRLr0KfIA8Yiaq.jpg",
+        "trailerKey": "GAxs6tChiKo",
+        "rtScore": "95%",
+        "reason": "You highly rate films where tension and suspense are embodied by strong performances, much like 'Kiss Me Deadly'."
+      },
+      {
+        "title": "The Big Heat",
+        "type": "movie",
+        "year": 1953,
+        "director": "Fritz Lang",
+        "predictedRating": 4,
+        "actors": [
+          "Glenn Ford",
+          "Gloria Grahame",
+          "Jocelyn Brando"
+        ],
+        "plot": "A determined cop takes on a powerful crime syndicate after his wife is killed by the mob.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/ezt6fb4JbghGKmaMzzuMtxpz0Kb.jpg",
+        "trailerKey": "ze6S3zZdSlA",
+        "rtScore": "94%",
+        "reason": "You appreciate classic crime-thrillers with moral complexity, as evident in your liking for films with similar themes and era."
+      },
+      {
+        "title": "Touch of Evil",
+        "type": "movie",
+        "year": 1958,
+        "director": "Orson Welles",
+        "predictedRating": 4.5,
+        "actors": [
+          "Charlton Heston",
+          "Janet Leigh",
+          "Orson Welles"
+        ],
+        "plot": "A narcotics officer investigating border corruption becomes entangled with a morally corrupt police captain.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/1pvRgmfBaoMczIJBOi9gCOZ4FMC.jpg",
+        "trailerKey": "wuSCUVqaDZw",
+        "rtScore": "96%",
+        "reason": "This film's intricate plot and tension-filled scenes align with your appreciation for classic noir storytelling."
+      }
+    ],
+    "movie-recs-prefetch-queue:5452914c-bb0b-49c3-830f-25bc84b5dba6": [
+      {
+        "title": "Where Is the Friend's House?",
+        "type": "movie",
+        "year": 1987,
+        "director": "Abbas Kiarostami",
+        "predictedRating": 4.5,
+        "actors": [
+          "Babak Ahmadpoor",
+          "Ahmad Ahmadpoor"
+        ],
+        "plot": "A young boy tries to return his friend's notebook to avoid getting him in trouble at school.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/2rTW4s1kgvoqVs0Kv8ARle1SrkF.jpg",
+        "trailerKey": "run-u_2zAdA",
+        "rtScore": "100%",
+        "reason": "You have shown appreciation for the works of Abbas Kiarostami, and his authentic storytelling aligns with your taste for classic films."
+      },
+      {
+        "title": "The Taste of Cherry",
+        "type": "movie",
+        "year": 1997,
+        "director": "Abbas Kiarostami",
+        "predictedRating": 4,
+        "actors": [
+          "Homayoun Ershadi",
+          "Abdolrahman Bagheri"
+        ],
+        "plot": "A man drives through Tehran looking for someone to bury him after he commits suicide.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/u6GYH4HyR0BVwpqFuTOc2g4KB1L.jpg",
+        "trailerKey": "ukmYdGwVqPg",
+        "rtScore": "98%",
+        "reason": "Since you appreciate thoughtful narratives and Kiarostami's unique filming style, this is likely to resonate with you."
+      },
+      {
+        "title": "The Cyclist",
+        "type": "movie",
+        "year": 1987,
+        "director": "Mohsen Makhmalbaf",
+        "predictedRating": 3.5,
+        "actors": [
+          "Moharram Zaynalzadeh",
+          "Fatemeh Naghavi"
+        ],
+        "plot": "A poor Afghan refugee agrees to pedal a bicycle nonstop for a week to raise money for his hospitalized wife.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/46PrHGTqvm5KVXzeSDuRRBmAZNY.jpg",
+        "trailerKey": null,
+        "rtScore": null,
+        "reason": "This film's dramatic and social content offers a deep narrative, fitting your preference for genre staples with rich storytelling."
+      },
+      {
+        "title": "Manuscripts Don't Burn",
+        "type": "movie",
+        "year": 2013,
+        "director": "Mohammad Rasoulof",
+        "predictedRating": 3,
+        "actors": [
+          "Ali Najafian",
+          "Kaveh Ahangar"
+        ],
+        "plot": "An oppressive state blackmails and threatens writers to remove a politically sensitive manuscript.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/2yz4UaXvwbDQvitsmysUFBoFfiU.jpg",
+        "trailerKey": "6grfqyUiz3E",
+        "rtScore": "88%",
+        "reason": "Your interest in obscure films with political contexts makes this a suitable choice to explore."
+      },
+      {
+        "title": "The Mirror",
+        "type": "movie",
+        "year": 1997,
+        "director": "Jafar Panahi",
+        "predictedRating": 4,
+        "actors": [
+          "Mina Mohammad Khani",
+          "Kazem Mojdehi",
+          "Naser Omrani"
+        ],
+        "plot": "A young girl's ordinary journey home from school in Tehran takes an unexpectedly revealing twist.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/386PqQoYxUIHV2i03jXG8sS5Q8O.jpg",
+        "trailerKey": "V7o5r37V2R0",
+        "rtScore": null,
+        "reason": "You seem to appreciate innovative storytelling that challenges the viewer's perspective."
+      },
+      {
+        "title": "The Apple",
+        "type": "movie",
+        "year": 1998,
+        "director": "Samira Makhmalbaf",
+        "predictedRating": 4.5,
+        "actors": [
+          "Massoumeh Naderi",
+          "Zahra Naderi",
+          "Ghorban Ali Naderi"
+        ],
+        "plot": "Based on true events, two young girls confined to their home are finally allowed outside, revealing challenges they face.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/5QC5xzyWIkGK2NcnpZUXThZYK66.jpg",
+        "trailerKey": null,
+        "rtScore": "74%",
+        "reason": "You appreciate narratives with strong social and cultural critiques, delivered through a distinct directorial vision."
+      },
+      {
+        "title": "Where is the Friend's Home?",
+        "type": "movie",
+        "year": 1987,
+        "director": "Abbas Kiarostami",
+        "predictedRating": 4.5,
+        "actors": [
+          "Babak Ahmadpour",
+          "Ahmad Ahmadpour",
+          "Khodabakhsh Defaei"
+        ],
+        "plot": "A young boy's simple quest to return his friend's notebook becomes an exploration of community life.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/2rTW4s1kgvoqVs0Kv8ARle1SrkF.jpg",
+        "trailerKey": "run-u_2zAdA",
+        "rtScore": null,
+        "reason": "You admire simplicity in storytelling that reflects deep humanism, fitting Kiarostami's nuanced narrative style."
+      },
+      {
+        "title": "The Deserted Station",
+        "type": "movie",
+        "year": 2002,
+        "director": "Alireza Raisian",
+        "predictedRating": 3.5,
+        "actors": [
+          "Leila Hatami",
+          "Nezam Manouchehri",
+          "Mehran Rajabi"
+        ],
+        "plot": "A photographer and his wife, stranded in a village, become entangled in the isolated community's life.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/waEwWyCZ96p24eObExtQ6LKCj2x.jpg",
+        "trailerKey": null,
+        "rtScore": null,
+        "reason": "This film's introspective nature and character-driven plot should appeal to your taste for nuanced storytelling."
+      },
+      {
+        "title": "A Moment of Innocence",
+        "type": "movie",
+        "year": 1996,
+        "director": "Mohsen Makhmalbaf",
+        "predictedRating": 4,
+        "actors": [
+          "Mirhadi Tayebi",
+          "Mohsen Makhmalbaf",
+          "Ali Bakhshi"
+        ],
+        "plot": "A film director seeks the chance to re-enact and remember a traumatic event from his past.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/jBgImBSOFUJg8voD7xbLqS1s1tf.jpg",
+        "trailerKey": "LTVYq7b55EY",
+        "rtScore": "100%",
+        "reason": "Your interest in films that seamlessly blend reality and fiction might resonate with this classic piece of Iranian New Wave cinema."
+      },
+      {
+        "title": "Crimson Gold",
+        "type": "movie",
+        "year": 2003,
+        "director": "Jafar Panahi",
+        "predictedRating": 3.5,
+        "actors": [
+          "Hossain Emadeddin",
+          "Kamyar Sheisi"
+        ],
+        "plot": "A humble pizza deliveryman in Tehran navigates his frustration with societal inequities, unraveling into a tragic outcome.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/5faNHWvJ7RdSiUKT07MJNhwkSKe.jpg",
+        "trailerKey": "SDADriMrEls",
+        "rtScore": "93%",
+        "reason": "Exploring themes of social justice and inequality aligns with your interest in Iranian cinema's probing narratives."
+      },
+      {
+        "title": "The Hidden Half",
+        "type": "movie",
+        "year": 2001,
+        "director": "Tahmineh Milani",
+        "predictedRating": 3.5,
+        "actors": [
+          "Niki Karimi",
+          "Atila Pesiani",
+          "Mohammad Nikbin"
+        ],
+        "plot": "A woman reveals the complexities of her past in a letter to her judge husband, challenging his views and decisions.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/rPjy89rjWmm925KPl4RykkQ4Jrj.jpg",
+        "trailerKey": null,
+        "rtScore": null,
+        "reason": "The film's focus on societal issues and its dramatic style offers a unique perspective, likely to engage your interest in character-driven narratives."
       }
     ],
     "movie-recs-prefetch-queue:690d995f-f6b7-4dfa-85ab-4b1650991ce0": [
@@ -270,17 +1099,72 @@
         "type": "tv",
         "year": 2019,
         "director": "Kim Seong-hun",
-        "predictedRating": 4.5,
+        "predictedRating": 4,
         "actors": [
           "Ju Ji-hoon",
           "Ryu Seung-ryong",
           "Bae Doona",
           "Kim Sung-kyu"
         ],
-        "plot": "In Korea's Joseon period, a crown prince investigates a mysterious plague that turns the dead into ravenous monsters, uncovering a political conspiracy.",
+        "plot": "In Korea's Joseon period, a crown prince investigates a mysterious plague that resurrects the dead, threatening the kingdom.",
         "posterUrl": "https://image.tmdb.org/t/p/w500/AsICtiVtz4icMQQRwDvOzfaTzjK.jpg",
         "trailerKey": "Bmhqw0F3q-g",
-        "rtScore": "97%"
+        "rtScore": "93%",
+        "reason": "High-production zombie historical drama with strong RT score matches your appreciation for well-executed genre works."
+      },
+      {
+        "title": "The Host",
+        "type": "movie",
+        "year": 2006,
+        "director": "Bong Joon-ho",
+        "predictedRating": 4,
+        "actors": [
+          "Song Kang-ho",
+          "Byun Hee-bong",
+          "Park Hae-il",
+          "Bae Doona"
+        ],
+        "plot": "A monster emerges from Seoul's Han River and kidnaps a man's daughter, leading to a frantic rescue mission amid government cover-ups and chaos.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/m3OE5bpcGHMWYlPkYvgIrncuuGN.jpg",
+        "trailerKey": "xrLY0wO06l4",
+        "rtScore": "93%",
+        "reason": "This genre-blending horror film from an acclaimed director matches your pattern of appreciating critically praised genre works with strong execution."
+      },
+      {
+        "title": "Gonjiam: Haunted Asylum",
+        "type": "movie",
+        "year": 2018,
+        "director": "Jung Bum-shik",
+        "predictedRating": 3,
+        "actors": [
+          "Wi Ha-joon",
+          "Park Sung-hoon",
+          "Oh Ah-yeon",
+          "Moon Ye-won"
+        ],
+        "plot": "A horror webcast crew explores an abandoned asylum rumored to be haunted, encountering increasingly terrifying phenomena.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/fNqlsmu2tiI1bXcpU31yjHPkiJz.jpg",
+        "trailerKey": "NWKl_9B09O0",
+        "rtScore": null,
+        "reason": "This found-footage horror offers a different style within the genre, testing your taste for modern, intense approaches."
+      },
+      {
+        "title": "The Guest",
+        "type": "tv",
+        "year": 2018,
+        "director": "Kim Hong-sun",
+        "predictedRating": 4,
+        "actors": [
+          "Kim Dong-wook",
+          "Kim Jae-wook",
+          "Jung Eun-chae",
+          "Lee Won-jong"
+        ],
+        "plot": "A taxi driver, a priest, and a detective team up to confront a powerful demon that has haunted them since childhood.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/5Y0apzo2oc0dBjDKQRZR7vjGRC7.jpg",
+        "trailerKey": "ITzDS45-giQ",
+        "rtScore": null,
+        "reason": "You show consistent taste in well-crafted genre stories, and this series is a highly regarded supernatural horror drama."
       },
       {
         "title": "The Wailing",
@@ -294,463 +1178,967 @@
           "Jun Kunimura",
           "Chun Woo-hee"
         ],
-        "plot": "A policeman investigates a mysterious illness and deaths in a remote village, where a stranger is suspected of being involved with dark shamanistic rituals.",
+        "plot": "A policeman investigates a mysterious illness and deaths in a remote village, leading to a confrontation with a shaman and a stranger.",
         "posterUrl": "https://image.tmdb.org/t/p/w500/aXlL7yYwpXInhltamtzKQFBG08G.jpg",
         "trailerKey": "VUWAgbXSJ4Y",
-        "rtScore": "99%"
+        "rtScore": "99%",
+        "reason": "A critically acclaimed horror film with strong narrative depth, aligning with your appreciation for well-regarded genre staples."
       },
       {
-        "title": "Gonjiam: Haunted Asylum",
+        "title": "Train to Busan",
         "type": "movie",
-        "year": 2018,
-        "director": "Jung Bum-shik",
+        "year": 2016,
+        "director": "Yeon Sang-ho",
+        "predictedRating": 4,
+        "actors": [
+          "Gong Yoo",
+          "Jung Yu-mi",
+          "Ma Dong-seok",
+          "Kim Su-an"
+        ],
+        "plot": "A zombie outbreak traps passengers on a speeding train as they fight to survive the journey to Busan.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/vNVFt6dtcqnI7hqa6LFBUibuFiw.jpg",
+        "trailerKey": "0_sV9luPnMk",
+        "rtScore": "94%",
+        "reason": "A mainstream horror hit with high critical praise, matching your pattern of liking popular, well-executed genre films."
+      },
+      {
+        "title": "I Saw the Devil",
+        "type": "movie",
+        "year": 2010,
+        "director": "Kim Jee-woon",
+        "predictedRating": 4,
+        "actors": [
+          "Lee Byung-hun",
+          "Choi Min-sik",
+          "Jeon Gook-hwan",
+          "Kim Yoon-seo"
+        ],
+        "plot": "A secret agent embarks on a brutal quest for vengeance against a serial killer who murdered his fiancée, blurring the lines between justice and obsession.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/zp5NrmYp80axIGiEiYPmm1CW6uH.jpg",
+        "trailerKey": "xwWgp1bqVwE",
+        "rtScore": "81%",
+        "reason": "A grim, intense thriller-horror from a respected director, testing your tolerance for darker, violent material within the genre."
+      },
+      {
+        "title": "Thirst",
+        "type": "movie",
+        "year": 2009,
+        "director": "Park Chan-wook",
         "predictedRating": 3.5,
         "actors": [
-          "Wi Ha-joon",
-          "Park Ji-hyun",
-          "Oh Ah-yeon",
-          "Moon Ye-won"
+          "Song Kang-ho",
+          "Kim Ok-bin",
+          "Shin Ha-kyun"
         ],
-        "plot": "A crew livestreams from an abandoned asylum notorious for paranormal activity, but their horror show turns terrifyingly real.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/fNqlsmu2tiI1bXcpU31yjHPkiJz.jpg",
-        "trailerKey": "NWKl_9B09O0",
-        "rtScore": null
+        "plot": "A priest becomes a vampire after a failed medical experiment, leading to a forbidden obsession with his friend's wife.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/sBnFQwOcmL3dAIYfiQ9nLvLSW7B.jpg",
+        "trailerKey": "j9XMJJ5DZso",
+        "rtScore": "81%",
+        "reason": "Your interest in unconventional narratives aligns with this unique reimagining of the vampire genre by a renowned director."
+      },
+      {
+        "title": "A Tale of Two Sisters",
+        "type": "movie",
+        "year": 2003,
+        "director": "Kim Jee-woon",
+        "predictedRating": 4,
+        "actors": [
+          "Im Soo-jung",
+          "Moon Geun-young",
+          "Yum Jung-ah"
+        ],
+        "plot": "Two sisters return home from a mental health facility, only to be haunted by the secrets of their past and a sinister presence in their house.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/l3exwhwyGE0NnHJ3lFQ7eXoBSkH.jpg",
+        "trailerKey": "Ln0gWJE7SAU",
+        "rtScore": "85%",
+        "reason": "You have a penchant for psychological thrillers, and this film offers a chilling and intricate story that has been praised for its artistry."
       }
     ],
     "movie-recs-prefetch-queue:78d64353-337e-46fc-b602-b3abdad9f716": [
       {
-        "title": "Horrors of Malformed Men",
-        "type": "movie",
-        "year": 1969,
-        "director": "Teruo Ishii",
-        "predictedRating": 2.5,
-        "actors": [
-          "Teruo Yoshida",
-          "Mikiko Sakai",
-          "Mitsuko Aoi"
-        ],
-        "plot": "A medical student escapes an asylum and travels to a remote island where a mad scientist is creating grotesque human experiments.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/q1cgApkVjMPXSXVbJrfu1aPfbJZ.jpg",
-        "trailerKey": "nArLPDsEZZI",
-        "rtScore": "75%"
-      },
-      {
-        "title": "The Snow Woman",
+        "title": "Goke, Body Snatcher from Hell",
         "type": "movie",
         "year": 1968,
-        "director": "Tokuz\u014d Tanaka",
+        "director": "Hajime Satô",
         "predictedRating": 4,
         "actors": [
-          "Shin'ichir\u014d Mikami",
-          "Kazuo Kat\u014d",
-          "Machiko Ky\u014d"
+          "Teruo Yoshida",
+          "Tomomi Sato",
+          "Eizo Kitamura",
+          "Hideo Ko"
         ],
-        "plot": "A woodcarver encounters a supernatural snow spirit who spares his life on the condition he never speaks of her, testing his vow years later.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/4vFYCaNLBvHiZ210HuP4spnWWeB.jpg",
-        "trailerKey": "aVJ6jvEmh4E",
-        "rtScore": null
+        "plot": "Following a plane crash, survivors are terrorized by a shape-shifting alien who begins to possess their bodies.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/tjBZ1HdYBskrsRMacQHmmv9uQ2A.jpg",
+        "trailerKey": "GT8ge_M2qsU",
+        "rtScore": "71%",
+        "reason": "This film's blend of horror and science fiction with its atmospheric tone may resonate with your taste for unique and underappreciated classics."
       },
       {
-        "title": "Jigoku",
+        "title": "Attack of the Mushroom People",
         "type": "movie",
-        "year": 1960,
-        "director": "Nobuo Nakagawa",
+        "year": 1963,
+        "director": "Ishirō Honda",
+        "predictedRating": 3,
+        "actors": [
+          "Akira Kubo",
+          "Kumi Mizuno",
+          "Hiroshi Koizumi",
+          "Kenji Sahara"
+        ],
+        "plot": "A group stranded on a mysterious island encounters the horrifying effects of mushroom spores turning humans into monsters.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/kfUJ1XO15yWz6U2N7vmubJS9aX8.jpg",
+        "trailerKey": "uWNAX2DlmTI",
+        "rtScore": "63%",
+        "reason": "Given your interest in cult classics, a kaiju film by the renowned Ishirō Honda offers a unique experience that fits your favor towards genre-defining cinema."
+      },
+      {
+        "title": "Yokai Monsters: Spook Warfare",
+        "type": "movie",
+        "year": 1968,
+        "director": "Yoshiyuki Kuroda",
         "predictedRating": 3.5,
         "actors": [
-          "Shigeru Amachi",
-          "Utako Mitsuya",
-          "Y\u014dichi Numata"
+          "Yoshihiko Aoyama",
+          "Hideki Hanamura",
+          "Ryunoshin Uryu",
+          "Tatsuo Endō"
         ],
-        "plot": "A theology student is dragged into a series of tragic events that lead him to a vividly depicted Buddhist hell of torture and demons.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/ehiMOuKE7i9WHgvs7dSIZelsHwA.jpg",
-        "trailerKey": "vQ13Z-cXfuI",
-        "rtScore": "93%"
+        "plot": "Supernatural creatures in Edo period Japan must unite to combat a malevolent demon that threatens their existence.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/kZn8vcPaQ2YNKsU8X80J4b1eTxz.jpg",
+        "trailerKey": "CJIaoOevZls",
+        "rtScore": "73%",
+        "reason": "The mix of folklore and horror in this underseen gem aligns with your appreciation for obscure and atmospheric films."
       },
       {
-        "title": "Hausu",
+        "title": "The X from Outer Space",
         "type": "movie",
-        "year": 1977,
-        "director": "Nobuhiko Obayashi",
+        "year": 1967,
+        "director": "Kazui Nihonmatsu",
+        "predictedRating": 3,
+        "actors": [
+          "Shun'ya Wazaki",
+          "Itoko Harada",
+          "Keisuke Sonoi",
+          "Eiji Okada"
+        ],
+        "plot": "After a space mission, astronauts inadvertently bring back spores that unleash a destructive giant monster on Earth.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/fY4LR4Q04BjPbaZ79XTpSB9NnOv.jpg",
+        "trailerKey": "Kxz85hXZEnk",
+        "rtScore": "33%",
+        "reason": "Although its critical reception was low, this campy, niche film might appeal to your unique appreciation for specific genre films."
+      },
+      {
+        "title": "The War of the Gargantuas",
+        "type": "movie",
+        "year": 1966,
+        "director": "Ishirō Honda",
         "predictedRating": 3.5,
         "actors": [
-          "Kimiko Ikegami",
-          "Miki Jinbo",
-          "Kumiko Ohba"
+          "Kenji Sahara",
+          "Kumi Mizuno",
+          "Russ Tamblyn"
         ],
-        "plot": "A schoolgirl and her six friends visit her aunt's country house, which turns out to be a supernatural entity that devours them one by one in bizarre ways.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/myMnHnG6kxYaQYknnW76VCHBpYT.jpg",
-        "trailerKey": "JemQPqfraYA",
-        "rtScore": "89%"
+        "plot": "Two massive creatures battle each other, bringing destruction and chaos to the cities of Japan.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/q8EH0y601mhYJmchoTRoo92Q0FS.jpg",
+        "trailerKey": "7JBWFSkwNuo",
+        "rtScore": "75%",
+        "reason": "You enjoy classic kaiju films, and this one features iconic battles that could align well with your cinematic preferences."
       },
       {
-        "title": "Kwaidan",
+        "title": "Dogora",
         "type": "movie",
         "year": 1964,
-        "director": "Masaki Kobayashi",
+        "director": "Ishirō Honda",
+        "predictedRating": 3.5,
+        "actors": [
+          "Yuosuke Natsuki",
+          "Yôko Fujiyama",
+          "Hiroshi Koizumi"
+        ],
+        "plot": "A space monster made of living crystals threatens to devour all carbon on Earth, causing chaos and fear.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/oLCbrX4tE9evZSRtkmZNYUlJDcS.jpg",
+        "trailerKey": "5iK7uSjs5gE",
+        "rtScore": null,
+        "reason": "You might find this unique kaiju narrative intriguing due to its novel concept and underappreciated status."
+      },
+      {
+        "title": "Warning from Space",
+        "type": "movie",
+        "year": 1956,
+        "director": "Koji Shima",
         "predictedRating": 4,
         "actors": [
-          "Rentar\u014d Mikuni",
-          "Michiyo Aratama",
-          "Tatsuya Nakadai"
+          "Keizô Kawasaki",
+          "Toyomi Karita",
+          "Bontarô Miake"
         ],
-        "plot": "An anthology of four supernatural tales adapted from Japanese folk stories, featuring ghosts, snow spirits, and haunted samurai.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/t9UMfViYl47SdZZatKQ1JKjjCgs.jpg",
-        "trailerKey": "YadApPG8W7Q",
-        "rtScore": "100%"
+        "plot": "Aliens with a star-shaped appearance descend to Earth to warn humanity about an impending catastrophic collision with a rogue planet.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/fxK1qXaZS7S4JtMgrKWha80UuT9.jpg",
+        "trailerKey": "vgjfAiF0wu8",
+        "rtScore": "40%",
+        "reason": "You appreciate genre films that offer a unique perspective, and this obscure sci-fi horror fits well with your appreciation for underseen classics."
+      },
+      {
+        "title": "Atragon",
+        "type": "movie",
+        "year": 1963,
+        "director": "Ishirô Honda",
+        "predictedRating": 3.5,
+        "actors": [
+          "Tadao Takashima",
+          "Yôko Fujiyama",
+          "Yû Fujiki"
+        ],
+        "plot": "As a forgotten undersea kingdom threatens to conquer the surface world, a legendary super-submarine is called into action to save humanity.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/u5fD2mfsovtW1Pn2Umtl2G3280w.jpg",
+        "trailerKey": "-1aS06Cg5SU",
+        "rtScore": null,
+        "reason": "This film’s blend of mythology and sci-fi pays homage to classic adventure storytelling, resonating with your taste for unique narratives."
+      },
+      {
+        "title": "Godzilla Against Mechagodzilla",
+        "type": "movie",
+        "year": 2002,
+        "director": "Masaaki Tezuka",
+        "predictedRating": 4,
+        "actors": [
+          "Yumiko Shaku",
+          "Shin Takuma",
+          "Kana Onodera"
+        ],
+        "plot": "As Japan faces the threat of a new Godzilla, the government constructs a mechanical Godzilla, known as Kiryu, to combat the creature. However, complications arise when Kiryu begins to exhibit a will of its own.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/Kg6J3qyf80cwnKkv1YorSjkNaK.jpg",
+        "trailerKey": "LZKZ4QJAjIM",
+        "rtScore": "75%",
+        "reason": "You appreciate classic films and genre staples, and this film is a modern reimagining of a classic Kaiju storyline with a unique twist."
+      },
+      {
+        "title": "Matango",
+        "type": "movie",
+        "year": 1963,
+        "director": "Ishirō Honda",
+        "predictedRating": 4,
+        "actors": [
+          "Akira Kubo",
+          "Kumi Mizuno",
+          "Hiroshi Koizumi"
+        ],
+        "plot": "A group of castaways on an uncharted island discover a species of highly toxic mushrooms that transform the consumer into a fungal creature, leading to a battle for survival.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/kfUJ1XO15yWz6U2N7vmubJS9aX8.jpg",
+        "trailerKey": "uWNAX2DlmTI",
+        "rtScore": null,
+        "reason": "You rate genre films like 'Breathless' highly and might appreciate this obscure horror film from a master director of Kaiju cinema."
+      },
+      {
+        "title": "Gamera 2: Attack of Legion",
+        "type": "movie",
+        "year": 1996,
+        "director": "Shusuke Kaneko",
+        "predictedRating": 3.5,
+        "actors": [
+          "Miki Mizuno",
+          "Toshiyuki Nagashima",
+          "Tamotsu Ishibashi"
+        ],
+        "plot": "The giant turtle Gamera returns to defend Japan from an alien species known as Legion, which threatens to destroy the planet.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/xPBtoCLUN0raEKywuiSId6SSRAc.jpg",
+        "trailerKey": "ET65ASPPNOw",
+        "rtScore": null,
+        "reason": "You show an affinity for creative and well-executed genre films, and this is a standout entry in the Gamera series."
+      },
+      {
+        "title": "Daimajin",
+        "type": "movie",
+        "year": 1966,
+        "director": "Kimiyoshi Yasuda",
+        "predictedRating": 3.5,
+        "actors": [
+          "Miwa Takada",
+          "Yoshihiko Aoyama",
+          "Junya Usami"
+        ],
+        "plot": "A vengeful giant stone statue comes to life to protect a village from tyrannical warlords.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/1SFtiK4m6qkLaVKbAHX5QuDDbkn.jpg",
+        "trailerKey": "HGxjbQUe9Dw",
+        "rtScore": null,
+        "reason": "You appreciate films that blend different genres and storytelling styles, as Daimajin combines fantasy, horror, and epic storytelling."
+      },
+      {
+        "title": "Godzilla vs. Hedorah",
+        "type": "movie",
+        "year": 1971,
+        "director": "Yoshimitsu Banno",
+        "predictedRating": 3.5,
+        "actors": [
+          "Haruo Nakajima",
+          "Akira Yamauchi",
+          "Toshie Kimura"
+        ],
+        "plot": "Godzilla battles a pollution-fed monster named Hedorah, who emerges from the sea to threaten all life on Earth.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/mWVRlVwWK3sUCGd9lzMMWUa7CBu.jpg",
+        "trailerKey": "f2o_Tibx47w",
+        "rtScore": "63%",
+        "reason": "You appreciate obscure genre films and this cult favorite captures the environmental anxiety of its era in a unique way."
+      },
+      {
+        "title": "Gamera: Guardian of the Universe",
+        "type": "movie",
+        "year": 1995,
+        "director": "Shusuke Kaneko",
+        "predictedRating": 4,
+        "actors": [
+          "Tsuyoshi Ihara",
+          "Shinobu Nakayama",
+          "Ayako Fujitani"
+        ],
+        "plot": "A giant monster turtle named Gamera rises to confront ancient flying creatures called Gyaos threatening Japan.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/dR48KVkILzcXGm7G4SzKlAt6XbD.jpg",
+        "trailerKey": "0uP70EbjFnA",
+        "rtScore": null,
+        "reason": "You rate classic monster films highly and this film offers a modern take on kaiju mythology with an artful touch."
+      },
+      {
+        "title": "Lady Battle Cop",
+        "type": "movie",
+        "year": 1990,
+        "director": "Akihisa Okamoto",
+        "predictedRating": 3,
+        "actors": [
+          "Azusa Nakamura",
+          "Yoshiko Nakada",
+          "Yasufumi Hayashi"
+        ],
+        "plot": "In a futuristic society, a former athlete fights against organized crime as a high-tech cyborg after being transformed into Lady Battle Cop.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/fqTcbh6qhDbK2oZJmwGxaWZuO62.jpg",
+        "trailerKey": "pGQnNuVSPZQ",
+        "rtScore": null,
+        "reason": "You might find this obscure title intriguing for its blend of science fiction and action within the Japanese film landscape."
       }
     ],
     "movie-recs-prefetch-queue:92419e89-efd6-450b-8385-f042171621bd": [
+      {
+        "title": "The Good, the Bad and the Ugly",
+        "type": "movie",
+        "year": 1966,
+        "director": "Sergio Leone",
+        "predictedRating": 4.5,
+        "actors": [
+          "Clint Eastwood",
+          "Eli Wallach",
+          "Lee Van Cleef"
+        ],
+        "plot": "Three gunslingers compete to find a fortune in buried Confederate gold during the American Civil War.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/bX2xnavhMYjWDoZp1VM6VnU1xwe.jpg",
+        "trailerKey": "WCnRSl24FPA",
+        "rtScore": "97%",
+        "reason": "A cornerstone of the Spaghetti Western genre with iconic direction and score, likely to appeal to fans of epic Western storytelling."
+      },
       {
         "title": "A Fistful of Dollars",
         "type": "movie",
         "year": 1964,
         "director": "Sergio Leone",
-        "predictedRating": 4,
+        "predictedRating": 3.5,
         "actors": [
           "Clint Eastwood",
-          "Gian Maria Volont\u00e8",
-          "Marianne Koch",
-          "Wolfgang Lukschy"
+          "Gian Maria Volontè",
+          "Marianne Koch"
         ],
-        "plot": "A mysterious stranger arrives in a Mexican border town and plays two rival families against each other for his own profit.",
+        "plot": "A wandering gunslinger plays two rival families against each other in a small Mexican border town.",
         "posterUrl": "https://image.tmdb.org/t/p/w500/lBwOEpwVeUAmrmglcstnaGcJq3Y.jpg",
         "trailerKey": "f_oZUWAdEe8",
-        "rtScore": "98%"
+        "rtScore": "98%",
+        "reason": "The film that launched the Spaghetti Western craze and defined Clint Eastwood's Man with No Name persona."
+      },
+      {
+        "title": "Django",
+        "type": "movie",
+        "year": 1966,
+        "director": "Sergio Corbucci",
+        "predictedRating": 3,
+        "actors": [
+          "Franco Nero",
+          "José Bódalo",
+          "Loredana Nusciak"
+        ],
+        "plot": "A coffin-dragging gunslinger seeks revenge on a gang of Confederate racists who murdered his wife.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/vs4vieNstSEfbgLFEelXXOPvr6h.jpg",
+        "trailerKey": "jLPFh4ObsJU",
+        "rtScore": "92%",
+        "reason": "A grittier, more violent Spaghetti Western that influenced countless later films and spawned many unofficial sequels."
+      },
+      {
+        "title": "The Great Silence",
+        "type": "movie",
+        "year": 1968,
+        "director": "Sergio Corbucci",
+        "predictedRating": 3.5,
+        "actors": [
+          "Jean-Louis Trintignant",
+          "Klaus Kinski",
+          "Frank Wolff"
+        ],
+        "plot": "A mute gunslinger protects a group of outlaws in the snow-covered Utah mountains from a band of ruthless bounty hunters.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/3kpxS7SZMyYSXvhDnmxQXOOxiTM.jpg",
+        "trailerKey": "nMrhQp35uUo",
+        "rtScore": "95%",
+        "reason": "A bleak, snowy-set Spaghetti Western with moral complexity and a famously downbeat ending."
       },
       {
         "title": "For a Few Dollars More",
         "type": "movie",
         "year": 1965,
         "director": "Sergio Leone",
-        "predictedRating": 4.5,
+        "predictedRating": 4,
         "actors": [
           "Clint Eastwood",
           "Lee Van Cleef",
-          "Gian Maria Volont\u00e8",
-          "Klaus Kinski"
+          "Gian Maria Volontè"
         ],
-        "plot": "Two bounty hunters with the same target form an uneasy alliance to track down a ruthless outlaw.",
+        "plot": "Two bounty hunters with conflicting methods team up to track down a ruthless outlaw in the American Southwest.",
         "posterUrl": "https://image.tmdb.org/t/p/w500/ooqASvA7qxlTVKL3KwOzBwy57Dh.jpg",
         "trailerKey": "xZm8i5sGlWI",
-        "rtScore": "94%"
-      },
+        "rtScore": "94%",
+        "reason": "Direct sequel to A Fistful of Dollars with similar style and higher stakes, likely to appeal to your enjoyment of Leone's work."
+      }
+    ],
+    "movie-recs-prefetch-queue:a5eb35f6-f44d-4946-8802-24b4e2db98ba": [
       {
-        "title": "Once Upon a Time in the West",
+        "title": "The Marriage of Maria Braun",
         "type": "movie",
-        "year": 1968,
-        "director": "Sergio Leone",
-        "predictedRating": 4.5,
+        "year": 1979,
+        "director": "Rainer Werner Fassbinder",
+        "predictedRating": 4,
         "actors": [
-          "Henry Fonda",
-          "Charles Bronson",
-          "Claudia Cardinale",
-          "Jason Robards"
+          "Hanna Schygulla",
+          "Klaus Löwitsch",
+          "Ivan Desny"
         ],
-        "plot": "A mysterious harmonica-playing stranger protects a widow from a ruthless assassin working for the railroad.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/qbYgqOczabWNn2XKwgMtVrntD6P.jpg",
-        "trailerKey": "Yw-Av9BpC-w",
-        "rtScore": "95%"
+        "plot": "Maria Braun marries a soldier during World War II, only to see her life and country change dramatically in the post-war years.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/tXjZEzlf4WQwZ4Dt53gXeJVuO7p.jpg",
+        "trailerKey": "pQGznARA69s",
+        "rtScore": "91%",
+        "reason": "Fassbinder's intricate storytelling and exploration of post-war Germany's societal shifts should resonate with the user's interest in classic films."
       },
       {
-        "title": "Duck, You Sucker!",
+        "title": "The Tin Drum",
         "type": "movie",
-        "year": 1971,
-        "director": "Sergio Leone",
+        "year": 1979,
+        "director": "Volker Schlöndorff",
         "predictedRating": 3.5,
         "actors": [
-          "Rod Steiger",
-          "James Coburn",
-          "Romolo Valli",
-          "Maria Monti"
+          "David Bennent",
+          "Angela Winkler",
+          "Mario Adorf"
         ],
-        "plot": "A Mexican bandit and an Irish revolutionary team up during the Mexican Revolution, with conflicting motives.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/nWmAtZf83qpOai0fzehf7Hn1S3R.jpg",
-        "trailerKey": "EccOlGxfwJI",
-        "rtScore": "80%"
+        "plot": "In Nazi-era Germany, a young boy decides to stop growing in protest of the adult world's insanity.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/z4QsBWJbbBxct2zU7LnYSOw8UFz.jpg",
+        "trailerKey": "NTKLqhT-tTo",
+        "rtScore": "89%",
+        "reason": "Schlöndorff's adaptation is both surreal and politically charged, offering a challenging yet rewarding experience similar to other high-rated classic films."
+      },
+      {
+        "title": "Stroszek",
+        "type": "movie",
+        "year": 1977,
+        "director": "Werner Herzog",
+        "predictedRating": 3.5,
+        "actors": [
+          "Bruno S.",
+          "Eva Mattes",
+          "Clemens Scheitz"
+        ],
+        "plot": "A group of misfits emigrates from Berlin to America, seeking a new beginning that turns out to be elusive.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/wDq9ytRxoVpICRcx1BvagmXhd4t.jpg",
+        "trailerKey": "4fM4fL5KK5k",
+        "rtScore": "91%",
+        "reason": "Herzog's exploration of the American dream interspersed with dark humor could intrigue the user who appreciates unique narratives in classic cinema."
+      },
+      {
+        "title": "Wings of Desire",
+        "type": "movie",
+        "year": 1987,
+        "director": "Wim Wenders",
+        "predictedRating": 4.5,
+        "actors": [
+          "Bruno Ganz",
+          "Solveig Dommartin",
+          "Otto Sander"
+        ],
+        "plot": "An angel in Berlin desires to become human after falling in love with a mortal woman.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/iZQs2vUeCzvS1KfZJ6uYNCGJBBV.jpg",
+        "trailerKey": "0iAzYofuItM",
+        "rtScore": "98%",
+        "reason": "Wenders' poetic narrative and visual style should resonate with the user's taste for thoughtfully constructed films."
+      },
+      {
+        "title": "Alice in the Cities",
+        "type": "movie",
+        "year": 1974,
+        "director": "Wim Wenders",
+        "predictedRating": 4,
+        "actors": [
+          "Rüdiger Vogler",
+          "Yella Rottländer",
+          "Lisa Kreuzer"
+        ],
+        "plot": "A journalist reluctantly takes care of a young girl as they journey through various cities, developing a deep bond.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/lw22wORmENkTZHGXI6bKmAIHxjO.jpg",
+        "trailerKey": "Ce4Cv_HDo0w",
+        "rtScore": "85%",
+        "reason": "The film's introspective road journey and character development align with the user's taste for thoughtful cinema."
+      },
+      {
+        "title": "Aguirre, the Wrath of God",
+        "type": "movie",
+        "year": 1972,
+        "director": "Werner Herzog",
+        "predictedRating": 5,
+        "actors": [
+          "Klaus Kinski",
+          "Ruy Guerra",
+          "Helena Rojo"
+        ],
+        "plot": "The film follows a group of conquistadors down the Amazon river in search of El Dorado, capturing the madness that ensues.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/qMk93yMo82svW27FEjudgueBMUL.jpg",
+        "trailerKey": "eJDuicFyJPg",
+        "rtScore": "96%",
+        "reason": "You rated films with intense themes and artistic direction highly, akin to 'Breathless'."
       }
     ],
     "movie-recs-prefetch-queue:all": [
       {
-        "title": "Psycho",
+        "title": "The Shining",
         "type": "movie",
-        "year": 1960,
-        "director": "Alfred Hitchcock",
-        "predictedRating": 4,
-        "actors": [
-          "Anthony Perkins",
-          "Janet Leigh",
-          "Vera Miles",
-          "John Gavin"
-        ],
-        "plot": "A secretary embezzles money and checks into a remote motel run by a troubled young man and his domineering mother.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/yz4QVqPx3h1hD1DfqqQkCq3rmxW.jpg",
-        "trailerKey": "D90QhegiVvo",
-        "rtScore": "96%"
-      },
-      {
-        "title": "Star Wars",
-        "type": "movie",
-        "year": 1977,
-        "director": "George Lucas",
-        "predictedRating": 4.5,
-        "actors": [
-          "Mark Hamill",
-          "Harrison Ford",
-          "Carrie Fisher",
-          "Alec Guinness"
-        ],
-        "plot": "A young farm boy joins a rebellion to rescue a princess and destroy a planet-destroying space station.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/6FfCtAuVAW8XJjZ7eWeLibRLWTw.jpg",
-        "trailerKey": "i-vsILeJ8_8",
-        "rtScore": "93%"
-      },
-      {
-        "title": "The Good, the Bad and the Ugly",
-        "type": "movie",
-        "year": 1966,
-        "director": "Sergio Leone",
-        "predictedRating": 4,
-        "actors": [
-          "Clint Eastwood",
-          "Eli Wallach",
-          "Lee Van Cleef",
-          "Aldo Giuffr\u00e8"
-        ],
-        "plot": "Three gunslingers compete to find a fortune in buried Confederate gold amid the chaos of the American Civil War.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/bX2xnavhMYjWDoZp1VM6VnU1xwe.jpg",
-        "trailerKey": "WCnRSl24FPA",
-        "rtScore": "97%"
-      },
-      {
-        "title": "2001: A Space Odyssey",
-        "type": "movie",
-        "year": 1968,
+        "year": 1980,
         "director": "Stanley Kubrick",
-        "predictedRating": 4.5,
-        "actors": [
-          "Keir Dullea",
-          "Gary Lockwood",
-          "William Sylvester",
-          "Douglas Rain"
-        ],
-        "plot": "After discovering a mysterious monolith on the moon, humanity sets off on a voyage to Jupiter with the sentient computer HAL 9000.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/ve72VxNqjGM69Uky4WTo2bK6rfq.jpg",
-        "trailerKey": "kR2r-A9H3Kg",
-        "rtScore": "92%"
-      },
-      {
-        "title": "Rosemary's Baby",
-        "type": "movie",
-        "year": 1968,
-        "director": "Roman Polanski",
-        "predictedRating": 3.5,
-        "actors": [
-          "Mia Farrow",
-          "John Cassavetes",
-          "Ruth Gordon",
-          "Sidney Blackmer"
-        ],
-        "plot": "A young pregnant woman grows increasingly suspicious that her elderly neighbors are part of a Satanic cult targeting her unborn child.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/uYgvlHceRFjAFbsNeMInYcLZLUb.jpg",
-        "trailerKey": "pwLKIcB0zDw",
-        "rtScore": "96%"
-      },
-      {
-        "title": "The French Connection",
-        "type": "movie",
-        "year": 1971,
-        "director": "William Friedkin",
         "predictedRating": 4,
         "actors": [
-          "Gene Hackman",
-          "Roy Scheider",
-          "Fernando Rey",
-          "Tony Lo Bianco"
+          "Jack Nicholson",
+          "Shelley Duvall",
+          "Danny Lloyd",
+          "Scatman Crothers"
         ],
-        "plot": "Two NYPD detectives pursue a heroin shipment from France, leading to a dangerous cat-and-mouse game with a sophisticated drug lord.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/pH4saPwMjhnVGwmSH6RkMaHrt3s.jpg",
-        "trailerKey": "T76K3RxJY0A",
-        "rtScore": "97%"
-      },
-      {
-        "title": "Monty Python's Flying Circus",
-        "type": "tv",
-        "year": 1969,
-        "director": "John Howard Davies, Ian MacNaughton",
-        "predictedRating": 3.5,
-        "actors": [
-          "Graham Chapman",
-          "John Cleese",
-          "Eric Idle",
-          "Terry Jones"
-        ],
-        "plot": "A surreal sketch comedy series that revolutionized television humor with its absurd, satirical, and often anarchic style.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/hZtMtL8Pqv9FAMljN9911U4qBhI.jpg",
-        "trailerKey": "YULeGnKPdbM",
-        "rtScore": null
-      },
-      {
-        "title": "Blade Runner",
-        "type": "movie",
-        "year": 1982,
-        "director": "Ridley Scott",
-        "predictedRating": 4.5,
-        "actors": [
-          "Harrison Ford",
-          "Rutger Hauer",
-          "Sean Young",
-          "Edward James Olmos"
-        ],
-        "plot": "A retired blade runner is forced to hunt down replicants, bioengineered beings, in a dystopian future Los Angeles.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/63N9uy8nd9j7Eog2axPQ8lbr3Wj.jpg",
-        "trailerKey": "qoEyZoOTtss",
-        "rtScore": "90%"
-      },
-      {
-        "title": "The Breakfast Club",
-        "type": "movie",
-        "year": 1985,
-        "director": "John Hughes",
-        "predictedRating": 4,
-        "actors": [
-          "Emilio Estevez",
-          "Molly Ringwald",
-          "Judd Nelson",
-          "Ally Sheedy"
-        ],
-        "plot": "Five high school students from different cliques spend a Saturday in detention and discover they have more in common than they thought.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/gp4zlj7wgbiofLMNsTPndMuO3PN.jpg",
-        "trailerKey": "c7VUZ29Ezcc",
-        "rtScore": "89%"
-      },
-      {
-        "title": "The Thing",
-        "type": "movie",
-        "year": 1982,
-        "director": "John Carpenter",
-        "predictedRating": 4.5,
-        "actors": [
-          "Kurt Russell",
-          "Wilford Brimley",
-          "Keith David",
-          "Donald Moffat"
-        ],
-        "plot": "A research team in Antarctica is hunted by a shape-shifting alien that assumes the appearance of its victims.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/tzGY49kseSE9QAKk47uuDGwnSCu.jpg",
-        "trailerKey": "ySvzHdtCiWE",
-        "rtScore": "85%"
-      },
-      {
-        "title": "Brazil",
-        "type": "movie",
-        "year": 1985,
-        "director": "Terry Gilliam",
-        "predictedRating": 3.5,
-        "actors": [
-          "Jonathan Pryce",
-          "Robert De Niro",
-          "Kim Greist",
-          "Michael Palin"
-        ],
-        "plot": "A low-level bureaucrat in a dystopian society becomes obsessed with a woman from his dreams and rebels against the system.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/aewan59WcFThBimkTVVoNf2o5Vb.jpg",
-        "trailerKey": "A_7ATU9dslE",
-        "rtScore": "98%"
+        "plot": "A family heads to an isolated hotel for the winter where a sinister presence influences the father into violence, while his psychic son sees horrific forebodings.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/uAR0AWqhQL1hQa69UDEbb2rE5Wx.jpg",
+        "trailerKey": "FZQvIJxG9Xs",
+        "rtScore": "83%",
+        "reason": "A masterfully directed horror landmark with strong critical consensus, fitting your pattern of valuing acclaimed genre works."
       },
       {
         "title": "Die Hard",
         "type": "movie",
         "year": 1988,
         "director": "John McTiernan",
-        "predictedRating": 4.5,
+        "predictedRating": 4,
         "actors": [
           "Bruce Willis",
           "Alan Rickman",
           "Bonnie Bedelia",
           "Reginald VelJohnson"
         ],
-        "plot": "A New York City police officer tries to save his wife and others taken hostage by terrorists during a Christmas party at a Los Angeles skyscraper.",
+        "plot": "An NYPD officer tries to save his wife and several others taken hostage by German terrorists during a Christmas party at the Nakatomi Plaza in Los Angeles.",
         "posterUrl": "https://image.tmdb.org/t/p/w500/7Bjd8kfmDSOzpmhySpEhkUyK2oH.jpg",
         "trailerKey": "4Wi28Vsi_ZU",
-        "rtScore": "94%"
-      }
-    ],
-    "movie-recs-prefetch-queue:b1cb07c2-f8ee-4ec0-950b-d02ba3c02839": [
+        "rtScore": "94%",
+        "reason": "A highly regarded action classic that balances tension, character, and wit—likely to match your taste for well‑executed genre staples."
+      },
       {
-        "title": "Louie",
-        "type": "tv",
-        "year": 2010,
-        "director": "Louis C.K.",
+        "title": "The Princess Bride",
+        "type": "movie",
+        "year": 1987,
+        "director": "Rob Reiner",
         "predictedRating": 4.5,
         "actors": [
-          "Louis C.K.",
-          "Pamela Adlon",
-          "Hadley Delany",
-          "Ursula Parker"
+          "Cary Elwes",
+          "Robin Wright",
+          "Mandy Patinkin",
+          "André the Giant"
         ],
-        "plot": "A semi-autobiographical sitcom following the life of a divorced comedian raising two daughters in New York City, blending stand-up routines with darkly comic slice-of-life vignettes.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/ubWj0BLRV1UDP8ELnTr2is2Wl0Y.jpg",
-        "trailerKey": "ax9ewlkKXt8",
-        "rtScore": "96%"
+        "plot": "A bedridden boy's grandfather reads him the story of a farmhand-turned-pirate who encounters numerous obstacles, enemies, and allies in his quest to be reunited with his true love.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/2FC9L9MrjBoGHYjYZjdWQdopVYb.jpg",
+        "trailerKey": "ltpgBg-duQE",
+        "rtScore": "97%",
+        "reason": "A beloved, critically adored adventure‑comedy with timeless appeal, consistent with your appreciation for highly‑rated genre films."
       },
       {
-        "title": "Louis C.K.: Live at the Beacon Theater",
-        "type": "movie",
-        "year": 2011,
-        "director": "Louis C.K.",
-        "predictedRating": 4.5,
-        "actors": [
-          "Louis C.K."
-        ],
-        "plot": "Louis C.K. performs a self-produced stand-up special at the Beacon Theater in New York, covering topics like parenting, aging, and modern annoyances.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/bGntW92XqJ66EIQdBeseee1Q7Um.jpg",
-        "trailerKey": null,
-        "rtScore": "92%"
-      },
-      {
-        "title": "Mitch Hedberg: Mitch All Together",
-        "type": "movie",
-        "year": 2003,
-        "director": "Mitch Hedberg",
-        "predictedRating": 4,
-        "actors": [
-          "Mitch Hedberg"
-        ],
-        "plot": "The late Mitch Hedberg delivers his unique brand of one-liner comedy in this stand-up special, filled with absurd observations and deadpan delivery.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/tu6XRikp3wC1MuwxIVXAmQ70zAm.jpg",
-        "trailerKey": null,
-        "rtScore": null
-      },
-      {
-        "title": "The Marvelous Mrs. Maisel",
+        "title": "Miami Vice",
         "type": "tv",
-        "year": 2017,
-        "director": "Amy Sherman-Palladino",
-        "predictedRating": 3,
-        "actors": [
-          "Rachel Brosnahan",
-          "Tony Shalhoub",
-          "Alex Borstein",
-          "Michael Zegen"
-        ],
-        "plot": "A 1950s housewife discovers a talent for stand-up comedy after her marriage falls apart, navigating the male-dominated comedy scene of New York.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/aslKQXXydNQxSBvP7zzsbaNTIlF.jpg",
-        "trailerKey": "fOmwkTrW4OQ",
-        "rtScore": "89%"
-      },
-      {
-        "title": "Dave Chappelle: The Closer",
-        "type": "movie",
-        "year": 2021,
-        "director": "Stan Lathan",
+        "year": 1984,
+        "director": "Michael Mann",
         "predictedRating": 3.5,
         "actors": [
-          "Dave Chappelle"
+          "Don Johnson",
+          "Philip Michael Thomas",
+          "Saundra Santiago",
+          "Olivia Brown"
         ],
-        "plot": "Chappelle's controversial Netflix special addressing gender, sexuality, and cancel culture with his trademark storytelling and blunt commentary.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/lSK4iExkkVnrA8iPxZwbs8IfnUy.jpg",
-        "trailerKey": "i1UEj_6T1RE",
-        "rtScore": "39%"
+        "plot": "Two undercover detectives and their team tackle organized crime in Miami, blending high‑stakes police work with stylish 1980s aesthetics and music.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/b5kLqC6eDiA17nq3jr1Vi340Kns.jpg",
+        "trailerKey": "gWQX0avgnlM",
+        "rtScore": null,
+        "reason": "A stylish, influential crime series from the 1980s that expands the calibration into television while staying within the decade lens."
+      },
+      {
+        "title": "Unforgiven",
+        "type": "movie",
+        "year": 1992,
+        "director": "Clint Eastwood",
+        "predictedRating": 4.5,
+        "actors": [
+          "Clint Eastwood",
+          "Gene Hackman",
+          "Morgan Freeman",
+          "Richard Harris"
+        ],
+        "plot": "An aging outlaw and killer takes on one more job years after he had turned to farming, seeking redemption and a final payday in a morally complex Western.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/54roTwbX9fltg85zjsmrooXAs12.jpg",
+        "trailerKey": "amE57OniG9Y",
+        "rtScore": "96%",
+        "reason": "A critically acclaimed Western from the 1990s that aligns with your appreciation for classic genre staples and strong direction."
+      },
+      {
+        "title": "The Shawshank Redemption",
+        "type": "movie",
+        "year": 1994,
+        "director": "Frank Darabont",
+        "predictedRating": 4.5,
+        "actors": [
+          "Tim Robbins",
+          "Morgan Freeman",
+          "Bob Gunton",
+          "William Sadler"
+        ],
+        "plot": "Two imprisoned men bond over the years, finding solace and eventual redemption through acts of common decency and hope.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/9cqNxx0GxF0bflZmeSMuL5tnGzr.jpg",
+        "trailerKey": "PLl99DlL6b4",
+        "rtScore": "91%",
+        "reason": "A highly-regarded 1990s drama with universal acclaim that matches your pattern of aligning with critical consensus on well-crafted films."
+      },
+      {
+        "title": "Pulp Fiction",
+        "type": "movie",
+        "year": 1994,
+        "director": "Quentin Tarantino",
+        "predictedRating": 4,
+        "actors": [
+          "John Travolta",
+          "Uma Thurman",
+          "Samuel L. Jackson",
+          "Bruce Willis"
+        ],
+        "plot": "The lives of two mob hitmen, a boxer, a gangster's wife, and a pair of diner bandits intertwine in four tales of violence and redemption.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/vQWk5YBFWF4bZaofAbv0tShwBvQ.jpg",
+        "trailerKey": "tGpTpVyI_OQ",
+        "rtScore": "92%",
+        "reason": "A landmark 1990s film that blends genre elements with sharp dialogue, testing your taste beyond Westerns while staying within high critical regard."
+      },
+      {
+        "title": "The Silence of the Lambs",
+        "type": "movie",
+        "year": 1991,
+        "director": "Jonathan Demme",
+        "predictedRating": 4,
+        "actors": [
+          "Jodie Foster",
+          "Anthony Hopkins",
+          "Scott Glenn",
+          "Ted Levine"
+        ],
+        "plot": "A young FBI cadet must receive the help of an incarcerated and manipulative cannibal killer to help catch another serial murderer.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/uS9m8OBk1A8eM9I042bx8XXpqAq.jpg",
+        "trailerKey": "6iB21hsprAQ",
+        "rtScore": "95%",
+        "reason": "A critically praised 1990s thriller that won Best Picture, offering a different genre while maintaining the high-quality filmmaking you appreciate."
+      },
+      {
+        "title": "Goodfellas",
+        "type": "movie",
+        "year": 1990,
+        "director": "Martin Scorsese",
+        "predictedRating": 4.5,
+        "actors": [
+          "Robert De Niro",
+          "Ray Liotta",
+          "Joe Pesci",
+          "Lorraine Bracco"
+        ],
+        "plot": "The story of Henry Hill and his life in the mob, covering his relationship with his wife Karen and his mob partners.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/9OkCLM73MIU2CrKZbqiT8Ln1wY2.jpg",
+        "trailerKey": "PTBRNXGQR9Q",
+        "rtScore": "96%",
+        "reason": "A masterful 1990s crime epic with universal critical acclaim, continuing your pattern of appreciating well-regarded genre classics."
+      },
+      {
+        "title": "No Country for Old Men",
+        "type": "movie",
+        "year": 2007,
+        "director": "Joel Coen, Ethan Coen",
+        "predictedRating": 4.5,
+        "actors": [
+          "Tommy Lee Jones",
+          "Javier Bardem",
+          "Josh Brolin",
+          "Woody Harrelson"
+        ],
+        "plot": "Violence and mayhem ensue after a hunter stumbles upon a drug deal gone wrong and more than two million dollars in cash near the Rio Grande.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/6d5XOczc226jECq0LIX0siKtgHR.jpg",
+        "trailerKey": "A0oNrgumrlE",
+        "rtScore": "93%",
+        "reason": "A modern neo-Western thriller with critical acclaim that aligns with your appreciation for well-regarded genre films."
+      },
+      {
+        "title": "The Assassination of Jesse James by the Coward Robert Ford",
+        "type": "movie",
+        "year": 2007,
+        "director": "Andrew Dominik",
+        "predictedRating": 4,
+        "actors": [
+          "Brad Pitt",
+          "Casey Affleck",
+          "Sam Shepard",
+          "Mary-Louise Parker"
+        ],
+        "plot": "Robert Ford, who idolized Jesse James since childhood, tries hard to join the reforming gang of the Missouri outlaw, but gradually becomes resentful of the bandit leader.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/xMKn6EQS7eR5ubhPJbw5pQSBZMw.jpg",
+        "trailerKey": "SrGmmitc62Q",
+        "rtScore": "76%",
+        "reason": "A contemplative, atmospheric Western that explores myth and celebrity, fitting your taste for classic Western themes with strong critical reception."
+      },
+      {
+        "title": "3:10 to Yuma",
+        "type": "movie",
+        "year": 2007,
+        "director": "James Mangold",
+        "predictedRating": 4,
+        "actors": [
+          "Russell Crowe",
+          "Christian Bale",
+          "Logan Lerman",
+          "Ben Foster"
+        ],
+        "plot": "A small-time rancher agrees to hold a captured outlaw who's awaiting a train to go to court in Yuma, facing off against the outlaw's gang.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/voMB69AsLnPNmtfbrBl0lbeFKDH.jpg",
+        "trailerKey": "Kv6apbWxb5M",
+        "rtScore": "89%",
+        "reason": "A solid, traditional Western remake with strong performances that matches your pattern of appreciating critically well-received genre films."
+      },
+      {
+        "title": "Brokeback Mountain",
+        "type": "movie",
+        "year": 2005,
+        "director": "Ang Lee",
+        "predictedRating": 4,
+        "actors": [
+          "Heath Ledger",
+          "Jake Gyllenhaal",
+          "Michelle Williams",
+          "Anne Hathaway"
+        ],
+        "plot": "The story of a forbidden and secretive relationship between two cowboys, and their lives over the years.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/aByfQOQBNa4CMFwIgq3QrqY2ZHh.jpg",
+        "trailerKey": "xZvu-SczR1Y",
+        "rtScore": "87%",
+        "reason": "A critically acclaimed Western romance that expands the genre's boundaries while maintaining its core themes, aligning with your appreciation for quality Western storytelling."
+      },
+      {
+        "title": "True Grit",
+        "type": "movie",
+        "year": 2010,
+        "director": "Joel Coen, Ethan Coen",
+        "predictedRating": 4,
+        "actors": [
+          "Jeff Bridges",
+          "Hailee Steinfeld",
+          "Matt Damon",
+          "Josh Brolin"
+        ],
+        "plot": "A stubborn teenager enlists the help of a tough U.S. Marshal to track down her father's murderer.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/tCrB8pcjadZjsDk7rleGJaIv78k.jpg",
+        "trailerKey": "Q5fEgKj9QNs",
+        "rtScore": "95%",
+        "reason": "A Coen Brothers Western with exceptional critical reception that continues your pattern of appreciating well-crafted, highly-regarded genre films."
+      },
+      {
+        "title": "Hell or High Water",
+        "type": "movie",
+        "year": 2016,
+        "director": "David Mackenzie",
+        "predictedRating": 4,
+        "actors": [
+          "Chris Pine",
+          "Ben Foster",
+          "Jeff Bridges",
+          "Gil Birmingham"
+        ],
+        "plot": "Two brothers carry out a series of bank robberies in West Texas to save their family ranch, pursued by a pair of Texas Rangers nearing retirement.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/ljRRxqy2aXIkIBXLmOVifcOR021.jpg",
+        "trailerKey": "igD-fXiHRRY",
+        "rtScore": "97%",
+        "reason": "A modern neo-Western with critical acclaim that aligns with your appreciation for well-regarded genre staples."
+      },
+      {
+        "title": "Wind River",
+        "type": "movie",
+        "year": 2017,
+        "director": "Taylor Sheridan",
+        "predictedRating": 4,
+        "actors": [
+          "Jeremy Renner",
+          "Elizabeth Olsen",
+          "Graham Greene",
+          "Jon Bernthal"
+        ],
+        "plot": "A wildlife tracker and an FBI agent investigate the murder of a young woman on a remote Native American reservation in Wyoming.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/pySivdR845Hom4u4T2WNkJxe6Ad.jpg",
+        "trailerKey": "E0qRHABxvfc",
+        "rtScore": "87%",
+        "reason": "A tense, atmospheric modern Western thriller that matches your taste for critically praised genre films."
+      },
+      {
+        "title": "The Revenant",
+        "type": "movie",
+        "year": 2015,
+        "director": "Alejandro G. Iñárritu",
+        "predictedRating": 4,
+        "actors": [
+          "Leonardo DiCaprio",
+          "Tom Hardy",
+          "Domhnall Gleeson",
+          "Will Poulter"
+        ],
+        "plot": "A frontiersman on a fur trading expedition in the 1820s fights for survival after being mauled by a bear and left for dead by his own hunting team.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/ji3ecJphATlVgWNY0B0RVXZizdf.jpg",
+        "trailerKey": "EhffABvfAW0",
+        "rtScore": "78%",
+        "reason": "A brutal survival epic with Western elements and high production values that should appeal to your classic genre appreciation."
+      },
+      {
+        "title": "The Mandalorian",
+        "type": "tv",
+        "year": 2019,
+        "director": "Jon Favreau",
+        "predictedRating": 4.5,
+        "actors": [
+          "Pedro Pascal",
+          "Gina Carano",
+          "Carl Weathers",
+          "Giancarlo Esposito"
+        ],
+        "plot": "A lone bounty hunter in the outer reaches of the galaxy far from the authority of the New Republic goes on various adventures.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/sWgBv7LV2PRoQgkxwlibdGXKz1S.jpg",
+        "trailerKey": "2RVnrBLOBcI",
+        "rtScore": "93%",
+        "reason": "A space Western series with strong Star Wars connections that matches your high rating for the original film."
+      },
+      {
+        "title": "Back to the Future",
+        "type": "movie",
+        "year": 1985,
+        "director": "Robert Zemeckis",
+        "predictedRating": 4.5,
+        "actors": [
+          "Michael J. Fox",
+          "Christopher Lloyd",
+          "Lea Thompson",
+          "Crispin Glover"
+        ],
+        "plot": "A teenager is accidentally sent 30 years into the past in a time-traveling DeLorean invented by his eccentric scientist friend.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/vN5B5WgYscRGcQpVhHl6p9DDTP0.jpg",
+        "trailerKey": "ez6WQ7IX72U",
+        "rtScore": "93%",
+        "reason": "This beloved 80s adventure-comedy has near-universal critical and audience acclaim, matching your positive response to highly-rated classics like Star Wars."
+      },
+      {
+        "title": "The X-Files",
+        "type": "tv",
+        "year": 1993,
+        "director": "Chris Carter",
+        "predictedRating": 3.5,
+        "actors": [
+          "David Duchovny",
+          "Gillian Anderson",
+          "Mitch Pileggi",
+          "William B. Davis"
+        ],
+        "plot": "Two FBI agents, one a skeptical realist and the other a true believer, investigate unexplained cases involving paranormal phenomena.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/rcBx0p8h51LHceyhquYMxbspJQu.jpg",
+        "trailerKey": "_HTByz4RlqI",
+        "rtScore": null,
+        "reason": "A defining 90s television series that explores whether your appreciation for well-crafted genre storytelling extends to long-form TV."
+      },
+      {
+        "title": "Django Unchained",
+        "type": "movie",
+        "year": 2012,
+        "director": "Quentin Tarantino",
+        "predictedRating": 4.5,
+        "actors": [
+          "Jamie Foxx",
+          "Christoph Waltz",
+          "Leonardo DiCaprio",
+          "Samuel L. Jackson"
+        ],
+        "plot": "A freed slave teams up with a German bounty hunter to rescue his wife from a brutal Mississippi plantation owner.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/7oWY8VDWW7thTzWh3OKYRkWUlD5.jpg",
+        "trailerKey": "_iH0UBYDI4g",
+        "rtScore": "87%",
+        "reason": "A stylized, revisionist Western with high critical praise, offering a more explosive take on the genre you consistently rate highly."
+      },
+      {
+        "title": "O Brother, Where Art Thou?",
+        "type": "movie",
+        "year": 2000,
+        "director": "Ethan Coen, Joel Coen",
+        "predictedRating": 4,
+        "actors": [
+          "George Clooney",
+          "John Turturro",
+          "Tim Blake Nelson",
+          "John Goodman"
+        ],
+        "plot": "Three escaped convicts in the Depression-era South embark on a journey home while encountering various eccentric characters.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/s9foMAcLg8GEzzQzer04qOGdD1k.jpg",
+        "trailerKey": "pi-KDvtUaGQ",
+        "rtScore": "78%",
+        "reason": "A Coen brothers comedy with a folk-music soundtrack and Homeric roots, providing a different flavor within your trusted director range."
+      },
+      {
+        "title": "Lost in Translation",
+        "type": "movie",
+        "year": 2003,
+        "director": "Sofia Coppola",
+        "predictedRating": 3.5,
+        "actors": [
+          "Bill Murray",
+          "Scarlett Johansson",
+          "Giovanni Ribisi",
+          "Anna Faris"
+        ],
+        "plot": "A faded movie star and a neglected young woman form an unlikely bond while adrift in Tokyo.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/3jCLmYDIIiSMPujbwygNpqdpM8N.jpg",
+        "trailerKey": "1s4YQqnbnM8",
+        "rtScore": "95%",
+        "reason": "A critically acclaimed character study to test if your high ratings extend beyond Westerns and classics to modern dramas."
+      },
+      {
+        "title": "The Wire",
+        "type": "tv",
+        "year": 2002,
+        "director": "David Simon",
+        "predictedRating": 4.5,
+        "actors": [
+          "Dominic West",
+          "Lance Reddick",
+          "Sonja Sohn",
+          "Wendell Pierce"
+        ],
+        "plot": "An expansive look at the drug trade, port system, government, schools, and media in Baltimore through interconnected stories.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/4lbclFySvugI51fwsyxBTOm4DqK.jpg",
+        "trailerKey": "uDcQbk78CSw",
+        "rtScore": "94%",
+        "reason": "A highly acclaimed TV drama with novelistic depth to see if your appreciation for well-regarded works extends to television."
       }
     ]
   }

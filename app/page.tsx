@@ -161,6 +161,7 @@ export interface RatingEntry {
   rtScore?: string | null;
   channelId?: string;
   posterUrl?: string | null;
+  ratingMode?: "seen" | "unseen";
 }
 
 interface CurrentMovie {
@@ -608,12 +609,20 @@ const PrefetchQueuePanel = memo(function PrefetchQueuePanel({
   );
 });
 
+/** Map 0–1 watch fraction to 0–5 stars in half-star steps; returns 0 until 5% watched. */
+function progressToStars(frac: number): number {
+  if (frac < 0.05) return 0;
+  return Math.round(frac * 5 * 2) / 2;
+}
+
 // ── TrailerPlayer ─────────────────────────────────────────────────────────────
 /** One iframe per mount; swap trailers with loadVideoById so rapid card changes don't cancel init (black player). */
-const TrailerPlayer = memo(function TrailerPlayer({ videoId }: { videoId: string }) {
+const TrailerPlayer = memo(function TrailerPlayer({ videoId, onProgress }: { videoId: string; onProgress?: (frac: number) => void }) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTPlayer | null>(null);
   const videoIdRef = useRef(videoId);
+  const onProgressRef = useRef(onProgress);
+  useEffect(() => { onProgressRef.current = onProgress; }, [onProgress]);
 
   useEffect(() => {
     videoIdRef.current = videoId;
@@ -647,6 +656,7 @@ const TrailerPlayer = memo(function TrailerPlayer({ videoId }: { videoId: string
           modestbranding: 1,
           playsinline: 1,
           enablejsapi: 1,
+          fs: 0,
           ...(origin ? { origin } : {}),
         },
         events: {
@@ -660,6 +670,18 @@ const TrailerPlayer = memo(function TrailerPlayer({ videoId }: { videoId: string
             } catch {
               /* ignore */
             }
+            const poll = window.setInterval(() => {
+              try {
+                const p = playerRef.current;
+                if (!p) return;
+                const dur = p.getDuration();
+                if (dur > 0) onProgressRef.current?.(Math.min(p.getCurrentTime() / dur, 1));
+              } catch { /* ignore */ }
+            }, 500);
+            const origCancel = cancelled;
+            void origCancel; // suppress unused warning
+            // Attach cleanup via the outer cancelled flag approach — store interval on wrapperRef
+            (wrapperRef.current as HTMLDivElement & { _poll?: number })._poll = poll;
           },
         },
       });
@@ -667,6 +689,8 @@ const TrailerPlayer = memo(function TrailerPlayer({ videoId }: { videoId: string
 
     return () => {
       cancelled = true;
+      const poll = (wrapperRef.current as HTMLDivElement & { _poll?: number } | null)?._poll;
+      if (poll) window.clearInterval(poll);
       try {
         const p = playerRef.current ?? playerInstance;
         if (p && !p.isMuted()) {
@@ -804,20 +828,40 @@ const MovieRatingBlock = memo(function MovieRatingBlock({
   onRate,
   movieTitle,
   starKeyPrefix,
+  watchFrac = 0,
+  defaultSeen = false,
+  previousRating,
+  previousMode,
 }: {
   passCurrentCardStable: () => void;
   onRate: (stars: number, mode: "seen" | "unseen") => void;
   movieTitle: string;
   starKeyPrefix: "tr" | "po";
+  watchFrac?: number;
+  /** If true, default to "Seen it"; otherwise default to "Not yet". */
+  defaultSeen?: boolean;
+  /** Pre-existing rating from history — locks stars immediately, no auto-progress. */
+  previousRating?: number;
+  previousMode?: "seen" | "unseen";
 }) {
   const seenRadioGroupName = useId();
-  const [seenStatus, setSeenStatus] = useState<"unseen" | null>(null);
+  const hasPrev = previousRating !== undefined && previousRating > 0;
+  const initialSeen = hasPrev ? (previousMode === "unseen" ? "unseen" : null) : (defaultSeen ? null : "unseen");
+  const [seenStatus, setSeenStatus] = useState<"unseen" | null>(() => initialSeen);
+  const [userLocked, setUserLocked] = useState(() => hasPrev);
+  const [lockedValue, setLockedValue] = useState(() => hasPrev ? previousRating! : 0);
   useEffect(() => {
-    setSeenStatus(null);
-  }, [movieTitle]);
+    const prev = previousRating !== undefined && previousRating > 0;
+    setSeenStatus(prev ? (previousMode === "unseen" ? "unseen" : null) : (defaultSeen ? null : "unseen"));
+    setUserLocked(prev);
+    setLockedValue(prev ? previousRating! : 0);
+  }, [movieTitle, defaultSeen, previousRating, previousMode]);
   const onSeenStatusChange = useCallback((v: "unseen" | null) => {
     setSeenStatus(v);
   }, []);
+
+  const autoFilled = progressToStars(watchFrac);
+  const displayFilled = userLocked ? lockedValue : autoFilled;
 
   return (
     <div className="rounded-xl bg-zinc-900 border border-zinc-700 px-2 py-2 sm:px-3 sm:py-2.5">
@@ -829,19 +873,19 @@ const MovieRatingBlock = memo(function MovieRatingBlock({
               <StarRow
                 key={`${starKeyPrefix}-seen-${movieTitle}`}
                 compact
-                filled={0}
+                filled={displayFilled}
                 color="red"
                 label="Rating"
-                onRate={(v) => onRate(v, "seen")}
+                onRate={(v) => { setUserLocked(true); setLockedValue(v); onRate(v, "seen"); }}
               />
             ) : (
               <StarRow
                 key={`${starKeyPrefix}-unseen-${movieTitle}`}
                 compact
-                filled={0}
+                filled={displayFilled}
                 color="blue"
                 label="Interest"
-                onRate={(v) => onRate(v, "unseen")}
+                onRate={(v) => { setUserLocked(true); setLockedValue(v); onRate(v, "unseen"); }}
               />
             )}
           </div>
@@ -966,6 +1010,9 @@ export default function Home() {
   const [llm, setLlm] = useState<string>(() => loadSetting("llm", "deepseek"));
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [isTrailerFullscreen, setIsTrailerFullscreen] = useState(false);
+  const [watchFrac, setWatchFrac] = useState(0);
+  const watchFracRef = useRef(0);
+  watchFracRef.current = watchFrac;
   const cardRef = useRef<HTMLDivElement>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const prefetchRef = useRef<CurrentMovie[]>([]);
@@ -1055,6 +1102,12 @@ export default function Home() {
     document.addEventListener("fullscreenchange", onChange);
     return () => document.removeEventListener("fullscreenchange", onChange);
   }, []);
+
+  // Reset watch progress whenever the trailer changes
+  const currentTrailerKey = current?.trailerKey;
+  useEffect(() => {
+    setWatchFrac(0);
+  }, [currentTrailerKey]);
 
   useEffect(() => {
     try {
@@ -1620,9 +1673,8 @@ export default function Home() {
         localStorage.setItem(CHANNELS_KEY, JSON.stringify(next));
       }
       setChannels(next);
-      const preferred = localStorage.getItem(ACTIVE_CHANNEL_KEY);
-      const active =
-        preferred && next.some((c) => c.id === preferred) ? preferred : (next[0]?.id ?? "all");
+      const firstNonAll = next.find((c) => c.id !== "all");
+      const active = firstNonAll?.id ?? next[0]?.id ?? "all";
       activeChannelIdRef.current = active;
       setActiveChannelId(active);
       replenishGenRef.current += 1;
@@ -1638,7 +1690,7 @@ export default function Home() {
     }
   }, [loadPrefetchIntoRefForChannel, persistPrefetchQueue, fetchNext, mediaType, llm]);
 
-  const handleRate = (rating: number) => {
+  const handleRate = (rating: number, ratingMode: "seen" | "unseen" = "seen") => {
     rating = clampStarRating(rating);
     if (!current) return;
     const predicted = migrateRatingValue(current.predictedRating);
@@ -1653,6 +1705,7 @@ export default function Home() {
       rtScore: current.rtScore,
       channelId,
       posterUrl: current.posterUrl,
+      ratingMode,
     };
     const newHistory = [...historyRef.current, entry];
     saveHistory(newHistory);
@@ -1666,7 +1719,7 @@ export default function Home() {
   /** Single entry point for all star clicks. Red = seen (goes to history). Blue = unseen (4-5 → watchlist, 1-3 → not-interested). */
   const submitRating = (stars: number, mode: "seen" | "unseen") => {
     if (mode === "seen") {
-      handleRate(stars);
+      handleRate(stars, "seen");
     } else {
       recordNotSeen(stars >= 4 ? "want" : "skip", stars);
     }
@@ -1681,10 +1734,15 @@ export default function Home() {
       submitRatingRef.current(p.stars, p.mode);
       setPendingRating(null);
     } else {
-      const t = current.title;
-      const newPassed = [...passedRef.current, t];
-      localStorage.setItem(PASSED_KEY, JSON.stringify(newPassed));
-      passedRef.current = newPassed;
+      const autoStars = progressToStars(watchFracRef.current);
+      if (autoStars > 0) {
+        submitRatingRef.current(autoStars, "seen");
+      } else {
+        const t = current.title;
+        const newPassed = [...passedRef.current, t];
+        localStorage.setItem(PASSED_KEY, JSON.stringify(newPassed));
+        passedRef.current = newPassed;
+      }
     }
     zeroYieldStreakRef.current = 0;
     fetchNext({ mediaType, llm });
@@ -1818,7 +1876,7 @@ export default function Home() {
                 /* ── TRAILER LAYOUT ── */
                 <div className="bg-black">
                   <div ref={videoContainerRef} className="relative bg-black">
-                    <TrailerPlayer videoId={current.trailerKey} />
+                    <TrailerPlayer videoId={current.trailerKey} onProgress={setWatchFrac} />
                     {/* Fullscreen enter button — overlaid top-right of video */}
                     {!isTrailerFullscreen && (
                       <button
@@ -1877,6 +1935,10 @@ export default function Home() {
                       onRate={handlePendingChange}
                       movieTitle={current.title}
                       starKeyPrefix="tr"
+                      watchFrac={watchFrac}
+                      defaultSeen={activeChannelId === "all"}
+                      previousRating={historyRef.current.find(e => e.title === current.title)?.userRating}
+                      previousMode={historyRef.current.find(e => e.title === current.title)?.ratingMode}
                     />
                     <PrefetchQueuePanel
                       prefetchQueueUi={prefetchQueueUi}
@@ -1902,6 +1964,9 @@ export default function Home() {
                     onRate={handlePendingChange}
                     movieTitle={current.title}
                     starKeyPrefix="po"
+                    defaultSeen={activeChannelId === "all"}
+                    previousRating={historyRef.current.find(e => e.title === current.title)?.userRating}
+                    previousMode={historyRef.current.find(e => e.title === current.title)?.ratingMode}
                   />
                   <PrefetchQueuePanel
                     prefetchQueueUi={prefetchQueueUi}
