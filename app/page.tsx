@@ -1259,7 +1259,7 @@ export default function Home() {
     opts: { mediaType: string; llm: string },
     extraRetrySkips: string[] = []
   ): Promise<Set<string>> => {
-    if (replenishInFlight.current >= MAX_REPLENISH_IN_FLIGHT) return new Set();
+    if (replenishGenInFlight.current >= MAX_REPLENISH_IN_FLIGHT) return new Set();
     replenishOptsRef.current = opts;
 
     const genAtStart = replenishGenRef.current;
@@ -1318,7 +1318,7 @@ export default function Home() {
       if (
         genAtStart === replenishGenRef.current &&
         prefetchRef.current.length < HIGH_WATER_MARK &&
-        replenishInFlight.current < MAX_REPLENISH_IN_FLIGHT &&
+        replenishGenInFlight.current < MAX_REPLENISH_IN_FLIGHT &&
         zeroYieldStreakRef.current < 3
       ) {
         replenish(replenishOptsRef.current);
@@ -1363,7 +1363,7 @@ export default function Home() {
         zeroYieldStreakRef.current = 0; // reset so the daisy-chain can run
         if (replenishGenInFlight.current === 0) replenish(opts); // no current-gen batch running — kick one off
         const deadline = Date.now() + 90_000;
-        while (prefetchRef.current.length === 0 && replenishInFlight.current > 0 && Date.now() < deadline) {
+        while (prefetchRef.current.length === 0 && replenishGenInFlight.current > 0 && Date.now() < deadline) {
           await new Promise((r) => setTimeout(r, 200));
         }
         const next = prefetchRef.current.shift();
@@ -1415,7 +1415,7 @@ export default function Home() {
       persistPrefetchQueue();
       if (
         prefetchRef.current.length < HIGH_WATER_MARK &&
-        replenishInFlight.current < MAX_REPLENISH_IN_FLIGHT &&
+        replenishGenInFlight.current < MAX_REPLENISH_IN_FLIGHT &&
         zeroYieldStreakRef.current < 3
       ) {
         replenish({ mediaType, llm });
@@ -1441,7 +1441,7 @@ export default function Home() {
       zeroYieldStreakRef.current = 0;
       if (
         prefetchRef.current.length < HIGH_WATER_MARK &&
-        replenishInFlight.current < MAX_REPLENISH_IN_FLIGHT &&
+        replenishGenInFlight.current < MAX_REPLENISH_IN_FLIGHT &&
         zeroYieldStreakRef.current < 3
       ) {
         replenish({ mediaType, llm });
@@ -1982,19 +1982,21 @@ export default function Home() {
         </div>
 
         {/* Taste profile card */}
-        {tasteSummary && (
-          <div className="bg-zinc-950 rounded-2xl border border-zinc-800 shadow-sm p-4">
-            <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">AI&apos;s model of your taste</p>
+        <div className="bg-zinc-950 rounded-2xl border border-zinc-800 shadow-sm p-4">
+          <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">AI&apos;s model of your taste</p>
+          {tasteSummary ? (
             <p className="text-sm text-zinc-300 leading-relaxed" style={{ borderLeft: "3px solid #a78bfa", paddingLeft: "12px" }}>
               {tasteSummary}
             </p>
-            <div className="flex gap-3 mt-3 pt-3 border-t border-zinc-800">
-              <Link href={`/channels${activeChannelId && activeChannelId !== "all" ? `?select=${activeChannelId}` : ""}`} className="text-sm font-medium text-indigo-400 hover:text-indigo-300 transition-colors">Edit Channel</Link>
-              <span className="text-zinc-700 text-sm select-none">·</span>
-              <Link href="/channel-history" className="text-sm font-medium text-indigo-400 hover:text-indigo-300 transition-colors">Channel History</Link>
-            </div>
+          ) : (
+            <p className="text-sm text-zinc-600 italic">Rate a few titles to build your taste profile.</p>
+          )}
+          <div className="flex gap-3 mt-3 pt-3 border-t border-zinc-800">
+            <Link href={`/channels${activeChannelId && activeChannelId !== "all" ? `?select=${activeChannelId}` : ""}`} className="text-sm font-medium text-indigo-400 hover:text-indigo-300 transition-colors">Edit Channel</Link>
+            <span className="text-zinc-700 text-sm select-none">·</span>
+            <Link href="/channel-history" className="text-sm font-medium text-indigo-400 hover:text-indigo-300 transition-colors">Channel History</Link>
           </div>
-        )}
+        </div>
 
       </div>
 
