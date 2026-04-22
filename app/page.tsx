@@ -16,6 +16,7 @@ import {
   hasNoChannelsPersisted,
   mergeFactoryChannelsAndQueues,
 } from "./lib/factoryChannels";
+import { canonicalTitleKey } from "./lib/canonicalTitleKey";
 import { pushUnseenInterestEntry, type UnseenInterestEntry } from "./lib/unseenInterestLog";
 
 function migrateRatingEntry(e: RatingEntry): RatingEntry {
@@ -265,17 +266,6 @@ function loadSetting<T>(key: string, fallback: T): T {
   } catch {
     return fallback;
   }
-}
-
-/** Collapse common spellings so the same film is not shown twice (e.g. Se7en vs Seven). */
-function canonicalTitleKey(title: string): string {
-  const s = title
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "");
-  if (s === "se7en" || s === "seven") return "seven";
-  return s;
 }
 
 interface NotSeenEvent {
@@ -2017,22 +2007,7 @@ export default function Home() {
                 <div className="bg-black">
                   <div ref={videoContainerRef} className="relative bg-black">
                     <TrailerPlayer videoId={current.trailerKey} onProgress={setWatchFrac} />
-                    {/* Fullscreen enter button — overlaid top-right of video */}
-                    {!isTrailerFullscreen && (
-                      <button
-                        type="button"
-                        onPointerDown={(e) => e.preventDefault()}
-                        onClick={() => videoContainerRef.current?.requestFullscreen?.()}
-                        className="absolute top-2 right-2 z-10 rounded-md bg-black/40 p-1.5 text-white/60 hover:bg-black/75 hover:text-white transition-colors"
-                        title="Enter fullscreen — Next button available in fullscreen"
-                        aria-label="Enter fullscreen"
-                      >
-                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                        </svg>
-                      </button>
-                    )}
-                    {/* Fullscreen overlay controls */}
+                    {/* Fullscreen overlay controls (enter is below with Share) */}
                     {isTrailerFullscreen && (
                       <>
                         <button
@@ -2065,7 +2040,24 @@ export default function Home() {
                   <div className="flex flex-col gap-4 p-4 sm:p-6">
                     <div className="flex items-start justify-between gap-3">
                       <TrailerMetadata movie={current} />
-                      <ShareButton onClick={handleShare} toast={shareToast} />
+                      <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+                        {!isTrailerFullscreen && (
+                          <button
+                            type="button"
+                            onPointerDown={(e) => e.preventDefault()}
+                            onClick={() => videoContainerRef.current?.requestFullscreen?.()}
+                            className="shrink-0 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+                            title="Enter fullscreen — Next button available in fullscreen"
+                            aria-label="Enter fullscreen"
+                          >
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                            </svg>
+                            Fullscreen
+                          </button>
+                        )}
+                        <ShareButton onClick={handleShare} toast={shareToast} />
+                      </div>
                     </div>
                     {current.reason && (
                       <p className="text-sm text-zinc-400 leading-relaxed border-l-2 border-zinc-600 pl-3">

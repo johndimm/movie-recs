@@ -1,3 +1,5 @@
+export { canonicalTitleKey } from "./canonicalTitleKey";
+
 export const UNSEEN_INTEREST_LOG_KEY = "movie-recs-unseen-interest-log";
 
 export type UnseenInterestEntry = {
@@ -14,16 +16,6 @@ export type UnseenInterestEntry = {
   channelId: string;
   at: string;
 };
-
-export function canonicalTitleKey(title: string): string {
-  const s = title
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "");
-  if (s === "se7en" || s === "seven") return "seven";
-  return s;
-}
 
 function isValidEntry(x: unknown): x is UnseenInterestEntry {
   if (!x || typeof x !== "object") return false;

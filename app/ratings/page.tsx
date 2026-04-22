@@ -7,6 +7,7 @@ import { StaticStars } from "../components/Stars";
 import RTBadge from "../components/RTBadge";
 import { migrateRatingValue } from "../lib/ratingScale";
 import { starDelta, formatStarDelta } from "../lib/ratingDelta";
+import { canonicalTitleKey } from "../lib/canonicalTitleKey";
 
 const STORAGE_KEY = "movie-recs-history";
 const SKIPPED_KEY = "movie-recs-skipped";
@@ -21,16 +22,6 @@ interface RatingEntry {
   predictedRating: number;
   error: number;
   rtScore?: string | null;
-}
-
-function canonicalTitleKey(title: string): string {
-  const s = title
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "");
-  if (s === "se7en" || s === "seven") return "seven";
-  return s;
 }
 
 type Tab = "seen" | "watchlist" | "not-interested";
