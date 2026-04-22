@@ -936,12 +936,15 @@ const ChannelsToolbar = memo(function ChannelsToolbar({
   channels,
   activeChannelId,
   onLoadStarter,
+  onMergeStarters,
   onSelectChannel,
   onRequestDeleteChannel,
 }: {
   channels: Channel[];
   activeChannelId: string;
   onLoadStarter: () => void;
+  /** Same as Settings → Merge starter channels: add missing factory channels, keep current active channel. */
+  onMergeStarters: () => void;
   onSelectChannel: (id: string) => void;
   onRequestDeleteChannel: (ch: Channel) => void;
 }) {
@@ -967,6 +970,14 @@ const ChannelsToolbar = memo(function ChannelsToolbar({
         </>
       ) : (
         <>
+          <button
+            type="button"
+            onClick={onMergeStarters}
+            className="shrink-0 rounded-full border border-zinc-600 bg-zinc-900 px-2.5 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:border-zinc-500 hover:bg-zinc-800 hover:text-zinc-100"
+            title="Add bundled example channels you don’t already have (same as Settings → Starter channel pack)"
+          >
+            Merge starter pack
+          </button>
           {channels.map((ch) => {
             const deletable = ch.id !== "all";
             return (
@@ -1539,8 +1550,11 @@ export default function Home() {
           const res = await fetch(`/api/share?id=${encodeURIComponent(shareId)}`);
           if (res.ok) {
             const payload = await res.json() as { channel?: Channel | null; current?: CurrentMovie | null };
-            // Bootstrap factory channels for new users before adding the shared channel
+            // Full export when nothing stored; otherwise add any missing bundled channels.
+            // Share fetch runs after mount, so hasNoChannelsPersisted() is usually false even on first
+            // visit—merge is what repopulates the rest of the factory pack (e.g. after following ?share=).
             if (hasNoChannelsPersisted()) applyFactoryBootstrap();
+            mergeFactoryChannelsAndQueues();
             if (payload.channel) {
               const raw = localStorage.getItem(CHANNELS_KEY);
               let chs: Channel[] = raw ? (JSON.parse(raw) as Channel[]).map(normalizeChannel) : [];
@@ -1556,6 +1570,17 @@ export default function Home() {
               setActiveChannelId(activeId);
               activeChannelIdRef.current = activeId;
               savedPrefetchChannelRef.current = activeId;
+            } else {
+              const raw = localStorage.getItem(CHANNELS_KEY);
+              if (raw) {
+                let list: Channel[] = (JSON.parse(raw) as Channel[]).map(normalizeChannel);
+                if (!list.find((c) => c.id === "all")) {
+                  list = [ALL_CHANNEL, ...list];
+                  localStorage.setItem(CHANNELS_KEY, JSON.stringify(list));
+                }
+                setChannels(list);
+                channelsRef.current = list;
+              }
             }
             if (payload.current) {
               setCurrent(payload.current);
@@ -1739,6 +1764,23 @@ export default function Home() {
     persistPrefetchQueue,
     fetchNext,
   ]);
+
+  const mergeStartersKeepActive = useCallback(() => {
+    mergeFactoryChannelsAndQueues();
+    try {
+      const raw = localStorage.getItem(CHANNELS_KEY);
+      if (!raw) return;
+      let next: Channel[] = (JSON.parse(raw) as Channel[]).map(normalizeChannel);
+      if (!next.some((c) => c.id === "all")) {
+        next = [ALL_CHANNEL, ...next];
+        localStorage.setItem(CHANNELS_KEY, JSON.stringify(next));
+      }
+      setChannels(next);
+      channelsRef.current = next;
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const loadStarterChannelsFromFactory = useCallback(() => {
     mergeFactoryChannelsAndQueues();
@@ -1956,6 +1998,7 @@ export default function Home() {
           channels={channels}
           activeChannelId={activeChannelId}
           onLoadStarter={loadStarterChannelsFromFactory}
+          onMergeStarters={mergeStartersKeepActive}
           onSelectChannel={selectChannel}
           onRequestDeleteChannel={requestDeleteChannel}
         />
