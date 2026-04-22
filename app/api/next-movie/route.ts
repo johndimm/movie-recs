@@ -352,11 +352,15 @@ function buildChannelConstraint(ch: ChannelPayload): string {
   const lines: string[] = [];
   const mediumLine = buildMediumsConstraintLine(ch.mediums);
   if (mediumLine) lines.push(mediumLine);
+  if (ch.freeText.trim()) {
+    lines.push(
+      `- What they want (primary — align genres/era/etc. below with this): ${ch.freeText.trim()}`,
+    );
+  }
   if (ch.genres.length) lines.push(`- Genres: ${ch.genres.join(", ")}`);
   if (ch.timePeriods.length) lines.push(`- Time periods: ${ch.timePeriods.join(", ")}`);
   if (ch.language.trim()) lines.push(`- Language: ${ch.language.trim()}`);
   if (ch.artists.trim()) lines.push(`- Focus on work by: ${ch.artists.trim()}`);
-  if (ch.freeText.trim()) lines.push(`- Additional: ${ch.freeText.trim()}`);
 
   const pop = ch.popularity;
   if (pop <= 15) lines.push("- Popularity: Hidden gems only — obscure, underseen, cult, or arthouse titles. Avoid mainstream blockbusters entirely.");

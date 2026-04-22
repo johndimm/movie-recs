@@ -2,6 +2,7 @@ import { callLLM } from "../next-movie/llm";
 
 export async function POST(request: Request) {
   const body = await request.json() as {
+    channelName?: string;
     genres?: string[];
     timePeriods?: string[];
     language?: string;
@@ -9,20 +10,28 @@ export async function POST(request: Request) {
     llm?: string;
   };
 
-  const { genres = [], timePeriods = [], language = "", freeText = "", llm = "deepseek" } = body;
+  const {
+    channelName = "",
+    genres = [],
+    timePeriods = [],
+    language = "",
+    freeText = "",
+    llm = "deepseek",
+  } = body;
 
   const active = [
+    channelName.trim() && `channel name (for context only, may be empty while editing): ${channelName.trim()}`,
+    freeText.trim() && `what they want (primary): "${freeText.trim()}"`,
     genres.length > 0 && `genres: ${genres.join(", ")}`,
     timePeriods.length > 0 && `time periods: ${timePeriods.join(", ")}`,
     language && `language(s): ${language}`,
-    freeText.trim() && `additional context: "${freeText.trim()}"`,
   ].filter(Boolean);
 
   if (active.length === 0) return Response.json({ artists: [] });
 
   const systemPrompt = `You are a film expert. Return ONLY valid JSON — no markdown, no explanation.`;
 
-  const userMessage = `The user is building a film channel. Their current selections are: ${active.join("; ")}.
+  const userMessage = `The user is building a film channel. Use the description and filters below. Their current input is: ${active.join("; ")}.
 
 Suggest up to 20 notable directors and/or actors whose work fits this overall theme.
 

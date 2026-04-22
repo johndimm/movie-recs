@@ -14,6 +14,7 @@ import {
 import {
   applyFactoryBootstrap,
   hasNoChannelsPersisted,
+  isFactoryStarterPackFullyMerged,
   mergeFactoryChannelsAndQueues,
 } from "./lib/factoryChannels";
 import { canonicalTitleKey } from "./lib/canonicalTitleKey";
@@ -927,6 +928,7 @@ const ChannelsToolbar = memo(function ChannelsToolbar({
   activeChannelId,
   onLoadStarter,
   onMergeStarters,
+  showMergeStarterPack,
   onSelectChannel,
   onRequestDeleteChannel,
 }: {
@@ -935,6 +937,7 @@ const ChannelsToolbar = memo(function ChannelsToolbar({
   onLoadStarter: () => void;
   /** Same as Settings → Merge starter channels: add missing factory channels, keep current active channel. */
   onMergeStarters: () => void;
+  showMergeStarterPack: boolean;
   onSelectChannel: (id: string) => void;
   onRequestDeleteChannel: (ch: Channel) => void;
 }) {
@@ -960,14 +963,16 @@ const ChannelsToolbar = memo(function ChannelsToolbar({
         </>
       ) : (
         <>
-          <button
-            type="button"
-            onClick={onMergeStarters}
-            className="shrink-0 rounded-full border border-zinc-600 bg-zinc-900 px-2.5 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:border-zinc-500 hover:bg-zinc-800 hover:text-zinc-100"
-            title="Add bundled example channels you don’t already have (same as Settings → Starter channel pack)"
-          >
-            Merge starter pack
-          </button>
+          {showMergeStarterPack && (
+            <button
+              type="button"
+              onClick={onMergeStarters}
+              className="shrink-0 rounded-full border border-zinc-600 bg-zinc-900 px-2.5 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:border-zinc-500 hover:bg-zinc-800 hover:text-zinc-100"
+              title="Add bundled example channels you don’t already have (same as Settings → Starter channel pack)"
+            >
+              Merge starter pack
+            </button>
+          )}
           {channels.map((ch) => {
             const deletable = ch.id !== "all";
             return (
@@ -1063,13 +1068,19 @@ export default function Home() {
   const batchYieldRef = useRef<number[]>([]); // rolling yield fractions (fresh / requested)
 
   const tasteSummaryRef = useRef(tasteSummary);
+
   const [userRequest, setUserRequest] = useState<string>(() => loadSetting("userRequest", ""));
   const userRequestRef = useRef("");
   userRequestRef.current = userRequest;
   /** Set after first userRequest effect — used so we only flush prefetch on real edits, not mount/import. */
   const prevUserRequestForFlushRef = useRef<string | undefined>(undefined);
   const [channels, setChannels] = useState<Channel[]>([]);
+  const [factoryPackFullyMerged, setFactoryPackFullyMerged] = useState<boolean | null>(null);
   const [channelPendingDelete, setChannelPendingDelete] = useState<Channel | null>(null);
+
+  useEffect(() => {
+    setFactoryPackFullyMerged(isFactoryStarterPackFullyMerged());
+  }, [channels]);
   const channelsRef = useRef<Channel[]>([]);
   const [activeChannelId, setActiveChannelId] = useState<string>("");
   const activeChannelIdRef = useRef<string>("");
@@ -1989,6 +2000,7 @@ export default function Home() {
           activeChannelId={activeChannelId}
           onLoadStarter={loadStarterChannelsFromFactory}
           onMergeStarters={mergeStartersKeepActive}
+          showMergeStarterPack={factoryPackFullyMerged === false}
           onSelectChannel={selectChannel}
           onRequestDeleteChannel={requestDeleteChannel}
         />

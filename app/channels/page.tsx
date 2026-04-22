@@ -58,6 +58,7 @@ const ARTIST_SUGGEST_CACHE_STORAGE = "movie-recs-artist-suggestions-v1";
 const artistSuggestMemCache = new Map<string, string[]>();
 
 function stableArtistSuggestKey(
+  channelName: string,
   genres: string[],
   timePeriods: string[],
   language: string,
@@ -65,6 +66,7 @@ function stableArtistSuggestKey(
   llm: string,
 ): string {
   return JSON.stringify({
+    n: channelName.trim(),
     g: [...genres].sort(),
     t: [...timePeriods].sort(),
     l: language.trim(),
@@ -230,6 +232,7 @@ function ChannelForm({
     setForm((f) => ({ ...f, [k]: v }));
 
   const hasSelections =
+    form.name.trim() !== "" ||
     form.genres.length > 0 ||
     form.timePeriods.length > 0 ||
     form.language.trim() !== "" ||
@@ -239,13 +242,14 @@ function ChannelForm({
   const artistSuggestKey = useMemo(
     () =>
       stableArtistSuggestKey(
+        form.name,
         form.genres,
         form.timePeriods,
         form.language,
         form.freeText,
         llmChoice,
       ),
-    [form.genres.join(","), form.timePeriods.join(","), form.language, form.freeText, llmChoice],
+    [form.name, form.genres.join(","), form.timePeriods.join(","), form.language, form.freeText, llmChoice],
   );
 
   useEffect(() => {
@@ -273,6 +277,7 @@ function ChannelForm({
       const f = formRef.current;
       const llm = readLlmFromLocalSettings();
       const bodyKey = stableArtistSuggestKey(
+        f.name,
         f.genres,
         f.timePeriods,
         f.language,
@@ -290,6 +295,7 @@ function ChannelForm({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            channelName: f.name,
             genres: f.genres,
             timePeriods: f.timePeriods,
             language: f.language,
@@ -300,6 +306,7 @@ function ChannelForm({
         });
         if (controller.signal.aborted) return;
         const after = stableArtistSuggestKey(
+          formRef.current.name,
           formRef.current.genres,
           formRef.current.timePeriods,
           formRef.current.language,
@@ -333,33 +340,59 @@ function ChannelForm({
 
   return (
     <div className="space-y-4 py-4 border-t border-zinc-100">
+      <div className="rounded-2xl border border-indigo-200/60 bg-indigo-50/40 p-3 sm:p-4">
+        <label className="text-xs font-bold text-indigo-900/90 uppercase tracking-wider">What you want</label>
+        <p className="mt-1 text-xs text-zinc-600 leading-relaxed">
+          Describe the kinds of movies or shows you want in this channel—mood, scope, subgenres, or examples. The app uses this as the main signal to line up
+          the format, genres, time periods, and language in the sections below. This is not an extra &quot;hint&quot;; it drives those choices.
+        </p>
+        <textarea
+          value={form.freeText}
+          onChange={(e) => field("freeText", e.target.value)}
+          placeholder="E.g. slow-burn Euro crime from the 70s, morally gray leads, not big franchise IP…"
+          rows={4}
+          className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-y min-h-[4.5rem]"
+        />
+        <p className="mt-1.5 text-[11px] text-zinc-500">
+          Don’t repeat the channel name here—that belongs in the next field. The name and this description are both sent to the model.
+        </p>
+      </div>
+
       <div>
         <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Channel name</label>
+        <p className="mt-1 text-xs text-zinc-500 leading-relaxed">
+          Short label shown on the home screen. Give it a clear, specific title—no need to paste it again in the description above.
+        </p>
         <input
           type="text"
           value={form.name}
           onChange={(e) => field("name", e.target.value)}
-          placeholder="e.g. French New Wave, 80s Horror, Kubrick"
-          className="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-800 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+          placeholder="e.g. 70s paranoid thrillers, cozy British mysteries"
+          className="mt-1.5 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-800 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-300"
         />
       </div>
 
-      <div>
-        <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Medium</label>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {MEDIUM_OPTIONS.map(({ id, label, hint }) => (
-            <button
-              key={id}
-              type="button"
-              title={hint}
-              onClick={() => field("mediums", toggleMedium(form.mediums, id))}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${form.mediums.includes(id) ? "bg-indigo-600 text-white" : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"}`}
-            >
-              {label}
-            </button>
-          ))}
+      <div className="space-y-4 border-t border-zinc-100 pt-4">
+        <p className="text-xs text-zinc-500 leading-relaxed">
+          <span className="font-semibold text-zinc-600">Refine: </span>
+          use the checkboxes to match the description, or set them by hand. You can add more in the main text if needed; you don’t need to restate the channel name there.
+        </p>
+        <div>
+          <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Medium</label>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {MEDIUM_OPTIONS.map(({ id, label, hint }) => (
+              <button
+                key={id}
+                type="button"
+                title={hint}
+                onClick={() => field("mediums", toggleMedium(form.mediums, id))}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${form.mediums.includes(id) ? "bg-indigo-600 text-white" : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
 
       <div>
         <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Genres</label>
@@ -383,7 +416,13 @@ function ChannelForm({
         </div>
         {artistOptions.length > 0
           ? <ChipRow options={artistOptions} selected={csvToArray(form.artists)} onToggle={(a) => field("artists", toggleCsv(form.artists, a))} />
-          : <p className="mt-1 text-xs text-zinc-400">{hasSelections ? "No suggestions yet — select genres, time period, or language first." : "Select at least one filter above to see suggestions."}</p>
+          : (
+            <p className="mt-1 text-xs text-zinc-400">
+              {hasSelections
+                ? "No suggestions yet — add a little more in the description or try genres / era / language."
+                : "Add a title, a description, or a filter in the sections on this form to see director and actor ideas."}
+            </p>
+          )
         }
       </div>
 
@@ -400,14 +439,7 @@ function ChannelForm({
           <span className="text-xs text-zinc-400 w-20 shrink-0">Mainstream</span>
         </div>
       </div>
-
-      <div>
-        <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Additional hints</label>
-        <textarea value={form.freeText} onChange={(e) => field("freeText", e.target.value)}
-          placeholder="Any extra instructions for the AI — names not in the list above, specific films, vibes, etc."
-          rows={3}
-          className="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-800 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none" />
-      </div>
+    </div>
 
       <div className="flex justify-end gap-2 pt-1">
         {onCancel && (

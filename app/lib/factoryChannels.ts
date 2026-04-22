@@ -49,15 +49,16 @@ export function applyFactoryBootstrap(): void {
   }
 }
 
-/**
- * Append any bundled channels (by id) that are not already present; fill empty prefetch queues
- * only for channel ids that exist after merge. Does not remove channels or overwrite non-empty queues.
- */
-export function mergeFactoryChannelsAndQueues(): { addedChannels: number; filledPrefetchQueues: number } {
-  const data = factoryJson.data;
-  if (!data || typeof data !== "object") return { addedChannels: 0, filledPrefetchQueues: 0 };
+type FactoryMergeResult = { addedChannels: number; filledPrefetchQueues: number };
 
-  const factoryChannels = parseChannels(data[CHANNELS_KEY]);
+type FactoryMergePlan = FactoryMergeResult & { merged: ChannelRow[]; data: Record<string, unknown> };
+
+function computeFactoryMergePlan(): FactoryMergePlan | null {
+  const data = factoryJson.data;
+  if (!data || typeof data !== "object") return null;
+  const dataObj = data as Record<string, unknown>;
+
+  const factoryChannels = parseChannels(dataObj[CHANNELS_KEY]);
   const stored = localStorage.getItem(CHANNELS_KEY);
   let existing = stored ? parseChannels(JSON.parse(stored)) : [];
   if (!existing.some((c) => c.id === "all")) {
@@ -72,19 +73,55 @@ export function mergeFactoryChannelsAndQueues(): { addedChannels: number; filled
   );
 
   const merged = [allRow, ...nonAllExisting, ...toAdd];
-  localStorage.setItem(CHANNELS_KEY, JSON.stringify(merged));
-
   const mergedIds = new Set(merged.map((c) => c.id));
   let filledPrefetchQueues = 0;
-  for (const [k, v] of Object.entries(data)) {
+  for (const [k, v] of Object.entries(dataObj)) {
+    if (!isPrefetchQueueStorageKey(k)) continue;
+    const chId = prefetchKeyChannelId(k);
+    if (chId === null || (chId !== "all" && !mergedIds.has(chId))) continue;
+    if (localStorage.getItem(k) !== null) continue;
+    if (v === null || v === undefined) continue;
+    filledPrefetchQueues++;
+  }
+
+  return {
+    merged,
+    data: dataObj,
+    addedChannels: toAdd.length,
+    filledPrefetchQueues,
+  };
+}
+
+/**
+ * True when a merge would not add channels or fill any empty prefetch keys (read-only; browser only).
+ * Server / no window: treated as “complete” so UI does not show the action.
+ */
+export function isFactoryStarterPackFullyMerged(): boolean {
+  if (typeof window === "undefined") return true;
+  const p = computeFactoryMergePlan();
+  if (!p) return true;
+  return p.addedChannels === 0 && p.filledPrefetchQueues === 0;
+}
+
+/**
+ * Append any bundled channels (by id) that are not already present; fill empty prefetch queues
+ * only for channel ids that exist after merge. Does not remove channels or overwrite non-empty queues.
+ */
+export function mergeFactoryChannelsAndQueues(): FactoryMergeResult {
+  if (typeof window === "undefined") return { addedChannels: 0, filledPrefetchQueues: 0 };
+  const plan = computeFactoryMergePlan();
+  if (!plan) return { addedChannels: 0, filledPrefetchQueues: 0 };
+
+  localStorage.setItem(CHANNELS_KEY, JSON.stringify(plan.merged));
+  const mergedIds = new Set(plan.merged.map((c) => c.id));
+  for (const [k, v] of Object.entries(plan.data)) {
     if (!isPrefetchQueueStorageKey(k)) continue;
     const chId = prefetchKeyChannelId(k);
     if (chId === null || (chId !== "all" && !mergedIds.has(chId))) continue;
     if (localStorage.getItem(k) !== null) continue;
     if (v === null || v === undefined) continue;
     localStorage.setItem(k, typeof v === "string" ? v : JSON.stringify(v));
-    filledPrefetchQueues++;
   }
 
-  return { addedChannels: toAdd.length, filledPrefetchQueues };
+  return { addedChannels: plan.addedChannels, filledPrefetchQueues: plan.filledPrefetchQueues };
 }
