@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "exportedAt": "2026-04-21T23:00:25.403Z",
+  "exportedAt": "2026-04-22T19:46:50.084Z",
   "options": {
     "channels": true,
     "queue": true,
@@ -91,7 +91,7 @@
           "1980s"
         ],
         "language": "Italian",
-        "artists": "",
+        "artists": "Federico Fellini, Michelangelo Antonioni, Pier Paolo Pasolini, Luchino Visconti, Roberto Rossellini, Bernardo Bertolucci, Marcello Mastroianni",
         "freeText": "",
         "popularity": 50,
         "id": "2a1ee1e9-4599-489d-8398-0b0b8df7b35a"
@@ -167,25 +167,8 @@
         "id": "e921a138-4915-416b-8b6b-63d32402655c"
       }
     ],
-    "movie-recs-active-channel": "all",
+    "movie-recs-active-channel": "2a1ee1e9-4599-489d-8398-0b0b8df7b35a",
     "movie-recs-prefetch-queue:1b90b4b2-25c9-43c1-9f2e-bba10e4a480b": [
-      {
-        "title": "The 400 Blows",
-        "type": "movie",
-        "year": 1959,
-        "director": "François Truffaut",
-        "predictedRating": 4,
-        "actors": [
-          "Jean-Pierre Léaud",
-          "Claire Maurier",
-          "Albert Rémy"
-        ],
-        "plot": "A young boy in Paris, neglected by his parents, turns to petty crime and rebellion in this semi-autobiographical coming-of-age story.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/12PuU23kkDLvTd0nb8hMlE3oShB.jpg",
-        "trailerKey": "ICGZfU-9Yl0",
-        "rtScore": "100%",
-        "reason": "Truffaut's seminal work that launched the French New Wave, testing your response to critically adored foundational films."
-      },
       {
         "title": "Les Diaboliques",
         "type": "movie",
@@ -342,211 +325,538 @@
     ],
     "movie-recs-prefetch-queue:2a1ee1e9-4599-489d-8398-0b0b8df7b35a": [
       {
-        "title": "The Working Class Goes to Heaven",
+        "title": "A Hard Day's Night",
         "type": "movie",
-        "year": 1971,
-        "director": "Elio Petri",
+        "year": 1964,
+        "director": "Richard Lester",
         "predictedRating": 3.5,
         "actors": [
-          "Gian Maria Volonté",
-          "Mariangela Melato",
-          "Gino Pernice"
+          "John Lennon",
+          "Paul McCartney",
+          "George Harrison",
+          "Ringo Starr"
         ],
-        "plot": "A factory worker becomes politically conscious after a workplace accident prompts him to challenge exploitation and seek justice.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/gulAszCUPjuBtDd6NudgLTBu3i5.jpg",
-        "trailerKey": "RRUz45GVOAM",
-        "rtScore": "93%",
-        "reason": "The user's appreciation for nuanced narratives might find Petri's critically acclaimed critique of industrial life an intriguing exploration of socio-economic issues."
+        "plot": "A day in the life of The Beatles as they evade chasing fans and prepare for a television performance.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/6Ulsccp2VkaVU5qbya3bxm9JG4x.jpg",
+        "trailerKey": "TWbiVqlSMgc",
+        "rtScore": "98%",
+        "reason": "You may find its upbeat musical sequences and humor entertaining."
       },
       {
-        "title": "Rome, Open City",
-        "type": "movie",
-        "year": 1945,
-        "director": "Roberto Rossellini",
-        "predictedRating": 4,
-        "actors": [
-          "Aldo Fabrizi",
-          "Anna Magnani",
-          "Marcello Pagliero"
-        ],
-        "plot": "During the Nazi occupation of Rome in 1944, a resistance leader seeks refuge with a priest.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/ijGV4v8JxgbNzgEhqKdzHdaZn8a.jpg",
-        "trailerKey": "JM_KpDmdF98",
-        "rtScore": "100%",
-        "reason": "This neorealistic film could resonate with the user's taste for films with historical and emotional depth."
-      },
-      {
-        "title": "Bread and Tulips",
-        "type": "movie",
-        "year": 2000,
-        "director": "Silvio Soldini",
-        "predictedRating": 4,
-        "actors": [
-          "Licia Maglietta",
-          "Bruno Ganz",
-          "Giuseppe Battiston"
-        ],
-        "plot": "A housewife unexpectedly finds freedom and romance after being left behind on a family trip.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/ijCBLF08KQsam3cOBAnit05iiV3.jpg",
-        "trailerKey": "JVWLl6TBS1Q",
-        "rtScore": "61%",
-        "reason": "This charming romantic comedy offers a different flavor of Italian cinema that could pleasantly surprise the user."
-      },
-      {
-        "title": "The Bicycle Thief",
-        "type": "movie",
-        "year": 1948,
-        "director": "Vittorio De Sica",
-        "predictedRating": 4,
-        "actors": [
-          "Lamberto Maggiorani",
-          "Enzo Staiola",
-          "Lianella Carell"
-        ],
-        "plot": "A poor father searches post-WWII Rome for his stolen bicycle, essential for his job.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/iPdVqIpmR3bRvOQJPrn4pr2KR3q.jpg",
-        "trailerKey": "H2P4xo9kmPM",
-        "rtScore": "99%",
-        "reason": "Given the user's consistent favoring of classic and meaningful cinema, this iconic neorealism work fits well."
-      },
-      {
-        "title": "Amarcord",
-        "type": "movie",
-        "year": 1973,
-        "director": "Federico Fellini",
-        "predictedRating": 4,
-        "actors": [
-          "Pupella Maggio",
-          "Armando Brancia",
-          "Magali Noël"
-        ],
-        "plot": "A coming-of-age tale set in 1930s Italy, capturing the day-to-day life of a small town with surreal, comic flare.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/kS7i093sQpkLTawUEdgf4HVOHSc.jpg",
-        "trailerKey": "BtG9ZM-ZHnY",
-        "rtScore": "88%",
-        "reason": "Another visually and narratively rich Fellini film, aligning with the user's appreciation of visual storytelling and classic film."
-      },
-      {
-        "title": "Divorce Italian Style",
-        "type": "movie",
-        "year": 1961,
-        "director": "Pietro Germi",
-        "predictedRating": 3.5,
-        "actors": [
-          "Marcello Mastroianni",
-          "Daniela Rocca",
-          "Stefania Sandrelli"
-        ],
-        "plot": "A Sicilian nobleman wants to marry his young cousin, but first must find a reason to leave his wife.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/vZbdSpUFyFiDBBTY0AiSrN9f303.jpg",
-        "trailerKey": "mDQj_kgEw0Y",
-        "rtScore": "84%",
-        "reason": "Your interest in Italian classics suggests you might enjoy this early '60s comedy that combines wit with cultural critique."
-      },
-      {
-        "title": "The Battle of Algiers",
+        "title": "Persona",
         "type": "movie",
         "year": 1966,
-        "director": "Gillo Pontecorvo",
+        "director": "Ingmar Bergman",
         "predictedRating": 4,
         "actors": [
-          "Jean Martin",
-          "Saadi Yacef",
-          "Braham Haggiag"
+          "Bibi Andersson",
+          "Liv Ullmann"
         ],
-        "plot": "The film depicts the Algerian struggle for independence from French colonial rule, highlighting guerrilla warfare in Algiers.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/2p3AFtOHFvP6OeVMqlnL1zLKOqL.jpg",
-        "trailerKey": "vhhoS3zOskE",
-        "rtScore": "99%",
-        "reason": "You have a strong appreciation for critically acclaimed classics, and this film is renowned for its realistic portrayal and lasting impact."
+        "plot": "An actress breaks down while performing and experiences a profound connection with her nurse.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/yPTntWP9Wvew8vHN0jB7Z1EvEUN.jpg",
+        "trailerKey": "8ZO01M8k1mg",
+        "rtScore": "92%",
+        "reason": "You might appreciate its exploration of identity and masterful cinematography."
+      },
+      {
+        "title": "Stand By Me",
+        "type": "movie",
+        "year": 1986,
+        "director": "Rob Reiner",
+        "predictedRating": 4.5,
+        "actors": [
+          "Wil Wheaton",
+          "River Phoenix",
+          "Corey Feldman",
+          "Jerry O'Connell"
+        ],
+        "plot": "Four young boys journey to find the body of a missing child, learning about friendship and themselves along the way.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/vz0w9BSehcqjDcJOjRaCk7fgJe7.jpg",
+        "trailerKey": "2rBenGsz23E",
+        "rtScore": "91%",
+        "reason": "You might connect with the film's nostalgic coming-of-age story and emotional depth."
+      },
+      {
+        "title": "Blue Velvet",
+        "type": "movie",
+        "year": 1986,
+        "director": "David Lynch",
+        "predictedRating": 2.5,
+        "actors": [
+          "Kyle MacLachlan",
+          "Isabella Rossellini",
+          "Dennis Hopper",
+          "Laura Dern"
+        ],
+        "plot": "A young man discovers a severed ear in a field, leading him into a disturbing investigation of his small town.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/6v1zYh2FKOYVddY5pCQhd4PO9uX.jpg",
+        "trailerKey": "rAA6imfqMYQ",
+        "rtScore": "95%",
+        "reason": "You may find the film's surreal and darkly intriguing narrative to be polarizing."
+      },
+      {
+        "title": "The Shawshank Redemption",
+        "type": "movie",
+        "year": 1994,
+        "director": "Frank Darabont",
+        "predictedRating": 4.5,
+        "actors": [
+          "Tim Robbins",
+          "Morgan Freeman",
+          "Bob Gunton"
+        ],
+        "plot": "Two imprisoned men bond over a number of years, finding solace and eventual redemption through acts of common decency.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/9cqNxx0GxF0bflZmeSMuL5tnGzr.jpg",
+        "trailerKey": "PLl99DlL6b4",
+        "rtScore": "91%",
+        "reason": "You might appreciate the deep storytelling and character development."
+      },
+      {
+        "title": "Pulp Fiction",
+        "type": "movie",
+        "year": 1994,
+        "director": "Quentin Tarantino",
+        "predictedRating": 4,
+        "actors": [
+          "John Travolta",
+          "Uma Thurman",
+          "Samuel L. Jackson"
+        ],
+        "plot": "The lives of two mob hitmen, a boxer, a gangster's wife, and a pair of diner bandits intertwine in four tales of violence and redemption.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/vQWk5YBFWF4bZaofAbv0tShwBvQ.jpg",
+        "trailerKey": "tGpTpVyI_OQ",
+        "rtScore": "92%",
+        "reason": "You may enjoy the film's unique narrative style and snappy dialogue."
+      },
+      {
+        "title": "The Silence of the Lambs",
+        "type": "movie",
+        "year": 1991,
+        "director": "Jonathan Demme",
+        "predictedRating": 4,
+        "actors": [
+          "Jodie Foster",
+          "Anthony Hopkins",
+          "Scott Glenn"
+        ],
+        "plot": "A young FBI cadet must receive the help of an incarcerated and manipulative cannibal killer to catch another serial killer, a madman who skins his victims.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/uS9m8OBk1A8eM9I042bx8XXpqAq.jpg",
+        "trailerKey": "6iB21hsprAQ",
+        "rtScore": "95%",
+        "reason": "You might be intrigued by the psychological tension and strong performances."
+      },
+      {
+        "title": "The Matrix",
+        "type": "movie",
+        "year": 1999,
+        "director": "Lana Wachowski",
+        "predictedRating": 4.5,
+        "actors": [
+          "Keanu Reeves",
+          "Laurence Fishburne",
+          "Carrie-Anne Moss"
+        ],
+        "plot": "A computer hacker learns from mysterious rebels about the true nature of his reality and his role in the war against its controllers.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/aOIuZAjPaRIE6CMzbazvcHuHXDc.jpg",
+        "trailerKey": "d0XTFAMmhrE",
+        "rtScore": "88%",
+        "reason": "You might appreciate the film's groundbreaking visuals and philosophical undertones."
+      },
+      {
+        "title": "Seinfeld",
+        "type": "tv",
+        "year": 1989,
+        "director": "Larry David",
+        "predictedRating": 3.5,
+        "actors": [
+          "Jerry Seinfeld",
+          "Julia Louis-Dreyfus",
+          "Michael Richards"
+        ],
+        "plot": "The continuing misadventures of neurotic New York City stand-up comedian Jerry Seinfeld and his equally neurotic New York City friends.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/aCw8ONfyz3AhngVQa1E2Ss4KSUQ.jpg",
+        "trailerKey": "hQXKyIG_NS4",
+        "rtScore": null,
+        "reason": "You might enjoy the humor and cultural observations, which were groundbreaking in the 90s."
       },
       {
         "title": "La Dolce Vita",
         "type": "movie",
         "year": 1960,
         "director": "Federico Fellini",
-        "predictedRating": 4.5,
+        "predictedRating": 4,
         "actors": [
           "Marcello Mastroianni",
           "Anita Ekberg",
-          "Anouk Aimée"
+          "Anouk Aimée",
+          "Yvonne Furneaux"
         ],
-        "plot": "A journalist finds himself entangled in Rome's decadent nightlife while searching for happiness.",
+        "plot": "A journalist navigates Rome's high society over seven days and nights, encountering decadence, spirituality, and existential ennui.",
         "posterUrl": "https://image.tmdb.org/t/p/w500/dZ2v0DAX4aCZartCzZdg4ZinSW2.jpg",
         "trailerKey": "yg3--NK-Xzo",
-        "rtScore": "96%",
-        "reason": "You might enjoy it for its iconic portrayal of Italian life and society in the 1960s by renowned director Fellini."
+        "rtScore": "95%",
+        "reason": "You might appreciate its iconic portrayal of post-war Italian glamour and moral ambiguity, blending satire with visual poetry."
       },
       {
-        "title": "Bicycle Thieves",
+        "title": "The Good, the Bad and the Ugly",
         "type": "movie",
-        "year": 1948,
-        "director": "Vittorio De Sica",
-        "predictedRating": 4,
+        "year": 1966,
+        "director": "Sergio Leone",
+        "predictedRating": 4.5,
         "actors": [
-          "Lamberto Maggiorani",
-          "Enzo Staiola",
-          "Lianella Carell"
+          "Clint Eastwood",
+          "Eli Wallach",
+          "Lee Van Cleef",
+          "Aldo Giuffrè"
         ],
-        "plot": "In post-war Rome, a poor man and his son search for a stolen bicycle vital for his job.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/iPdVqIpmR3bRvOQJPrn4pr2KR3q.jpg",
-        "trailerKey": "H2P4xo9kmPM",
-        "rtScore": "98%",
-        "reason": "You might appreciate this quintessential example of Italian neo-realism and its humanistic storytelling."
+        "plot": "Three gunslingers compete to find a fortune in buried Confederate gold during the American Civil War.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/bX2xnavhMYjWDoZp1VM6VnU1xwe.jpg",
+        "trailerKey": "WCnRSl24FPA",
+        "rtScore": "97%",
+        "reason": "Its epic scale, iconic score, and morally complex characters could resonate with your taste for cinematic grandeur."
+      },
+      {
+        "title": "Suspiria",
+        "type": "movie",
+        "year": 1977,
+        "director": "Dario Argento",
+        "predictedRating": 3.5,
+        "actors": [
+          "Jessica Harper",
+          "Stefania Casini",
+          "Flavio Bucci",
+          "Miguel Bosé"
+        ],
+        "plot": "An American ballet student enrolls in a prestigious German dance academy that hides a supernatural secret.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/sEcvc9h1X3hYZdFgtiiKMm6RB3f.jpg",
+        "trailerKey": "x_FfT98QJks",
+        "rtScore": "93%",
+        "reason": "You might enjoy its bold visual style and atmospheric horror, blending artistry with genre thrills."
       },
       {
         "title": "Cinema Paradiso",
         "type": "movie",
         "year": 1988,
         "director": "Giuseppe Tornatore",
-        "predictedRating": 4.5,
+        "predictedRating": 4,
         "actors": [
           "Philippe Noiret",
+          "Salvatore Cascio",
           "Jacques Perrin",
           "Marco Leonardi"
         ],
-        "plot": "A filmmaker recalls his childhood friendship with an older projectionist in a small Sicilian village.",
+        "plot": "A filmmaker recalls his childhood in a Sicilian village and his friendship with the local cinema projectionist.",
         "posterUrl": "https://image.tmdb.org/t/p/w500/gCI2AeMV4IHSewhJkzsur5MEp6R.jpg",
         "trailerKey": "JMyVSD6OvO8",
         "rtScore": "90%",
-        "reason": "You may enjoy this heartwarming tribute to the magic of cinema and its impact on a small community."
+        "reason": "Its nostalgic celebration of film and heartfelt storytelling could align with your appreciation for emotional depth."
+      },
+      {
+        "title": "The Great Silence",
+        "type": "movie",
+        "year": 1968,
+        "director": "Sergio Corbucci",
+        "predictedRating": 3,
+        "actors": [
+          "Jean-Louis Trintignant",
+          "Klaus Kinski",
+          "Frank Wolff",
+          "Vonetta McGee"
+        ],
+        "plot": "A mute gunslinger protects a group of outlaws in the snow-covered Utah mountains from a gang of ruthless bounty hunters.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/3kpxS7SZMyYSXvhDnmxQXOOxiTM.jpg",
+        "trailerKey": "nMrhQp35uUo",
+        "rtScore": "95%",
+        "reason": "Its bleak, subversive take on the Western genre might challenge your expectations with its moral complexity and stark setting."
+      },
+      {
+        "title": "8½",
+        "type": "movie",
+        "year": 1963,
+        "director": "Federico Fellini",
+        "predictedRating": 4,
+        "actors": [
+          "Marcello Mastroianni",
+          "Claudia Cardinale",
+          "Anouk Aimée",
+          "Sandra Milo"
+        ],
+        "plot": "A famous Italian film director struggles with creative block while balancing the demands of his personal life, his producers, and his artistic vision.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/23VIf7zNxAgaXwIlvzd3IvOd9sY.jpg",
+        "trailerKey": "yruJBocWfn4",
+        "rtScore": "98%",
+        "reason": "You rated a highly acclaimed political drama low, so I'm curious how you'll respond to Fellini's surreal, self-reflective masterpiece."
+      },
+      {
+        "title": "The Battle of Algiers",
+        "type": "movie",
+        "year": 1966,
+        "director": "Gillo Pontecorvo",
+        "predictedRating": 2,
+        "actors": [
+          "Brahim Hadjadj",
+          "Jean Martin",
+          "Yacef Saadi",
+          "Samia Kerbash"
+        ],
+        "plot": "A dramatic reenactment of the Algerian struggle for independence from French colonial rule, shot in a gritty, documentary style.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/2p3AFtOHFvP6OeVMqlnL1zLKOqL.jpg",
+        "trailerKey": "vhhoS3zOskE",
+        "rtScore": "99%",
+        "reason": "Given your low rating for another high-RT political film, this is a direct test of your tolerance for acclaimed Italian neorealist-inspired drama."
+      },
+      {
+        "title": "Seduced and Abandoned",
+        "type": "movie",
+        "year": 1964,
+        "director": "Pietro Germi",
+        "predictedRating": 3,
+        "actors": [
+          "Stefania Sandrelli",
+          "Saro Urzì",
+          "Aldo Puglisi",
+          "Lando Buzzanca"
+        ],
+        "plot": "A Sicilian family scrambles to restore their honor after a young man seduces their daughter, leading to a series of farcical and desperate maneuvers.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/5kmSfkHFaP4kQcoRnSHuxHmvfxg.jpg",
+        "trailerKey": null,
+        "rtScore": "100%",
+        "reason": "This is a high-RT satire; your low rating of another high-RT Italian drama suggests you might find this acclaimed comedy either refreshing or overrated."
+      },
+      {
+        "title": "The Bird with the Crystal Plumage",
+        "type": "movie",
+        "year": 1970,
+        "director": "Dario Argento",
+        "predictedRating": 4,
+        "actors": [
+          "Tony Musante",
+          "Suzy Kendall",
+          "Enrico Maria Salerno",
+          "Eva Renzi"
+        ],
+        "plot": "An American writer in Rome witnesses an attempted murder and becomes entangled in the investigation of a serial killer.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/dpALRkwodEIT7TGX9SqTgwVNn0i.jpg",
+        "trailerKey": "UztVF1nJTBo",
+        "rtScore": "94%",
+        "reason": "You might enjoy this stylish, suspenseful giallo thriller as a contrast to the heavier social realism you previously rated poorly."
+      },
+      {
+        "title": "Big Deal on Madonna Street",
+        "type": "movie",
+        "year": 1958,
+        "director": "Mario Monicelli",
+        "predictedRating": 3.5,
+        "actors": [
+          "Vittorio Gassman",
+          "Marcello Mastroianni",
+          "Claudia Cardinale",
+          "Totò"
+        ],
+        "plot": "A group of incompetent small-time crooks in Rome bungle their attempt to rob a pawnshop, leading to a series of comic misadventures.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/f5OxD8Nl0pR3DcYHtYhHRfpsmjl.jpg",
+        "trailerKey": "hP8HX5bnQyo",
+        "rtScore": "100%",
+        "reason": "This is a beloved Italian comedy classic; testing it will help see if your divergence from critics is specific to drama or extends to humor as well."
+      },
+      {
+        "title": "Divorce Italian Style",
+        "type": "movie",
+        "year": 1961,
+        "director": "Pietro Germi",
+        "predictedRating": 4,
+        "actors": [
+          "Marcello Mastroianni",
+          "Daniela Rocca",
+          "Stefania Sandrelli",
+          "Leopoldo Trieste"
+        ],
+        "plot": "A bored Sicilian nobleman schemes to marry his young cousin by manipulating his wife into an affair so he can kill her for honor.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/vZbdSpUFyFiDBBTY0AiSrN9f303.jpg",
+        "trailerKey": "mDQj_kgEw0Y",
+        "rtScore": "100%",
+        "reason": "You might appreciate this dark comedy's sharp wit and stylish execution, which balances social critique with entertaining farce."
+      },
+      {
+        "title": "The Night of the Shooting Stars",
+        "type": "movie",
+        "year": 1982,
+        "director": "Paolo Taviani, Vittorio Taviani",
+        "predictedRating": 3,
+        "actors": [
+          "Omero Antonutti",
+          "Margarita Lozano",
+          "Claudio Bigagli",
+          "Massimo Bonetti"
+        ],
+        "plot": "In 1944 Tuscany, villagers flee their town to find advancing American troops, experiencing war's chaos through a magical realist lens.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/u9QgkfHj90rr33KhjLlk5tr7bVg.jpg",
+        "trailerKey": "ADIph1-og3o",
+        "rtScore": "100%",
+        "reason": "This poetic war drama blends harsh reality with folkloric warmth, testing whether you prefer this approach over pure social realism."
+      },
+      {
+        "title": "The Conformist",
+        "type": "movie",
+        "year": 1970,
+        "director": "Bernardo Bertolucci",
+        "predictedRating": 3.5,
+        "actors": [
+          "Jean-Louis Trintignant",
+          "Stefania Sandrelli",
+          "Gastone Moschin",
+          "Dominique Sanda"
+        ],
+        "plot": "A fascist sympathizer in 1930s Italy is assigned to assassinate his former professor, confronting his repressed desires and political compromises.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/nLJjFRqIJAK8qz0OKYnpKCblZNK.jpg",
+        "trailerKey": "04kMeEjVGIk",
+        "rtScore": "94%",
+        "reason": "Its stunning visual style and psychological complexity might engage you, though its political weight could mirror films you've rated lower."
+      },
+      {
+        "title": "The Girl with a Pistol",
+        "type": "movie",
+        "year": 1968,
+        "director": "Mario Monicelli",
+        "predictedRating": 3,
+        "actors": [
+          "Monica Vitti",
+          "Stanley Baker",
+          "Carlo Giuffrè"
+        ],
+        "plot": "A Sicilian woman travels to Britain to track down and kill the man who dishonored her, but her journey becomes a comic cultural clash.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/pbHIDYHPRIVaDSwVT3A6ck2gr8d.jpg",
+        "trailerKey": "2YVQzFyWN5A",
+        "rtScore": null,
+        "reason": "This comedy-drama blends social themes with lighter, fish-out-of-water humor, offering a different tone from the gritty realism you rated low."
       },
       {
         "title": "Investigation of a Citizen Above Suspicion",
         "type": "movie",
         "year": 1970,
         "director": "Elio Petri",
-        "predictedRating": 4,
+        "predictedRating": 2,
         "actors": [
-          "Gian Maria Volonté",
+          "Gian Maria Volontè",
           "Florinda Bolkan",
-          "Gianni Santuccio"
+          "Salvo Randone"
         ],
-        "plot": "A respected Milan police officer intentionally leaves clues after committing a murder to test his position's invincibility.",
+        "plot": "A powerful Roman police chief murders his mistress and deliberately leaves clues to see if his authority places him above the law.",
         "posterUrl": "https://image.tmdb.org/t/p/w500/vPTZwlq1IC4o1DCsEZEl2uGljzm.jpg",
         "trailerKey": "PfXZVqdLKcE",
+        "rtScore": "98%",
+        "reason": "This politically charged, psychologically dark thriller will challenge whether you dislike all critical darlings or specifically bleak social realism."
+      },
+      {
+        "title": "The Leopard",
+        "type": "movie",
+        "year": 1963,
+        "director": "Luchino Visconti",
+        "predictedRating": 3.5,
+        "actors": [
+          "Burt Lancaster",
+          "Alain Delon",
+          "Claudia Cardinale",
+          "Paolo Stoppa"
+        ],
+        "plot": "An aging Sicilian prince navigates the social and political upheavals of the Italian Risorgimento as the aristocracy's power wanes.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/riSUxwoK3xjkOgy6YJSvPhi7cO6.jpg",
+        "trailerKey": "06f7f24lpUI",
         "rtScore": "100%",
-        "reason": "You might find its political intrigue and psychological depth engaging, reflecting Italian society's complexities."
+        "reason": "Its grand, elegant historical drama focuses on personal change over gritty politics, which may suit your taste better than heavy social realism."
+      },
+      {
+        "title": "The Adventures of Pinocchio",
+        "type": "movie",
+        "year": 1972,
+        "director": "Luigi Comencini",
+        "predictedRating": 4.5,
+        "actors": [
+          "Andrea Balestri",
+          "Nino Manfredi",
+          "Gina Lollobrigida",
+          "Franco Franchi"
+        ],
+        "plot": "A live-action adaptation following the mischievous wooden puppet Pinocchio as he journeys to become a real boy, facing various fantastical trials.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/xjoYc9umKoZHTVr2B0uBbn3bCXj.jpg",
+        "trailerKey": null,
+        "rtScore": null,
+        "reason": "Its whimsical, family-friendly fantasy offers a complete tonal shift from the social realism you've rated poorly, providing a useful contrast."
+      },
+      {
+        "title": "The Great Beauty",
+        "type": "movie",
+        "year": 2013,
+        "director": "Paolo Sorrentino",
+        "predictedRating": 3.5,
+        "actors": [
+          "Toni Servillo",
+          "Carlo Verdone",
+          "Sabrina Ferilli",
+          "Carla Signoris"
+        ],
+        "plot": "An aging journalist reflects on his life and the decadence of Rome's high society while searching for meaning and beauty.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/7suf0vaQfv5E7X1GVh4HJwK90yo.jpg",
+        "trailerKey": "koxRDhAQOpw",
+        "rtScore": "91%",
+        "reason": "Its lavish, Fellini-esque style and thematic depth could appeal if you favor artistic flair over social realism."
+      },
+      {
+        "title": "Red Desert",
+        "type": "movie",
+        "year": 1964,
+        "director": "Michelangelo Antonioni",
+        "predictedRating": 2,
+        "actors": [
+          "Monica Vitti",
+          "Richard Harris",
+          "Carlo Chionetti",
+          "Xenia Valderi"
+        ],
+        "plot": "A woman struggles with existential anxiety and alienation in the industrial landscapes of Northern Italy.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/rGcTVdyhaGzMxPPRVApXre6F7SD.jpg",
+        "trailerKey": "SY_MEkvIRuo",
+        "rtScore": "88%",
+        "reason": "Antonioni's bleak, psychologically heavy tone and focus on alienation may diverge sharply from your preferences, testing the realism-aversion hypothesis."
+      },
+      {
+        "title": "Satyricon",
+        "type": "movie",
+        "year": 1969,
+        "director": "Federico Fellini",
+        "predictedRating": 2.5,
+        "actors": [
+          "Martin Potter",
+          "Hiram Keller",
+          "Max Born",
+          "Salvo Randone"
+        ],
+        "plot": "A surreal, episodic journey through a decadent and grotesque ancient Rome, following two young students as they wander through a series of bizarre encounters.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/83urUMl04GtwuuGIFpezqzi7n6m.jpg",
+        "trailerKey": "8i9Z7r8dAFo",
+        "rtScore": "83%",
+        "reason": "Its fragmented, hallucinatory style and focus on decay could challenge your tolerance for bleak, non-narrative filmmaking from a celebrated director."
+      },
+      {
+        "title": "Amarcord",
+        "type": "movie",
+        "year": 1973,
+        "director": "Federico Fellini",
+        "predictedRating": 4.5,
+        "actors": [
+          "Bruno Zanin",
+          "Pupella Maggio",
+          "Armando Brancia",
+          "Magali Noël"
+        ],
+        "plot": "A series of nostalgic, comic, and poignant vignettes about growing up in a 1930s Italian coastal town under Fascism, seen through the eyes of a teenage boy.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/kS7i093sQpkLTawUEdgf4HVOHSc.jpg",
+        "trailerKey": "BtG9ZM-ZHnY",
+        "rtScore": "87%",
+        "reason": "Its warmer, humorous, and autobiographical tone might align better with your taste compared to the gritty realism you rated low, offering a contrast within Fellini's work."
       }
     ],
     "movie-recs-prefetch-queue:32183611-7b02-4701-b0e4-77dc20e7b84c": [
-      {
-        "title": "The Young Lions",
-        "type": "movie",
-        "year": 1958,
-        "director": "Edward Dmytryk",
-        "predictedRating": 4.5,
-        "actors": [
-          "Marlon Brando",
-          "Montgomery Clift",
-          "Dean Martin"
-        ],
-        "plot": "The story follows three soldiers from different backgrounds during World War II, exploring their perspectives and struggles.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/7o0UhkzH01DhAP3JsMLoNPQnoqc.jpg",
-        "trailerKey": "5I8Gg4B1fXc",
-        "rtScore": null,
-        "reason": "Marlon Brando stars, and you tend to appreciate films with deep character portrayals and classic narratives."
-      },
       {
         "title": "Pursued",
         "type": "movie",
@@ -975,22 +1285,6 @@
     ],
     "movie-recs-prefetch-queue:5452914c-bb0b-49c3-830f-25bc84b5dba6": [
       {
-        "title": "Where Is the Friend's House?",
-        "type": "movie",
-        "year": 1987,
-        "director": "Abbas Kiarostami",
-        "predictedRating": 4.5,
-        "actors": [
-          "Babak Ahmadpoor",
-          "Ahmad Ahmadpoor"
-        ],
-        "plot": "A young boy tries to return his friend's notebook to avoid getting him in trouble at school.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/2rTW4s1kgvoqVs0Kv8ARle1SrkF.jpg",
-        "trailerKey": "run-u_2zAdA",
-        "rtScore": "100%",
-        "reason": "You have shown appreciation for the works of Abbas Kiarostami, and his authentic storytelling aligns with your taste for classic films."
-      },
-      {
         "title": "The Taste of Cherry",
         "type": "movie",
         "year": 1997,
@@ -1159,24 +1453,6 @@
     ],
     "movie-recs-prefetch-queue:690d995f-f6b7-4dfa-85ab-4b1650991ce0": [
       {
-        "title": "Kingdom",
-        "type": "tv",
-        "year": 2019,
-        "director": "Kim Seong-hun",
-        "predictedRating": 4,
-        "actors": [
-          "Ju Ji-hoon",
-          "Ryu Seung-ryong",
-          "Bae Doona",
-          "Kim Sung-kyu"
-        ],
-        "plot": "In Korea's Joseon period, a crown prince investigates a mysterious plague that resurrects the dead, threatening the kingdom.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/AsICtiVtz4icMQQRwDvOzfaTzjK.jpg",
-        "trailerKey": "Bmhqw0F3q-g",
-        "rtScore": "93%",
-        "reason": "High-production zombie historical drama with strong RT score matches your appreciation for well-executed genre works."
-      },
-      {
         "title": "The Host",
         "type": "movie",
         "year": 2006,
@@ -1320,24 +1596,6 @@
       }
     ],
     "movie-recs-prefetch-queue:78d64353-337e-46fc-b602-b3abdad9f716": [
-      {
-        "title": "Attack of the Mushroom People",
-        "type": "movie",
-        "year": 1963,
-        "director": "Ishirō Honda",
-        "predictedRating": 3,
-        "actors": [
-          "Akira Kubo",
-          "Kumi Mizuno",
-          "Hiroshi Koizumi",
-          "Kenji Sahara"
-        ],
-        "plot": "A group stranded on a mysterious island encounters the horrifying effects of mushroom spores turning humans into monsters.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/kfUJ1XO15yWz6U2N7vmubJS9aX8.jpg",
-        "trailerKey": "uWNAX2DlmTI",
-        "rtScore": "63%",
-        "reason": "Given your interest in cult classics, a kaiju film by the renowned Ishirō Honda offers a unique experience that fits your favor towards genre-defining cinema."
-      },
       {
         "title": "Yokai Monsters: Spook Warfare",
         "type": "movie",
@@ -1564,23 +1822,6 @@
     ],
     "movie-recs-prefetch-queue:92419e89-efd6-450b-8385-f042171621bd": [
       {
-        "title": "The Good, the Bad and the Ugly",
-        "type": "movie",
-        "year": 1966,
-        "director": "Sergio Leone",
-        "predictedRating": 4.5,
-        "actors": [
-          "Clint Eastwood",
-          "Eli Wallach",
-          "Lee Van Cleef"
-        ],
-        "plot": "Three gunslingers compete to find a fortune in buried Confederate gold during the American Civil War.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/bX2xnavhMYjWDoZp1VM6VnU1xwe.jpg",
-        "trailerKey": "WCnRSl24FPA",
-        "rtScore": "97%",
-        "reason": "A cornerstone of the Spaghetti Western genre with iconic direction and score, likely to appeal to fans of epic Western storytelling."
-      },
-      {
         "title": "A Fistful of Dollars",
         "type": "movie",
         "year": 1964,
@@ -1650,23 +1891,6 @@
       }
     ],
     "movie-recs-prefetch-queue:a5eb35f6-f44d-4946-8802-24b4e2db98ba": [
-      {
-        "title": "The Marriage of Maria Braun",
-        "type": "movie",
-        "year": 1979,
-        "director": "Rainer Werner Fassbinder",
-        "predictedRating": 4,
-        "actors": [
-          "Hanna Schygulla",
-          "Klaus Löwitsch",
-          "Ivan Desny"
-        ],
-        "plot": "Maria Braun marries a soldier during World War II, only to see her life and country change dramatically in the post-war years.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/tXjZEzlf4WQwZ4Dt53gXeJVuO7p.jpg",
-        "trailerKey": "pQGznARA69s",
-        "rtScore": "91%",
-        "reason": "Fassbinder's intricate storytelling and exploration of post-war Germany's societal shifts should resonate with the user's interest in classic films."
-      },
       {
         "title": "The Tin Drum",
         "type": "movie",
@@ -1754,140 +1978,6 @@
       }
     ],
     "movie-recs-prefetch-queue:all": [
-      {
-        "title": "Get Out",
-        "type": "movie",
-        "year": 2017,
-        "director": "Jordan Peele",
-        "predictedRating": 4,
-        "actors": [
-          "Daniel Kaluuya",
-          "Allison Williams",
-          "Catherine Keener"
-        ],
-        "plot": "A young African-American visits his white girlfriend's family estate, where he becomes ensnared in a disturbing secret.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/mE24wUCfjK8AoBBjaMjho7Rczr7.jpg",
-        "trailerKey": "gsB70ZRY-hI",
-        "rtScore": "98%",
-        "reason": "You might enjoy the creative mix of horror and social commentary that keeps the audience captivated."
-      },
-      {
-        "title": "Fleabag",
-        "type": "tv",
-        "year": 2016,
-        "director": "Phoebe Waller-Bridge",
-        "predictedRating": 4.5,
-        "actors": [
-          "Phoebe Waller-Bridge",
-          "Sian Clifford",
-          "Olivia Colman"
-        ],
-        "plot": "A dry-witted woman navigates modern life in London while trying to heal from the tragedy of her past.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/27vEYsRKa3eAniwmoccOoluEXQ1.jpg",
-        "trailerKey": "aX2ViKQFL_k",
-        "rtScore": "100%",
-        "reason": "You could relate to the sharp humor and complex portrayal of personal struggles."
-      },
-      {
-        "title": "Parasite",
-        "type": "movie",
-        "year": 2019,
-        "director": "Bong Joon-ho",
-        "predictedRating": 4.5,
-        "actors": [
-          "Song Kang-ho",
-          "Lee Sun-kyun",
-          "Cho Yeo-jeong"
-        ],
-        "plot": "A poor family schemes to become employed by a wealthy household by posing as unrelated, highly qualified individuals.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/7IiTTgloJzvGI1TAYymCfbfl3vT.jpg",
-        "trailerKey": "bM9QabAojCg",
-        "rtScore": "99%",
-        "reason": "You may find the unique storyline and the commentary on class disparity intriguing."
-      },
-      {
-        "title": "The Queen's Gambit",
-        "type": "tv",
-        "year": 2020,
-        "director": "Scott Frank",
-        "predictedRating": 4,
-        "actors": [
-          "Anya Taylor-Joy",
-          "Bill Camp",
-          "Marielle Heller"
-        ],
-        "plot": "An orphaned chess prodigy rises to fame while grappling with addiction and personal turmoil during the Cold War era.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/zU0htwkhNvBQdVSIKB9s6hgVeFK.jpg",
-        "trailerKey": "oZn3qSgmLqI",
-        "rtScore": "96%",
-        "reason": "You might appreciate the intense character study and the beautifully shot sequences depicting the protagonist's journey."
-      },
-      {
-        "title": "Amélie",
-        "type": "movie",
-        "year": 2001,
-        "director": "Jean-Pierre Jeunet",
-        "predictedRating": 4,
-        "actors": [
-          "Audrey Tautou",
-          "Mathieu Kassovitz"
-        ],
-        "plot": "A whimsical portrayal of a shy waitress who decides to change the lives of those around her while dealing with her own isolation.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/nSxDa3M9aMvGVLoItzWTepQ5h5d.jpg",
-        "trailerKey": "555A7T_kmIc",
-        "rtScore": "89%",
-        "reason": "You might enjoy its endearing characters and imaginative storytelling."
-      },
-      {
-        "title": "Roma",
-        "type": "movie",
-        "year": 2018,
-        "director": "Alfonso Cuarón",
-        "predictedRating": 4,
-        "actors": [
-          "Yalitza Aparicio",
-          "Marina de Tavira"
-        ],
-        "plot": "A year in the life of a middle-class family's maid in Mexico City in the early 1970s.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/dtIIyQyALk57ko5bjac7hi01YQ.jpg",
-        "trailerKey": "6BS27ngZtxg",
-        "rtScore": "96%",
-        "reason": "You might find its intimate storytelling and beautiful cinematography to be engaging."
-      },
-      {
-        "title": "The Lives of Others",
-        "type": "movie",
-        "year": 2006,
-        "director": "Florian Henckel von Donnersmarck",
-        "predictedRating": 4.5,
-        "actors": [
-          "Ulrich Mühe",
-          "Martina Gedeck",
-          "Sebastian Koch"
-        ],
-        "plot": "In 1984 East Berlin, a government agent becomes absorbed in the lives of a writer and his lover.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/cVUDMnskSc01rdbyH0tLATTJUdP.jpg",
-        "trailerKey": "n3_iLOp6IhM",
-        "rtScore": "93%",
-        "reason": "The complex narrative and historical context may resonate with you."
-      },
-      {
-        "title": "Wild Tales",
-        "type": "movie",
-        "year": 2014,
-        "director": "Damián Szifron",
-        "predictedRating": 3.5,
-        "actors": [
-          "Ricardo Darín",
-          "Oscar Martínez",
-          "Erica Rivas"
-        ],
-        "plot": "A collection of six standalone stories united by a theme of vengeance and retribution.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/bU7IUeTdYFOgeUPtwpWKQNhORMC.jpg",
-        "trailerKey": "Utq0aDEp084",
-        "rtScore": "94%",
-        "reason": "The film's sharp wit and satirical edge might captivate your interest."
-      },
       {
         "title": "2001: A Space Odyssey",
         "type": "movie",
@@ -2237,23 +2327,6 @@
       }
     ],
     "movie-recs-prefetch-queue:e921a138-4915-416b-8b6b-63d32402655c": [
-      {
-        "title": "Hereditary",
-        "type": "movie",
-        "year": 2018,
-        "director": "Ari Aster",
-        "predictedRating": 3.5,
-        "actors": [
-          "Toni Collette",
-          "Gabriel Byrne",
-          "Alex Wolff"
-        ],
-        "plot": "A grieving family becomes entangled in terrifying events following the death of their mysterious grandmother.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/hjlZSXM86wJrfCv5VKfR5DI2VeU.jpg",
-        "trailerKey": "MJNR58zaStE",
-        "rtScore": "89%",
-        "reason": "You could find the film's haunting atmosphere and intense performances compelling."
-      },
       {
         "title": "The Lighthouse",
         "type": "movie",
