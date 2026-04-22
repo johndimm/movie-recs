@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "exportedAt": "2026-04-21T20:03:40.933Z",
+  "exportedAt": "2026-04-21T23:00:25.403Z",
   "options": {
     "channels": true,
     "queue": true,
@@ -152,9 +152,22 @@
         "freeText": "Iranian directors",
         "popularity": 40,
         "id": "5452914c-bb0b-49c3-830f-25bc84b5dba6"
+      },
+      {
+        "name": "a24",
+        "mediums": [
+          "movie"
+        ],
+        "genres": [],
+        "timePeriods": [],
+        "language": "",
+        "artists": "",
+        "freeText": "a24",
+        "popularity": 50,
+        "id": "e921a138-4915-416b-8b6b-63d32402655c"
       }
     ],
-    "movie-recs-active-channel": "32183611-7b02-4701-b0e4-77dc20e7b84c",
+    "movie-recs-active-channel": "all",
     "movie-recs-prefetch-queue:1b90b4b2-25c9-43c1-9f2e-bba10e4a480b": [
       {
         "title": "The 400 Blows",
@@ -329,23 +342,6 @@
     ],
     "movie-recs-prefetch-queue:2a1ee1e9-4599-489d-8398-0b0b8df7b35a": [
       {
-        "title": "Il Sorpasso",
-        "type": "movie",
-        "year": 1962,
-        "director": "Dino Risi",
-        "predictedRating": 4,
-        "actors": [
-          "Vittorio Gassman",
-          "Jean-Louis Trintignant",
-          "Catherine Spaak"
-        ],
-        "plot": "A brash playboy takes an uptight law student on a reckless road trip across Italy on a single day, leading to a life-altering friendship.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/4h1ckrJQVcQYjeOkqS8i9BqZ9MI.jpg",
-        "trailerKey": "bFf2VID8-qg",
-        "rtScore": "97%",
-        "reason": "Given the user's taste for genre-defining classics, this influential Italian comedy-drama might resonate with their adventurous cinematic interests."
-      },
-      {
         "title": "The Working Class Goes to Heaven",
         "type": "movie",
         "year": 1971,
@@ -463,6 +459,74 @@
         "trailerKey": "vhhoS3zOskE",
         "rtScore": "99%",
         "reason": "You have a strong appreciation for critically acclaimed classics, and this film is renowned for its realistic portrayal and lasting impact."
+      },
+      {
+        "title": "La Dolce Vita",
+        "type": "movie",
+        "year": 1960,
+        "director": "Federico Fellini",
+        "predictedRating": 4.5,
+        "actors": [
+          "Marcello Mastroianni",
+          "Anita Ekberg",
+          "Anouk Aimée"
+        ],
+        "plot": "A journalist finds himself entangled in Rome's decadent nightlife while searching for happiness.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/dZ2v0DAX4aCZartCzZdg4ZinSW2.jpg",
+        "trailerKey": "yg3--NK-Xzo",
+        "rtScore": "96%",
+        "reason": "You might enjoy it for its iconic portrayal of Italian life and society in the 1960s by renowned director Fellini."
+      },
+      {
+        "title": "Bicycle Thieves",
+        "type": "movie",
+        "year": 1948,
+        "director": "Vittorio De Sica",
+        "predictedRating": 4,
+        "actors": [
+          "Lamberto Maggiorani",
+          "Enzo Staiola",
+          "Lianella Carell"
+        ],
+        "plot": "In post-war Rome, a poor man and his son search for a stolen bicycle vital for his job.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/iPdVqIpmR3bRvOQJPrn4pr2KR3q.jpg",
+        "trailerKey": "H2P4xo9kmPM",
+        "rtScore": "98%",
+        "reason": "You might appreciate this quintessential example of Italian neo-realism and its humanistic storytelling."
+      },
+      {
+        "title": "Cinema Paradiso",
+        "type": "movie",
+        "year": 1988,
+        "director": "Giuseppe Tornatore",
+        "predictedRating": 4.5,
+        "actors": [
+          "Philippe Noiret",
+          "Jacques Perrin",
+          "Marco Leonardi"
+        ],
+        "plot": "A filmmaker recalls his childhood friendship with an older projectionist in a small Sicilian village.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/gCI2AeMV4IHSewhJkzsur5MEp6R.jpg",
+        "trailerKey": "JMyVSD6OvO8",
+        "rtScore": "90%",
+        "reason": "You may enjoy this heartwarming tribute to the magic of cinema and its impact on a small community."
+      },
+      {
+        "title": "Investigation of a Citizen Above Suspicion",
+        "type": "movie",
+        "year": 1970,
+        "director": "Elio Petri",
+        "predictedRating": 4,
+        "actors": [
+          "Gian Maria Volonté",
+          "Florinda Bolkan",
+          "Gianni Santuccio"
+        ],
+        "plot": "A respected Milan police officer intentionally leaves clues after committing a murder to test his position's invincibility.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/vPTZwlq1IC4o1DCsEZEl2uGljzm.jpg",
+        "trailerKey": "PfXZVqdLKcE",
+        "rtScore": "100%",
+        "reason": "You might find its political intrigue and psychological depth engaging, reflecting Italian society's complexities."
       }
     ],
     "movie-recs-prefetch-queue:32183611-7b02-4701-b0e4-77dc20e7b84c": [
@@ -1257,24 +1321,6 @@
     ],
     "movie-recs-prefetch-queue:78d64353-337e-46fc-b602-b3abdad9f716": [
       {
-        "title": "Goke, Body Snatcher from Hell",
-        "type": "movie",
-        "year": 1968,
-        "director": "Hajime Satô",
-        "predictedRating": 4,
-        "actors": [
-          "Teruo Yoshida",
-          "Tomomi Sato",
-          "Eizo Kitamura",
-          "Hideo Ko"
-        ],
-        "plot": "Following a plane crash, survivors are terrorized by a shape-shifting alien who begins to possess their bodies.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/tjBZ1HdYBskrsRMacQHmmv9uQ2A.jpg",
-        "trailerKey": "GT8ge_M2qsU",
-        "rtScore": "71%",
-        "reason": "This film's blend of horror and science fiction with its atmospheric tone may resonate with your taste for unique and underappreciated classics."
-      },
-      {
         "title": "Attack of the Mushroom People",
         "type": "movie",
         "year": 1963,
@@ -1709,328 +1755,223 @@
     ],
     "movie-recs-prefetch-queue:all": [
       {
-        "title": "The Shining",
+        "title": "Get Out",
         "type": "movie",
-        "year": 1980,
+        "year": 2017,
+        "director": "Jordan Peele",
+        "predictedRating": 4,
+        "actors": [
+          "Daniel Kaluuya",
+          "Allison Williams",
+          "Catherine Keener"
+        ],
+        "plot": "A young African-American visits his white girlfriend's family estate, where he becomes ensnared in a disturbing secret.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/mE24wUCfjK8AoBBjaMjho7Rczr7.jpg",
+        "trailerKey": "gsB70ZRY-hI",
+        "rtScore": "98%",
+        "reason": "You might enjoy the creative mix of horror and social commentary that keeps the audience captivated."
+      },
+      {
+        "title": "Fleabag",
+        "type": "tv",
+        "year": 2016,
+        "director": "Phoebe Waller-Bridge",
+        "predictedRating": 4.5,
+        "actors": [
+          "Phoebe Waller-Bridge",
+          "Sian Clifford",
+          "Olivia Colman"
+        ],
+        "plot": "A dry-witted woman navigates modern life in London while trying to heal from the tragedy of her past.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/27vEYsRKa3eAniwmoccOoluEXQ1.jpg",
+        "trailerKey": "aX2ViKQFL_k",
+        "rtScore": "100%",
+        "reason": "You could relate to the sharp humor and complex portrayal of personal struggles."
+      },
+      {
+        "title": "Parasite",
+        "type": "movie",
+        "year": 2019,
+        "director": "Bong Joon-ho",
+        "predictedRating": 4.5,
+        "actors": [
+          "Song Kang-ho",
+          "Lee Sun-kyun",
+          "Cho Yeo-jeong"
+        ],
+        "plot": "A poor family schemes to become employed by a wealthy household by posing as unrelated, highly qualified individuals.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/7IiTTgloJzvGI1TAYymCfbfl3vT.jpg",
+        "trailerKey": "bM9QabAojCg",
+        "rtScore": "99%",
+        "reason": "You may find the unique storyline and the commentary on class disparity intriguing."
+      },
+      {
+        "title": "The Queen's Gambit",
+        "type": "tv",
+        "year": 2020,
+        "director": "Scott Frank",
+        "predictedRating": 4,
+        "actors": [
+          "Anya Taylor-Joy",
+          "Bill Camp",
+          "Marielle Heller"
+        ],
+        "plot": "An orphaned chess prodigy rises to fame while grappling with addiction and personal turmoil during the Cold War era.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/zU0htwkhNvBQdVSIKB9s6hgVeFK.jpg",
+        "trailerKey": "oZn3qSgmLqI",
+        "rtScore": "96%",
+        "reason": "You might appreciate the intense character study and the beautifully shot sequences depicting the protagonist's journey."
+      },
+      {
+        "title": "Amélie",
+        "type": "movie",
+        "year": 2001,
+        "director": "Jean-Pierre Jeunet",
+        "predictedRating": 4,
+        "actors": [
+          "Audrey Tautou",
+          "Mathieu Kassovitz"
+        ],
+        "plot": "A whimsical portrayal of a shy waitress who decides to change the lives of those around her while dealing with her own isolation.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/nSxDa3M9aMvGVLoItzWTepQ5h5d.jpg",
+        "trailerKey": "555A7T_kmIc",
+        "rtScore": "89%",
+        "reason": "You might enjoy its endearing characters and imaginative storytelling."
+      },
+      {
+        "title": "Roma",
+        "type": "movie",
+        "year": 2018,
+        "director": "Alfonso Cuarón",
+        "predictedRating": 4,
+        "actors": [
+          "Yalitza Aparicio",
+          "Marina de Tavira"
+        ],
+        "plot": "A year in the life of a middle-class family's maid in Mexico City in the early 1970s.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/dtIIyQyALk57ko5bjac7hi01YQ.jpg",
+        "trailerKey": "6BS27ngZtxg",
+        "rtScore": "96%",
+        "reason": "You might find its intimate storytelling and beautiful cinematography to be engaging."
+      },
+      {
+        "title": "The Lives of Others",
+        "type": "movie",
+        "year": 2006,
+        "director": "Florian Henckel von Donnersmarck",
+        "predictedRating": 4.5,
+        "actors": [
+          "Ulrich Mühe",
+          "Martina Gedeck",
+          "Sebastian Koch"
+        ],
+        "plot": "In 1984 East Berlin, a government agent becomes absorbed in the lives of a writer and his lover.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/cVUDMnskSc01rdbyH0tLATTJUdP.jpg",
+        "trailerKey": "n3_iLOp6IhM",
+        "rtScore": "93%",
+        "reason": "The complex narrative and historical context may resonate with you."
+      },
+      {
+        "title": "Wild Tales",
+        "type": "movie",
+        "year": 2014,
+        "director": "Damián Szifron",
+        "predictedRating": 3.5,
+        "actors": [
+          "Ricardo Darín",
+          "Oscar Martínez",
+          "Erica Rivas"
+        ],
+        "plot": "A collection of six standalone stories united by a theme of vengeance and retribution.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/bU7IUeTdYFOgeUPtwpWKQNhORMC.jpg",
+        "trailerKey": "Utq0aDEp084",
+        "rtScore": "94%",
+        "reason": "The film's sharp wit and satirical edge might captivate your interest."
+      },
+      {
+        "title": "2001: A Space Odyssey",
+        "type": "movie",
+        "year": 1968,
         "director": "Stanley Kubrick",
         "predictedRating": 4,
         "actors": [
-          "Jack Nicholson",
-          "Shelley Duvall",
-          "Danny Lloyd",
-          "Scatman Crothers"
+          "Keir Dullea",
+          "Gary Lockwood",
+          "William Sylvester"
         ],
-        "plot": "A family heads to an isolated hotel for the winter where a sinister presence influences the father into violence, while his psychic son sees horrific forebodings.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/uAR0AWqhQL1hQa69UDEbb2rE5Wx.jpg",
-        "trailerKey": "FZQvIJxG9Xs",
-        "rtScore": "83%",
-        "reason": "A masterfully directed horror landmark with strong critical consensus, fitting your pattern of valuing acclaimed genre works."
+        "plot": "A mind-bending space exploration journey focusing on a mysterious monolith affecting human evolution.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/ve72VxNqjGM69Uky4WTo2bK6rfq.jpg",
+        "trailerKey": "kR2r-A9H3Kg",
+        "rtScore": "92%",
+        "reason": "You may appreciate the stunning visuals and philosophical depth that still resonate with today's audience."
       },
       {
-        "title": "Die Hard",
+        "title": "Rosemary's Baby",
         "type": "movie",
-        "year": 1988,
-        "director": "John McTiernan",
-        "predictedRating": 4,
-        "actors": [
-          "Bruce Willis",
-          "Alan Rickman",
-          "Bonnie Bedelia",
-          "Reginald VelJohnson"
-        ],
-        "plot": "An NYPD officer tries to save his wife and several others taken hostage by German terrorists during a Christmas party at the Nakatomi Plaza in Los Angeles.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/7Bjd8kfmDSOzpmhySpEhkUyK2oH.jpg",
-        "trailerKey": "4Wi28Vsi_ZU",
-        "rtScore": "94%",
-        "reason": "A highly regarded action classic that balances tension, character, and wit—likely to match your taste for well‑executed genre staples."
-      },
-      {
-        "title": "The Princess Bride",
-        "type": "movie",
-        "year": 1987,
-        "director": "Rob Reiner",
-        "predictedRating": 4.5,
-        "actors": [
-          "Cary Elwes",
-          "Robin Wright",
-          "Mandy Patinkin",
-          "André the Giant"
-        ],
-        "plot": "A bedridden boy's grandfather reads him the story of a farmhand-turned-pirate who encounters numerous obstacles, enemies, and allies in his quest to be reunited with his true love.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/2FC9L9MrjBoGHYjYZjdWQdopVYb.jpg",
-        "trailerKey": "ltpgBg-duQE",
-        "rtScore": "97%",
-        "reason": "A beloved, critically adored adventure‑comedy with timeless appeal, consistent with your appreciation for highly‑rated genre films."
-      },
-      {
-        "title": "Miami Vice",
-        "type": "tv",
-        "year": 1984,
-        "director": "Michael Mann",
+        "year": 1968,
+        "director": "Roman Polanski",
         "predictedRating": 3.5,
         "actors": [
-          "Don Johnson",
-          "Philip Michael Thomas",
-          "Saundra Santiago",
-          "Olivia Brown"
+          "Mia Farrow",
+          "John Cassavetes",
+          "Ruth Gordon"
         ],
-        "plot": "Two undercover detectives and their team tackle organized crime in Miami, blending high‑stakes police work with stylish 1980s aesthetics and music.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/b5kLqC6eDiA17nq3jr1Vi340Kns.jpg",
-        "trailerKey": "gWQX0avgnlM",
-        "rtScore": null,
-        "reason": "A stylish, influential crime series from the 1980s that expands the calibration into television while staying within the decade lens."
-      },
-      {
-        "title": "Unforgiven",
-        "type": "movie",
-        "year": 1992,
-        "director": "Clint Eastwood",
-        "predictedRating": 4.5,
-        "actors": [
-          "Clint Eastwood",
-          "Gene Hackman",
-          "Morgan Freeman",
-          "Richard Harris"
-        ],
-        "plot": "An aging outlaw and killer takes on one more job years after he had turned to farming, seeking redemption and a final payday in a morally complex Western.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/54roTwbX9fltg85zjsmrooXAs12.jpg",
-        "trailerKey": "amE57OniG9Y",
+        "plot": "A young couple moves into a New York apartment only to be surrounded by peculiar neighbors and sinister happenings.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/uYgvlHceRFjAFbsNeMInYcLZLUb.jpg",
+        "trailerKey": "pwLKIcB0zDw",
         "rtScore": "96%",
-        "reason": "A critically acclaimed Western from the 1990s that aligns with your appreciation for classic genre staples and strong direction."
+        "reason": "You may enjoy how this film masterfully combines psychological horror with suspense, creating a chilling atmosphere."
       },
       {
-        "title": "The Shawshank Redemption",
+        "title": "Butch Cassidy and the Sundance Kid",
         "type": "movie",
-        "year": 1994,
-        "director": "Frank Darabont",
+        "year": 1969,
+        "director": "George Roy Hill",
         "predictedRating": 4.5,
         "actors": [
-          "Tim Robbins",
-          "Morgan Freeman",
-          "Bob Gunton",
-          "William Sadler"
+          "Paul Newman",
+          "Robert Redford",
+          "Katharine Ross"
         ],
-        "plot": "Two imprisoned men bond over the years, finding solace and eventual redemption through acts of common decency and hope.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/9cqNxx0GxF0bflZmeSMuL5tnGzr.jpg",
-        "trailerKey": "PLl99DlL6b4",
-        "rtScore": "91%",
-        "reason": "A highly-regarded 1990s drama with universal acclaim that matches your pattern of aligning with critical consensus on well-crafted films."
+        "plot": "Two Wild West outlaws blaze a trail through Bolivia after a series of train robberies go awry.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/gFmmykF1Ym3OGzENo50nZQaD1dx.jpg",
+        "trailerKey": "YdJW2UxvSFQ",
+        "rtScore": "88%",
+        "reason": "You might find the dynamic performances and clever dialogue engaging in this classic Western film."
       },
       {
-        "title": "Pulp Fiction",
+        "title": "Easy Rider",
         "type": "movie",
-        "year": 1994,
-        "director": "Quentin Tarantino",
+        "year": 1969,
+        "director": "Dennis Hopper",
+        "predictedRating": 3,
+        "actors": [
+          "Peter Fonda",
+          "Dennis Hopper",
+          "Jack Nicholson"
+        ],
+        "plot": "Two bikers travel from Los Angeles to New Orleans in search of America, encountering a variety of characters and experiences along the way.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/mmGEB6ly9OG8SYVfvAoa6QqHNvN.jpg",
+        "trailerKey": "IlfpTppsR0U",
+        "rtScore": "83%",
+        "reason": "You may connect with the film's exploration of freedom and counterculture during the turbulent 1960s."
+      },
+      {
+        "title": "The Graduate",
+        "type": "movie",
+        "year": 1967,
+        "director": "Mike Nichols",
         "predictedRating": 4,
         "actors": [
-          "John Travolta",
-          "Uma Thurman",
-          "Samuel L. Jackson",
-          "Bruce Willis"
+          "Dustin Hoffman",
+          "Anne Bancroft",
+          "Katharine Ross"
         ],
-        "plot": "The lives of two mob hitmen, a boxer, a gangster's wife, and a pair of diner bandits intertwine in four tales of violence and redemption.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/vQWk5YBFWF4bZaofAbv0tShwBvQ.jpg",
-        "trailerKey": "tGpTpVyI_OQ",
-        "rtScore": "92%",
-        "reason": "A landmark 1990s film that blends genre elements with sharp dialogue, testing your taste beyond Westerns while staying within high critical regard."
-      },
-      {
-        "title": "The Silence of the Lambs",
-        "type": "movie",
-        "year": 1991,
-        "director": "Jonathan Demme",
-        "predictedRating": 4,
-        "actors": [
-          "Jodie Foster",
-          "Anthony Hopkins",
-          "Scott Glenn",
-          "Ted Levine"
-        ],
-        "plot": "A young FBI cadet must receive the help of an incarcerated and manipulative cannibal killer to help catch another serial murderer.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/uS9m8OBk1A8eM9I042bx8XXpqAq.jpg",
-        "trailerKey": "6iB21hsprAQ",
-        "rtScore": "95%",
-        "reason": "A critically praised 1990s thriller that won Best Picture, offering a different genre while maintaining the high-quality filmmaking you appreciate."
-      },
-      {
-        "title": "Goodfellas",
-        "type": "movie",
-        "year": 1990,
-        "director": "Martin Scorsese",
-        "predictedRating": 4.5,
-        "actors": [
-          "Robert De Niro",
-          "Ray Liotta",
-          "Joe Pesci",
-          "Lorraine Bracco"
-        ],
-        "plot": "The story of Henry Hill and his life in the mob, covering his relationship with his wife Karen and his mob partners.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/9OkCLM73MIU2CrKZbqiT8Ln1wY2.jpg",
-        "trailerKey": "PTBRNXGQR9Q",
-        "rtScore": "96%",
-        "reason": "A masterful 1990s crime epic with universal critical acclaim, continuing your pattern of appreciating well-regarded genre classics."
-      },
-      {
-        "title": "No Country for Old Men",
-        "type": "movie",
-        "year": 2007,
-        "director": "Joel Coen, Ethan Coen",
-        "predictedRating": 4.5,
-        "actors": [
-          "Tommy Lee Jones",
-          "Javier Bardem",
-          "Josh Brolin",
-          "Woody Harrelson"
-        ],
-        "plot": "Violence and mayhem ensue after a hunter stumbles upon a drug deal gone wrong and more than two million dollars in cash near the Rio Grande.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/6d5XOczc226jECq0LIX0siKtgHR.jpg",
-        "trailerKey": "A0oNrgumrlE",
-        "rtScore": "93%",
-        "reason": "A modern neo-Western thriller with critical acclaim that aligns with your appreciation for well-regarded genre films."
-      },
-      {
-        "title": "The Assassination of Jesse James by the Coward Robert Ford",
-        "type": "movie",
-        "year": 2007,
-        "director": "Andrew Dominik",
-        "predictedRating": 4,
-        "actors": [
-          "Brad Pitt",
-          "Casey Affleck",
-          "Sam Shepard",
-          "Mary-Louise Parker"
-        ],
-        "plot": "Robert Ford, who idolized Jesse James since childhood, tries hard to join the reforming gang of the Missouri outlaw, but gradually becomes resentful of the bandit leader.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/xMKn6EQS7eR5ubhPJbw5pQSBZMw.jpg",
-        "trailerKey": "SrGmmitc62Q",
-        "rtScore": "76%",
-        "reason": "A contemplative, atmospheric Western that explores myth and celebrity, fitting your taste for classic Western themes with strong critical reception."
-      },
-      {
-        "title": "3:10 to Yuma",
-        "type": "movie",
-        "year": 2007,
-        "director": "James Mangold",
-        "predictedRating": 4,
-        "actors": [
-          "Russell Crowe",
-          "Christian Bale",
-          "Logan Lerman",
-          "Ben Foster"
-        ],
-        "plot": "A small-time rancher agrees to hold a captured outlaw who's awaiting a train to go to court in Yuma, facing off against the outlaw's gang.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/voMB69AsLnPNmtfbrBl0lbeFKDH.jpg",
-        "trailerKey": "Kv6apbWxb5M",
-        "rtScore": "89%",
-        "reason": "A solid, traditional Western remake with strong performances that matches your pattern of appreciating critically well-received genre films."
-      },
-      {
-        "title": "Brokeback Mountain",
-        "type": "movie",
-        "year": 2005,
-        "director": "Ang Lee",
-        "predictedRating": 4,
-        "actors": [
-          "Heath Ledger",
-          "Jake Gyllenhaal",
-          "Michelle Williams",
-          "Anne Hathaway"
-        ],
-        "plot": "The story of a forbidden and secretive relationship between two cowboys, and their lives over the years.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/aByfQOQBNa4CMFwIgq3QrqY2ZHh.jpg",
-        "trailerKey": "xZvu-SczR1Y",
+        "plot": "A directionless college graduate becomes involved in an affair with an older woman, leading to complications and discoveries.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/z1Z1tZMR66RxcNeHbwoEhYeqOlP.jpg",
+        "trailerKey": "KVNFaxJspMQ",
         "rtScore": "87%",
-        "reason": "A critically acclaimed Western romance that expands the genre's boundaries while maintaining its core themes, aligning with your appreciation for quality Western storytelling."
-      },
-      {
-        "title": "True Grit",
-        "type": "movie",
-        "year": 2010,
-        "director": "Joel Coen, Ethan Coen",
-        "predictedRating": 4,
-        "actors": [
-          "Jeff Bridges",
-          "Hailee Steinfeld",
-          "Matt Damon",
-          "Josh Brolin"
-        ],
-        "plot": "A stubborn teenager enlists the help of a tough U.S. Marshal to track down her father's murderer.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/tCrB8pcjadZjsDk7rleGJaIv78k.jpg",
-        "trailerKey": "Q5fEgKj9QNs",
-        "rtScore": "95%",
-        "reason": "A Coen Brothers Western with exceptional critical reception that continues your pattern of appreciating well-crafted, highly-regarded genre films."
-      },
-      {
-        "title": "Hell or High Water",
-        "type": "movie",
-        "year": 2016,
-        "director": "David Mackenzie",
-        "predictedRating": 4,
-        "actors": [
-          "Chris Pine",
-          "Ben Foster",
-          "Jeff Bridges",
-          "Gil Birmingham"
-        ],
-        "plot": "Two brothers carry out a series of bank robberies in West Texas to save their family ranch, pursued by a pair of Texas Rangers nearing retirement.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/ljRRxqy2aXIkIBXLmOVifcOR021.jpg",
-        "trailerKey": "igD-fXiHRRY",
-        "rtScore": "97%",
-        "reason": "A modern neo-Western with critical acclaim that aligns with your appreciation for well-regarded genre staples."
-      },
-      {
-        "title": "Wind River",
-        "type": "movie",
-        "year": 2017,
-        "director": "Taylor Sheridan",
-        "predictedRating": 4,
-        "actors": [
-          "Jeremy Renner",
-          "Elizabeth Olsen",
-          "Graham Greene",
-          "Jon Bernthal"
-        ],
-        "plot": "A wildlife tracker and an FBI agent investigate the murder of a young woman on a remote Native American reservation in Wyoming.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/pySivdR845Hom4u4T2WNkJxe6Ad.jpg",
-        "trailerKey": "E0qRHABxvfc",
-        "rtScore": "87%",
-        "reason": "A tense, atmospheric modern Western thriller that matches your taste for critically praised genre films."
-      },
-      {
-        "title": "The Revenant",
-        "type": "movie",
-        "year": 2015,
-        "director": "Alejandro G. Iñárritu",
-        "predictedRating": 4,
-        "actors": [
-          "Leonardo DiCaprio",
-          "Tom Hardy",
-          "Domhnall Gleeson",
-          "Will Poulter"
-        ],
-        "plot": "A frontiersman on a fur trading expedition in the 1820s fights for survival after being mauled by a bear and left for dead by his own hunting team.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/ji3ecJphATlVgWNY0B0RVXZizdf.jpg",
-        "trailerKey": "EhffABvfAW0",
-        "rtScore": "78%",
-        "reason": "A brutal survival epic with Western elements and high production values that should appeal to your classic genre appreciation."
-      },
-      {
-        "title": "The Mandalorian",
-        "type": "tv",
-        "year": 2019,
-        "director": "Jon Favreau",
-        "predictedRating": 4.5,
-        "actors": [
-          "Pedro Pascal",
-          "Gina Carano",
-          "Carl Weathers",
-          "Giancarlo Esposito"
-        ],
-        "plot": "A lone bounty hunter in the outer reaches of the galaxy far from the authority of the New Republic goes on various adventures.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/sWgBv7LV2PRoQgkxwlibdGXKz1S.jpg",
-        "trailerKey": "2RVnrBLOBcI",
-        "rtScore": "93%",
-        "reason": "A space Western series with strong Star Wars connections that matches your high rating for the original film."
+        "reason": "You might appreciate the film's humor and poignant take on post-college uncertainty and romance."
       },
       {
         "title": "Back to the Future",
@@ -2044,101 +1985,361 @@
           "Lea Thompson",
           "Crispin Glover"
         ],
-        "plot": "A teenager is accidentally sent 30 years into the past in a time-traveling DeLorean invented by his eccentric scientist friend.",
+        "plot": "A teenager is accidentally sent back in time where he must ensure his parents fall in love to return to the future.",
         "posterUrl": "https://image.tmdb.org/t/p/w500/vN5B5WgYscRGcQpVhHl6p9DDTP0.jpg",
         "trailerKey": "ez6WQ7IX72U",
-        "rtScore": "93%",
-        "reason": "This beloved 80s adventure-comedy has near-universal critical and audience acclaim, matching your positive response to highly-rated classics like Star Wars."
+        "rtScore": "97%",
+        "reason": "You may appreciate the mix of science fiction and comedy, along with its iconic status in the 1980s pop culture."
       },
       {
-        "title": "The X-Files",
-        "type": "tv",
-        "year": 1993,
-        "director": "Chris Carter",
-        "predictedRating": 3.5,
-        "actors": [
-          "David Duchovny",
-          "Gillian Anderson",
-          "Mitch Pileggi",
-          "William B. Davis"
-        ],
-        "plot": "Two FBI agents, one a skeptical realist and the other a true believer, investigate unexplained cases involving paranormal phenomena.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/rcBx0p8h51LHceyhquYMxbspJQu.jpg",
-        "trailerKey": "_HTByz4RlqI",
-        "rtScore": null,
-        "reason": "A defining 90s television series that explores whether your appreciation for well-crafted genre storytelling extends to long-form TV."
-      },
-      {
-        "title": "Django Unchained",
+        "title": "The Thing",
         "type": "movie",
-        "year": 2012,
-        "director": "Quentin Tarantino",
-        "predictedRating": 4.5,
-        "actors": [
-          "Jamie Foxx",
-          "Christoph Waltz",
-          "Leonardo DiCaprio",
-          "Samuel L. Jackson"
-        ],
-        "plot": "A freed slave teams up with a German bounty hunter to rescue his wife from a brutal Mississippi plantation owner.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/7oWY8VDWW7thTzWh3OKYRkWUlD5.jpg",
-        "trailerKey": "_iH0UBYDI4g",
-        "rtScore": "87%",
-        "reason": "A stylized, revisionist Western with high critical praise, offering a more explosive take on the genre you consistently rate highly."
-      },
-      {
-        "title": "O Brother, Where Art Thou?",
-        "type": "movie",
-        "year": 2000,
-        "director": "Ethan Coen, Joel Coen",
+        "year": 1982,
+        "director": "John Carpenter",
         "predictedRating": 4,
         "actors": [
-          "George Clooney",
-          "John Turturro",
-          "Tim Blake Nelson",
-          "John Goodman"
+          "Kurt Russell",
+          "Wilford Brimley",
+          "Keith David",
+          "Richard Masur"
         ],
-        "plot": "Three escaped convicts in the Depression-era South embark on a journey home while encountering various eccentric characters.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/s9foMAcLg8GEzzQzer04qOGdD1k.jpg",
-        "trailerKey": "pi-KDvtUaGQ",
-        "rtScore": "78%",
-        "reason": "A Coen brothers comedy with a folk-music soundtrack and Homeric roots, providing a different flavor within your trusted director range."
+        "plot": "A research team in Antarctica encounters a shape-shifting alien that assumes the appearance of the people it kills.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/tzGY49kseSE9QAKk47uuDGwnSCu.jpg",
+        "trailerKey": "ySvzHdtCiWE",
+        "rtScore": "85%",
+        "reason": "You might be drawn to its suspenseful atmosphere and innovative special effects that defined the horror genre in the 1980s."
       },
       {
-        "title": "Lost in Translation",
+        "title": "The Breakfast Club",
         "type": "movie",
-        "year": 2003,
-        "director": "Sofia Coppola",
+        "year": 1985,
+        "director": "John Hughes",
+        "predictedRating": 3,
+        "actors": [
+          "Emilio Estevez",
+          "Molly Ringwald",
+          "Judd Nelson",
+          "Ally Sheedy"
+        ],
+        "plot": "Five high school students from different cliques spend a day in detention together, breaking stereotypes and forming unlikely friendships.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/gp4zlj7wgbiofLMNsTPndMuO3PN.jpg",
+        "trailerKey": "c7VUZ29Ezcc",
+        "rtScore": "89%",
+        "reason": "You could enjoy its exploration of teenage life and its strong character-driven storytelling."
+      },
+      {
+        "title": "Blade Runner",
+        "type": "movie",
+        "year": 1982,
+        "director": "Ridley Scott",
+        "predictedRating": 4,
+        "actors": [
+          "Harrison Ford",
+          "Rutger Hauer",
+          "Sean Young",
+          "Edward James Olmos"
+        ],
+        "plot": "In a dystopian future, a blade runner must pursue and terminate four replicants who have stolen a ship in space and returned to Earth.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/63N9uy8nd9j7Eog2axPQ8lbr3Wj.jpg",
+        "trailerKey": "qoEyZoOTtss",
+        "rtScore": "89%",
+        "reason": "You may be intrigued by its thought-provoking themes and stunning visual style that have influenced countless films since."
+      },
+      {
+        "title": "The Goonies",
+        "type": "movie",
+        "year": 1985,
+        "director": "Richard Donner",
         "predictedRating": 3.5,
         "actors": [
-          "Bill Murray",
-          "Scarlett Johansson",
-          "Giovanni Ribisi",
-          "Anna Faris"
+          "Sean Astin",
+          "Josh Brolin",
+          "Jeff Cohen",
+          "Corey Feldman"
         ],
-        "plot": "A faded movie star and a neglected young woman form an unlikely bond while adrift in Tokyo.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/3jCLmYDIIiSMPujbwygNpqdpM8N.jpg",
-        "trailerKey": "1s4YQqnbnM8",
-        "rtScore": "95%",
-        "reason": "A critically acclaimed character study to test if your high ratings extend beyond Westerns and classics to modern dramas."
+        "plot": "A group of young friends find an ancient treasure map and set out on an adventure to find the secret treasure in order to save their homes from foreclosure.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/eBU7gCjTCj9n2LTxvCSIXXOvHkD.jpg",
+        "trailerKey": "lYLAGAwcpSQ",
+        "rtScore": "77%",
+        "reason": "You might appreciate the adventurous spirit and nostalgic charm that defines this classic '80s movie."
       },
       {
-        "title": "The Wire",
-        "type": "tv",
-        "year": 2002,
-        "director": "David Simon",
+        "title": "The French Connection",
+        "type": "movie",
+        "year": 1971,
+        "director": "William Friedkin",
+        "predictedRating": 3,
+        "actors": [
+          "Gene Hackman",
+          "Roy Scheider",
+          "Fernando Rey"
+        ],
+        "plot": "A gritty New York City cop is determined to bring down a powerful drug lord in this intense crime thriller.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/pH4saPwMjhnVGwmSH6RkMaHrt3s.jpg",
+        "trailerKey": "T76K3RxJY0A",
+        "rtScore": "98%",
+        "reason": "You might enjoy its fast-paced action and the strong performance by Gene Hackman."
+      },
+      {
+        "title": "A Hard Day's Night",
+        "type": "movie",
+        "year": 1964,
+        "director": "Richard Lester",
+        "predictedRating": 3.5,
+        "actors": [
+          "John Lennon",
+          "Paul McCartney",
+          "George Harrison",
+          "Ringo Starr"
+        ],
+        "plot": "A day in the life of The Beatles as they evade chasing fans and prepare for a television performance.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/6Ulsccp2VkaVU5qbya3bxm9JG4x.jpg",
+        "trailerKey": "TWbiVqlSMgc",
+        "rtScore": "98%",
+        "reason": "You may find its upbeat musical sequences and humor entertaining."
+      },
+      {
+        "title": "Persona",
+        "type": "movie",
+        "year": 1966,
+        "director": "Ingmar Bergman",
+        "predictedRating": 4,
+        "actors": [
+          "Bibi Andersson",
+          "Liv Ullmann"
+        ],
+        "plot": "An actress breaks down while performing and experiences a profound connection with her nurse.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/yPTntWP9Wvew8vHN0jB7Z1EvEUN.jpg",
+        "trailerKey": "8ZO01M8k1mg",
+        "rtScore": "92%",
+        "reason": "You might appreciate its exploration of identity and masterful cinematography."
+      },
+      {
+        "title": "Stand By Me",
+        "type": "movie",
+        "year": 1986,
+        "director": "Rob Reiner",
         "predictedRating": 4.5,
         "actors": [
-          "Dominic West",
-          "Lance Reddick",
-          "Sonja Sohn",
-          "Wendell Pierce"
+          "Wil Wheaton",
+          "River Phoenix",
+          "Corey Feldman",
+          "Jerry O'Connell"
         ],
-        "plot": "An expansive look at the drug trade, port system, government, schools, and media in Baltimore through interconnected stories.",
-        "posterUrl": "https://image.tmdb.org/t/p/w500/4lbclFySvugI51fwsyxBTOm4DqK.jpg",
-        "trailerKey": "uDcQbk78CSw",
-        "rtScore": "94%",
-        "reason": "A highly acclaimed TV drama with novelistic depth to see if your appreciation for well-regarded works extends to television."
+        "plot": "Four young boys journey to find the body of a missing child, learning about friendship and themselves along the way.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/vz0w9BSehcqjDcJOjRaCk7fgJe7.jpg",
+        "trailerKey": "2rBenGsz23E",
+        "rtScore": "91%",
+        "reason": "You might connect with the film's nostalgic coming-of-age story and emotional depth."
+      },
+      {
+        "title": "Blue Velvet",
+        "type": "movie",
+        "year": 1986,
+        "director": "David Lynch",
+        "predictedRating": 2.5,
+        "actors": [
+          "Kyle MacLachlan",
+          "Isabella Rossellini",
+          "Dennis Hopper",
+          "Laura Dern"
+        ],
+        "plot": "A young man discovers a severed ear in a field, leading him into a disturbing investigation of his small town.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/6v1zYh2FKOYVddY5pCQhd4PO9uX.jpg",
+        "trailerKey": "rAA6imfqMYQ",
+        "rtScore": "95%",
+        "reason": "You may find the film's surreal and darkly intriguing narrative to be polarizing."
+      },
+      {
+        "title": "The Shawshank Redemption",
+        "type": "movie",
+        "year": 1994,
+        "director": "Frank Darabont",
+        "predictedRating": 4.5,
+        "actors": [
+          "Tim Robbins",
+          "Morgan Freeman",
+          "Bob Gunton"
+        ],
+        "plot": "Two imprisoned men bond over a number of years, finding solace and eventual redemption through acts of common decency.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/9cqNxx0GxF0bflZmeSMuL5tnGzr.jpg",
+        "trailerKey": "PLl99DlL6b4",
+        "rtScore": "91%",
+        "reason": "You might appreciate the deep storytelling and character development."
+      },
+      {
+        "title": "Pulp Fiction",
+        "type": "movie",
+        "year": 1994,
+        "director": "Quentin Tarantino",
+        "predictedRating": 4,
+        "actors": [
+          "John Travolta",
+          "Uma Thurman",
+          "Samuel L. Jackson"
+        ],
+        "plot": "The lives of two mob hitmen, a boxer, a gangster's wife, and a pair of diner bandits intertwine in four tales of violence and redemption.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/vQWk5YBFWF4bZaofAbv0tShwBvQ.jpg",
+        "trailerKey": "tGpTpVyI_OQ",
+        "rtScore": "92%",
+        "reason": "You may enjoy the film's unique narrative style and snappy dialogue."
+      },
+      {
+        "title": "The Silence of the Lambs",
+        "type": "movie",
+        "year": 1991,
+        "director": "Jonathan Demme",
+        "predictedRating": 4,
+        "actors": [
+          "Jodie Foster",
+          "Anthony Hopkins",
+          "Scott Glenn"
+        ],
+        "plot": "A young FBI cadet must receive the help of an incarcerated and manipulative cannibal killer to catch another serial killer, a madman who skins his victims.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/uS9m8OBk1A8eM9I042bx8XXpqAq.jpg",
+        "trailerKey": "6iB21hsprAQ",
+        "rtScore": "95%",
+        "reason": "You might be intrigued by the psychological tension and strong performances."
+      },
+      {
+        "title": "The Matrix",
+        "type": "movie",
+        "year": 1999,
+        "director": "Lana Wachowski",
+        "predictedRating": 4.5,
+        "actors": [
+          "Keanu Reeves",
+          "Laurence Fishburne",
+          "Carrie-Anne Moss"
+        ],
+        "plot": "A computer hacker learns from mysterious rebels about the true nature of his reality and his role in the war against its controllers.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/aOIuZAjPaRIE6CMzbazvcHuHXDc.jpg",
+        "trailerKey": "d0XTFAMmhrE",
+        "rtScore": "88%",
+        "reason": "You might appreciate the film's groundbreaking visuals and philosophical undertones."
+      },
+      {
+        "title": "Seinfeld",
+        "type": "tv",
+        "year": 1989,
+        "director": "Larry David",
+        "predictedRating": 3.5,
+        "actors": [
+          "Jerry Seinfeld",
+          "Julia Louis-Dreyfus",
+          "Michael Richards"
+        ],
+        "plot": "The continuing misadventures of neurotic New York City stand-up comedian Jerry Seinfeld and his equally neurotic New York City friends.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/aCw8ONfyz3AhngVQa1E2Ss4KSUQ.jpg",
+        "trailerKey": "hQXKyIG_NS4",
+        "rtScore": null,
+        "reason": "You might enjoy the humor and cultural observations, which were groundbreaking in the 90s."
+      }
+    ],
+    "movie-recs-prefetch-queue:e921a138-4915-416b-8b6b-63d32402655c": [
+      {
+        "title": "Hereditary",
+        "type": "movie",
+        "year": 2018,
+        "director": "Ari Aster",
+        "predictedRating": 3.5,
+        "actors": [
+          "Toni Collette",
+          "Gabriel Byrne",
+          "Alex Wolff"
+        ],
+        "plot": "A grieving family becomes entangled in terrifying events following the death of their mysterious grandmother.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/hjlZSXM86wJrfCv5VKfR5DI2VeU.jpg",
+        "trailerKey": "MJNR58zaStE",
+        "rtScore": "89%",
+        "reason": "You could find the film's haunting atmosphere and intense performances compelling."
+      },
+      {
+        "title": "The Lighthouse",
+        "type": "movie",
+        "year": 2019,
+        "director": "Robert Eggers",
+        "predictedRating": 4,
+        "actors": [
+          "Willem Dafoe",
+          "Robert Pattinson"
+        ],
+        "plot": "Two lighthouse keepers face isolation and madness on a remote island in the 1890s.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/f1tIYarTbkBdIT1aW0gzelDwknv.jpg",
+        "trailerKey": "42_UHhpq530",
+        "rtScore": "90%",
+        "reason": "You might be intrigued by the film's striking visuals and psychological tension."
+      },
+      {
+        "title": "Midsommar",
+        "type": "movie",
+        "year": 2019,
+        "director": "Ari Aster",
+        "predictedRating": 3.5,
+        "actors": [
+          "Florence Pugh",
+          "Jack Reynor",
+          "William Jackson Harper"
+        ],
+        "plot": "A couple travels to Sweden to attend a rural midsummer festival that quickly devolves into a disturbing ordeal.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/7LEI8ulZzO5gy9Ww2NVCrKmHeDZ.jpg",
+        "trailerKey": "1Vnghdsjmd0",
+        "rtScore": "83%",
+        "reason": "You might be drawn to the film's disturbing yet mesmerizing depiction of a psychological horror journey."
+      },
+      {
+        "title": "Lady Bird",
+        "type": "movie",
+        "year": 2017,
+        "director": "Greta Gerwig",
+        "predictedRating": 4,
+        "actors": [
+          "Saoirse Ronan",
+          "Laurie Metcalf",
+          "Tracy Letts",
+          "Lucas Hedges"
+        ],
+        "plot": "A coming-of-age story about a young woman navigating her senior year of high school and her turbulent relationship with her mother.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/gl66K7zRdtNYGrxyS2YDUP5ASZd.jpg",
+        "trailerKey": "cNi_HC839Wo",
+        "rtScore": "99%",
+        "reason": "As an A24 film, its acclaimed understated storytelling and strong performances are likely to resonate with your appreciation for quality cinema."
+      },
+      {
+        "title": "Moonlight",
+        "type": "movie",
+        "year": 2016,
+        "director": "Barry Jenkins",
+        "predictedRating": 4.5,
+        "actors": [
+          "Trevante Rhodes",
+          "André Holland",
+          "Janelle Monáe",
+          "Mahershala Ali"
+        ],
+        "plot": "A young African-American man's journey through childhood, adolescence, and adulthood, exploring his experiences with identity and family.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/qLnfEmPrDjJfPyyddLJPkXmshkp.jpg",
+        "trailerKey": "9NJj12tJzqc",
+        "rtScore": "98%",
+        "reason": "This film's poignant exploration of personal and societal themes aligns with the kind of critically acclaimed narratives A24 frequently produces."
+      },
+      {
+        "title": "The Green Knight",
+        "type": "movie",
+        "year": 2021,
+        "director": "David Lowery",
+        "predictedRating": 3.5,
+        "actors": [
+          "Dev Patel",
+          "Alicia Vikander",
+          "Joel Edgerton",
+          "Sarita Choudhury"
+        ],
+        "plot": "An epic fantasy adventure based on the Arthurian legend, following Sir Gawain as he embarks on a quest to confront the mysterious Emerald Knight.",
+        "posterUrl": "https://image.tmdb.org/t/p/w500/if4hw3Ou5Sav9Em7WWHj66mnywp.jpg",
+        "trailerKey": "sS6ksY8xWCY",
+        "rtScore": "89%",
+        "reason": "The A24-style visual storytelling and mythic elements might intrigue you, offering a fresh take on historical legends."
       }
     ]
   }

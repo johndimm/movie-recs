@@ -55,6 +55,8 @@ interface YTPlayer {
   unMute(): void;
   loadVideoById(videoId: string, startSeconds?: number): void;
   destroy(): void;
+  getPlayerState?(): number;
+  playVideo?(): void;
 }
 
 // Loads https://www.youtube.com/iframe_api once; resolves when YT.Player is available.
@@ -587,7 +589,7 @@ const PrefetchQueuePanel = memo(function PrefetchQueuePanel({
                   </span>
                 </div>
                 {m.reason && (
-                  <p className="text-xs text-violet-300 italic line-clamp-2">{m.reason}</p>
+                  <p className="text-xs text-zinc-400 line-clamp-2">{m.reason}</p>
                 )}
               </button>
               <button
@@ -716,12 +718,46 @@ const TrailerPlayer = memo(function TrailerPlayer({ videoId, onProgress }: { vid
     }
   }, [videoId]);
 
+  // When returning to the tab, resume playback if the player stalled (state 2=paused, -1=unstarted, 5=cued).
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const p = playerRef.current;
+        if (!p) return;
+        const state = p.getPlayerState?.();
+        if (state === 2 || state === -1 || state === 5) p.playVideo?.();
+      } catch { /* ignore */ }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
+
   return (
     <div
       ref={wrapperRef}
       className="relative aspect-video w-full shrink-0 overflow-hidden bg-black"
       style={{ backgroundColor: "#000" }}
     />
+  );
+});
+
+const ShareButton = memo(function ShareButton({ onClick, toast }: { onClick: () => void; toast: "copying" | "copied" | null }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={toast === "copying"}
+      className="shrink-0 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors disabled:opacity-50"
+      title="Share this title"
+    >
+      {toast === "copied" ? (
+        <svg className="h-4 w-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+      ) : (
+        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
+      )}
+      {toast === "copied" ? "Copied!" : "Share"}
+    </button>
   );
 });
 
@@ -1010,6 +1046,7 @@ export default function Home() {
   const [llm, setLlm] = useState<string>(() => loadSetting("llm", "deepseek"));
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [isTrailerFullscreen, setIsTrailerFullscreen] = useState(false);
+  const [shareToast, setShareToast] = useState<"copying" | "copied" | null>(null);
   const [watchFrac, setWatchFrac] = useState(0);
   const watchFracRef = useRef(0);
   watchFracRef.current = watchFrac;
@@ -1492,33 +1529,73 @@ export default function Home() {
     loadPrefetchIntoRefForChannel(activeForPrefetch);
     persistPrefetchQueue();
 
-    // Check if the Ratings page asked us to reconsider a title
-    const pendingReconsider = localStorage.getItem(RECONSIDER_KEY);
-    if (pendingReconsider) {
-      localStorage.removeItem(RECONSIDER_KEY);
-      try {
-        const m = JSON.parse(pendingReconsider);
-        const movie: CurrentMovie = {
-          title: m.title,
-          type: m.type ?? "movie",
-          year: m.year ?? null,
-          director: m.director ?? null,
-          predictedRating: migrateRatingValue(typeof m.predictedRating === "number" ? m.predictedRating : 3),
-          actors: m.actors ?? [],
-          plot: m.plot ?? "",
-          posterUrl: m.posterUrl ?? null,
-          trailerKey: m.trailerKey ?? null,
-          rtScore: m.rtScore ?? null,
-          reason: null,
-        };
-        setCurrent(movie);
-        setInitialLoading(false);
-        replenish({ mediaType, llm });
-        return;
-      } catch {}
-    }
+    // Handle incoming share link (?share=id), then fall through to reconsider / fetchNext.
+    const shareId = new URLSearchParams(window.location.search).get("share");
+    void (async () => {
+      if (shareId) {
+        window.history.replaceState({}, "", "/");
+        let handled = false;
+        try {
+          const res = await fetch(`/api/share?id=${encodeURIComponent(shareId)}`);
+          if (res.ok) {
+            const payload = await res.json() as { channel?: Channel | null; current?: CurrentMovie | null };
+            // Bootstrap factory channels for new users before adding the shared channel
+            if (hasNoChannelsPersisted()) applyFactoryBootstrap();
+            if (payload.channel) {
+              const raw = localStorage.getItem(CHANNELS_KEY);
+              let chs: Channel[] = raw ? (JSON.parse(raw) as Channel[]).map(normalizeChannel) : [];
+              if (!chs.find((c) => c.id === "all")) chs = [ALL_CHANNEL, ...chs];
+              if (!chs.find((c) => c.id === payload.channel!.id)) {
+                chs = [...chs, normalizeChannel(payload.channel)];
+                localStorage.setItem(CHANNELS_KEY, JSON.stringify(chs));
+              }
+              setChannels(chs);
+              channelsRef.current = chs;
+              const activeId = payload.channel.id;
+              localStorage.setItem(ACTIVE_CHANNEL_KEY, activeId);
+              setActiveChannelId(activeId);
+              activeChannelIdRef.current = activeId;
+              savedPrefetchChannelRef.current = activeId;
+            }
+            if (payload.current) {
+              setCurrent(payload.current);
+              setInitialLoading(false);
+              replenish({ mediaType, llm });
+              handled = true;
+            }
+          }
+        } catch {}
+        if (handled) return;
+      }
 
-    fetchNext({ mediaType, llm }, true);
+      // Check if the Ratings page asked us to reconsider a title
+      const pendingReconsider = localStorage.getItem(RECONSIDER_KEY);
+      if (pendingReconsider) {
+        localStorage.removeItem(RECONSIDER_KEY);
+        try {
+          const m = JSON.parse(pendingReconsider);
+          const movie: CurrentMovie = {
+            title: m.title,
+            type: m.type ?? "movie",
+            year: m.year ?? null,
+            director: m.director ?? null,
+            predictedRating: migrateRatingValue(typeof m.predictedRating === "number" ? m.predictedRating : 3),
+            actors: m.actors ?? [],
+            plot: m.plot ?? "",
+            posterUrl: m.posterUrl ?? null,
+            trailerKey: m.trailerKey ?? null,
+            rtScore: m.rtScore ?? null,
+            reason: null,
+          };
+          setCurrent(movie);
+          setInitialLoading(false);
+          replenish({ mediaType, llm });
+          return;
+        } catch {}
+      }
+
+      fetchNext({ mediaType, llm }, true);
+    })();
     // Mount-only hydrate; mediaType / llm / replenish changes are handled by other effects.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchNext, loadPrefetchIntoRefForChannel, persistPrefetchQueue]);
@@ -1844,6 +1921,26 @@ export default function Home() {
     setLightboxUrl(url);
   }, []);
 
+  const handleShare = useCallback(async () => {
+    if (!current) return;
+    const ch = channelsRef.current.find((c) => c.id === activeChannelIdRef.current);
+    setShareToast("copying");
+    try {
+      const res = await fetch("/api/share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ channel: ch ?? null, current }),
+      });
+      const { id } = await res.json() as { id: string };
+      const url = `${window.location.origin}/?share=${id}`;
+      await navigator.clipboard.writeText(url);
+      setShareToast("copied");
+      setTimeout(() => setShareToast(null), 2500);
+    } catch {
+      setShareToast(null);
+    }
+  }, [current]);
+
   const selectChannel = useCallback((id: string) => {
     setActiveChannelId(id);
   }, []);
@@ -1923,9 +2020,12 @@ export default function Home() {
                     )}
                   </div>
                   <div className="flex flex-col gap-4 p-4 sm:p-6">
-                    <TrailerMetadata movie={current} />
+                    <div className="flex items-start justify-between gap-3">
+                      <TrailerMetadata movie={current} />
+                      <ShareButton onClick={handleShare} toast={shareToast} />
+                    </div>
                     {current.reason && (
-                      <p className="text-sm text-violet-300 italic leading-relaxed border-l-2 border-violet-700 pl-3">
+                      <p className="text-sm text-zinc-400 leading-relaxed border-l-2 border-zinc-600 pl-3">
                         {current.reason}
                       </p>
                     )}
@@ -1952,9 +2052,12 @@ export default function Home() {
               ) : (
                 /* ── POSTER LAYOUT (no trailer) ── */
                 <div className="flex flex-col gap-4 p-4 sm:p-6">
-                  <PosterMovieTop movie={current} onOpenPoster={openPosterLightbox} />
+                  <div className="flex items-start justify-between gap-3">
+                    <PosterMovieTop movie={current} onOpenPoster={openPosterLightbox} />
+                    <ShareButton onClick={handleShare} toast={shareToast} />
+                  </div>
                   {current.reason && (
-                    <p className="text-sm text-violet-300 italic leading-relaxed border-l-2 border-violet-700 pl-3">
+                    <p className="text-sm text-zinc-400 leading-relaxed border-l-2 border-zinc-600 pl-3">
                       {current.reason}
                     </p>
                   )}
