@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { applyFactoryBootstrap, hasNoChannelsPersisted } from "../lib/factoryChannels";
+import { mergeNewChannelFormPrefill, NEW_CHANNEL_PREFILL_KEY } from "../lib/channelFromPrompt";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 
 /** What kinds of titles this channel should surface (empty = no extra format filter beyond app settings). */
@@ -465,6 +466,9 @@ export default function ChannelsPage() {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
+  /** Initial values for the “new channel” form (from home prefill or blank). */
+  const [newChannelFormInitial, setNewChannelFormInitial] = useState<Omit<Channel, "id">>(EMPTY);
+  const [newChannelFormKey, setNewChannelFormKey] = useState(0);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -497,7 +501,22 @@ export default function ChannelsPage() {
     const selectParam = params.get("select");
     window.history.replaceState({}, "", "/channels");
     if (newParam === "1" || newParam === "true") {
-      queueMicrotask(() => setShowNew(true));
+      queueMicrotask(() => {
+        let next: Omit<Channel, "id"> = EMPTY;
+        try {
+          const raw = sessionStorage.getItem(NEW_CHANNEL_PREFILL_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw) as unknown;
+            next = { ...mergeNewChannelFormPrefill(parsed) } as Omit<Channel, "id">;
+            sessionStorage.removeItem(NEW_CHANNEL_PREFILL_KEY);
+          }
+        } catch {
+          /* ignore */
+        }
+        setNewChannelFormInitial(next);
+        setNewChannelFormKey((k) => k + 1);
+        setShowNew(true);
+      });
     } else if (selectParam) {
       queueMicrotask(() => {
         setSelectedId(selectParam);
@@ -519,6 +538,7 @@ export default function ChannelsPage() {
     const next = [...channels, ch];
     saveChannels(next);
     localStorage.setItem(ACTIVE_CHANNEL_KEY, ch.id);
+    setNewChannelFormInitial(EMPTY);
     router.push("/");
   };
 
@@ -582,7 +602,10 @@ export default function ChannelsPage() {
             <div className="flex items-center gap-3 px-3 py-2.5">
               <button
                 type="button"
-                onClick={() => setShowNew(false)}
+                onClick={() => {
+                  setNewChannelFormInitial(EMPTY);
+                  setShowNew(false);
+                }}
                 className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
               >
                 ← Back
@@ -616,8 +639,9 @@ export default function ChannelsPage() {
               <button
                 type="button"
                 onClick={() => {
+                  setNewChannelFormInitial(EMPTY);
+                  setNewChannelFormKey((k) => k + 1);
                   setShowNew(true);
-            
                 }}
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-white text-lg font-light leading-none text-zinc-500 transition-colors hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-600"
                 title="New channel"
@@ -634,7 +658,11 @@ export default function ChannelsPage() {
           <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100">
             <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Channels</span>
             <button
-              onClick={() => { setShowNew(true); }}
+              onClick={() => {
+                setNewChannelFormInitial(EMPTY);
+                setNewChannelFormKey((k) => k + 1);
+                setShowNew(true);
+              }}
               className="text-zinc-400 hover:text-indigo-600 transition-colors text-lg leading-none"
               title="New channel"
             >+</button>
@@ -668,10 +696,13 @@ export default function ChannelsPage() {
             <div className="p-4 sm:p-6">
               <p className="text-sm font-semibold text-zinc-700 mb-0">New channel</p>
               <ChannelForm
-                key="new-channel"
-                initial={EMPTY}
+                key={`new-channel-${newChannelFormKey}`}
+                initial={newChannelFormInitial}
                 onSave={createChannel}
-                onCancel={() => setShowNew(false)}
+                onCancel={() => {
+                  setNewChannelFormInitial(EMPTY);
+                  setShowNew(false);
+                }}
               />
             </div>
           )}

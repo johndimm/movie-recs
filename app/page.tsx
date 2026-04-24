@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useLayoutEffect, useCallback, useRef, useId, memo } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useRef, useId, useMemo, memo } from "react";
 import Link from "next/link";
 import type { Channel } from "./channels/page";
-import { ALL_CHANNEL, normalizeChannel } from "./channels/page";
+import { ALL_CHANNEL, normalizeChannel, CHANNELS_KEY, ACTIVE_CHANNEL_KEY } from "./channels/page";
+import { channelDraftFromPrompt, NEW_CHANNEL_PREFILL_KEY } from "./lib/channelFromPrompt";
 import RTBadge from "./components/RTBadge";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { clampStarRating, migrateRatingValue } from "./lib/ratingScale";
@@ -258,8 +259,6 @@ const NOT_INTERESTED_KEY = "movie-recs-not-interested"; // {title, rtScore}[] fo
 const TASTE_SUMMARY_KEY = "movie-recs-taste-summary";   // string: LLM's running taste profile
 const SETTINGS_KEY = "movie-recs-settings";
 const RECONSIDER_KEY = "movie-recs-reconsider";
-const CHANNELS_KEY = "movie-recs-channels";
-const ACTIVE_CHANNEL_KEY = "movie-recs-active-channel";
 /** Per channel + title: last trailer watch position (0–1) when you leave the channel, restored when you return. */
 const TRAILER_RESUME_KEY = "movie-recs-trailer-resume-frac";
 
@@ -352,21 +351,34 @@ const PassNextButton = memo(function PassNextButton({
   onPass,
   compact = false,
   prominent = false,
+  /** Trailer strip: next to star row — larger than compact, emerald (not indigo poster Next) */
+  muted = false,
 }: {
   onPass: () => void;
   compact?: boolean;
   /** Larger, hero-style — use when Next is the primary control above the rating row */
   prominent?: boolean;
+  muted?: boolean;
 }) {
   const sizing = prominent
     ? "gap-2 rounded-xl px-8 py-3.5 text-base font-semibold shadow-lg sm:px-10 sm:py-4 sm:text-lg"
     : compact
       ? "gap-1 rounded-lg px-2.5 py-1.5 text-xs shadow-md"
-      : "gap-2 rounded-xl px-5 py-3 text-sm font-bold shadow-lg sm:px-6 sm:py-3.5 sm:text-base";
-  const iconClass = prominent ? "h-5 w-5 sm:h-6 sm:w-6" : compact ? "h-3.5 w-3.5" : "h-5 w-5";
+      : muted
+        ? "gap-2 rounded-xl px-5 py-2.5 text-base font-semibold shadow-md sm:px-6 sm:py-3 sm:text-base"
+        : "gap-2 rounded-xl px-5 py-3 text-sm font-bold shadow-lg sm:px-6 sm:py-3.5 sm:text-base";
+  const iconClass = prominent
+    ? "h-5 w-5 sm:h-6 sm:w-6"
+    : compact
+      ? "h-3.5 w-3.5"
+      : muted
+        ? "h-5 w-5"
+        : "h-5 w-5";
   const surface = compact
     ? "border border-zinc-600 bg-zinc-800 text-white hover:bg-zinc-700 focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900"
-    : "border-2 border-indigo-200/90 bg-indigo-600 text-white shadow-lg shadow-indigo-950/40 hover:border-white/90 hover:bg-indigo-500 hover:shadow-xl active:scale-[0.98] active:brightness-95 focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900";
+    : muted
+      ? "border-2 border-emerald-300/50 bg-emerald-600 text-white shadow-lg shadow-emerald-950/30 hover:border-emerald-200/80 hover:bg-emerald-500 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+      : "border-2 border-indigo-200/90 bg-indigo-600 text-white shadow-lg shadow-indigo-950/40 hover:border-white/90 hover:bg-indigo-500 hover:shadow-xl active:scale-[0.98] active:brightness-95 focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900";
   return (
     <button
       type="button"
@@ -456,20 +468,42 @@ function MovieCardSkeleton({ mode }: { mode: "trailers" | "posters" }) {
   );
 
   if (mode === "trailers") {
+    const trailerBarSkeleton = (
+      <div className="border-b border-zinc-800/90 bg-zinc-950/60 py-2.5 sm:py-3" aria-hidden>
+        <div className="mx-auto flex min-w-0 max-w-3xl flex-col gap-2">
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+            <div className="h-8 w-24 animate-pulse rounded-lg bg-zinc-800" />
+            <div className="h-8 w-24 animate-pulse rounded-lg bg-zinc-800" />
+          </div>
+          <div className="flex min-w-0 items-center justify-between gap-3">
+            <div className="mx-auto h-10 max-w-md flex-1 animate-pulse rounded-lg bg-zinc-800" />
+            <div className="h-11 w-20 shrink-0 animate-pulse rounded-xl bg-zinc-800" />
+          </div>
+        </div>
+      </div>
+    );
     return (
       <div className="bg-black" aria-busy="true" aria-label="Loading movie">
         <div className="relative aspect-video w-full shrink-0 overflow-hidden bg-black">
           <div className="absolute inset-0 animate-pulse bg-zinc-800/40" aria-hidden />
         </div>
-        <div className="flex flex-col gap-4 p-4 sm:p-6">
+        {trailerBarSkeleton}
+        <div className="flex flex-col gap-4 p-4 sm:pb-6 sm:p-6">
+          <div className="flex min-w-0 items-start justify-between gap-3 animate-pulse">
+            <div className="min-w-0 flex-1 space-y-3">
+              <div className="h-3 w-28 rounded bg-zinc-700" />
+              <div className="h-8 max-w-lg rounded bg-zinc-700" />
+            </div>
+            <div className="flex gap-2 pt-0.5">
+              <div className="h-7 w-24 rounded bg-zinc-800" />
+              <div className="h-7 w-12 rounded bg-zinc-800" />
+            </div>
+          </div>
           <div className="space-y-3 animate-pulse">
-            <div className="h-3 w-28 rounded bg-zinc-700" />
-            <div className="h-8 max-w-lg rounded bg-zinc-700" />
             <div className="h-4 w-full rounded bg-zinc-800" />
             <div className="h-4 w-full rounded bg-zinc-800" />
             <div className="h-4 w-2/3 rounded bg-zinc-800" />
           </div>
-          {ratingBlock}
         </div>
       </div>
     );
@@ -612,6 +646,15 @@ function progressToStars(frac: number): number {
   if (frac < 0.05) return 0;
   return Math.round(frac * 5 * 2) / 2;
 }
+
+/**
+ * When enabled, trailer watch time pre-fills stars and "Next" without a tap can submit that rating.
+ * Default off: stars only change when you choose them; "Next" with no pick records pass-without-rating.
+ * Enable: set NEXT_PUBLIC_WATCH_PROGRESS_AUTO_RATING=1 (or "true") and rebuild.
+ */
+const WATCH_PROGRESS_AUTO_RATING =
+  process.env.NEXT_PUBLIC_WATCH_PROGRESS_AUTO_RATING === "1" ||
+  process.env.NEXT_PUBLIC_WATCH_PROGRESS_AUTO_RATING === "true";
 
 // ── TrailerPlayer ─────────────────────────────────────────────────────────────
 /** One iframe per mount; swap trailers with loadVideoById so rapid card changes don't cancel init (black player). */
@@ -914,6 +957,10 @@ const PosterMovieTop = memo(function PosterMovieTop({
   );
 });
 
+/** Trailer: directly under the video, above title row — border separates from metadata. */
+const TRAILER_BAR_OUTER =
+  "w-full border-b border-zinc-800/90 bg-zinc-950/60 py-2.5 sm:py-3";
+
 const MovieRatingBlock = memo(function MovieRatingBlock({
   passCurrentCardStable,
   onRate,
@@ -923,8 +970,10 @@ const MovieRatingBlock = memo(function MovieRatingBlock({
   defaultSeen = false,
   previousRating,
   previousMode,
-  /** When false, Next is not shown here (e.g. trailer mode shows it under the video). */
+  /** When false, Next is not shown in the card row (ignored when layout is trailerBar). */
   showNextInRating = true,
+  /** Under video, above title: Seen/Not, stars, Next (emerald strip) in one bar. */
+  layout = "card",
 }: {
   passCurrentCardStable: () => void;
   onRate: (stars: number, mode: "seen" | "unseen") => void;
@@ -937,6 +986,7 @@ const MovieRatingBlock = memo(function MovieRatingBlock({
   previousRating?: number;
   previousMode?: "seen" | "unseen";
   showNextInRating?: boolean;
+  layout?: "card" | "trailerBar";
 }) {
   const seenRadioGroupName = useId();
   const hasPrev = previousRating !== undefined && previousRating > 0;
@@ -954,8 +1004,42 @@ const MovieRatingBlock = memo(function MovieRatingBlock({
     setSeenStatus(v);
   }, []);
 
-  const autoFilled = progressToStars(watchFrac);
+  const autoFilled = WATCH_PROGRESS_AUTO_RATING ? progressToStars(watchFrac) : 0;
   const displayFilled = userLocked ? lockedValue : autoFilled;
+
+  const starBlock = seenStatus === null ? (
+    <StarRow
+      key={`${starKeyPrefix}-seen-${movieTitle}`}
+      compact
+      filled={displayFilled}
+      color="red"
+      label="Rating"
+      onRate={(v) => { setUserLocked(true); setLockedValue(v); onRate(v, "seen"); }}
+    />
+  ) : (
+    <StarRow
+      key={`${starKeyPrefix}-unseen-${movieTitle}`}
+      compact
+      filled={displayFilled}
+      color="blue"
+      label="Interest"
+      onRate={(v) => { setUserLocked(true); setLockedValue(v); onRate(v, "unseen"); }}
+    />
+  );
+
+  if (layout === "trailerBar") {
+    return (
+      <div className={TRAILER_BAR_OUTER}>
+        <div className="mx-auto flex min-w-0 max-w-3xl flex-col gap-2">
+          <SeenOrNotRadios name={seenRadioGroupName} value={seenStatus} onChange={onSeenStatusChange} />
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 sm:gap-x-4">
+            <div className="min-w-0 flex flex-1 justify-center">{starBlock}</div>
+            <PassNextButton onPass={passCurrentCardStable} muted />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-xl bg-zinc-900 border border-zinc-700 px-2 py-2 sm:px-3 sm:py-2.5">
@@ -966,27 +1050,7 @@ const MovieRatingBlock = memo(function MovieRatingBlock({
             showNextInRating ? "" : "justify-center"
           }`}
         >
-          <div className="min-w-0 flex shrink">
-            {seenStatus === null ? (
-              <StarRow
-                key={`${starKeyPrefix}-seen-${movieTitle}`}
-                compact
-                filled={displayFilled}
-                color="red"
-                label="Rating"
-                onRate={(v) => { setUserLocked(true); setLockedValue(v); onRate(v, "seen"); }}
-              />
-            ) : (
-              <StarRow
-                key={`${starKeyPrefix}-unseen-${movieTitle}`}
-                compact
-                filled={displayFilled}
-                color="blue"
-                label="Interest"
-                onRate={(v) => { setUserLocked(true); setLockedValue(v); onRate(v, "unseen"); }}
-              />
-            )}
-          </div>
+          <div className="min-w-0 flex shrink">{starBlock}</div>
           {showNextInRating && <PassNextButton onPass={passCurrentCardStable} prominent />}
         </div>
       </div>
@@ -1160,6 +1224,40 @@ export default function Home() {
   const activeChannelIdRef = useRef<string>("");
   activeChannelIdRef.current = activeChannelId;
   channelsRef.current = channels;
+
+  /** Same as “What you want” in the channel editor: All → settings `userRequest`; else → this channel’s `freeText`. */
+  const channelPromptValue = useMemo(() => {
+    if (activeChannelId === "all") return userRequest;
+    const ch = channels.find((c) => c.id === activeChannelId);
+    return ch?.freeText ?? "";
+  }, [activeChannelId, userRequest, channels]);
+
+  const updateChannelPrompt = useCallback((value: string) => {
+    if (activeChannelId === "all") {
+      setUserRequest(value);
+      try {
+        const s = localStorage.getItem(SETTINGS_KEY);
+        const base = s ? (JSON.parse(s) as Record<string, unknown>) : {};
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...base, userRequest: value }));
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
+    if (!activeChannelId) return;
+    setChannels((prev) => {
+      const next = prev.map((c) =>
+        c.id === activeChannelId ? { ...c, freeText: value } : c
+      );
+      try {
+        localStorage.setItem(CHANNELS_KEY, JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }, [activeChannelId]);
+
   const replenishOptsRef = useRef<{ mediaType: string; llm: string }>({ mediaType: "both", llm: "deepseek" });
   const zeroYieldStreakRef = useRef(0); // consecutive batches with 0 fresh items — stop daisy-chaining when high
   const lensIndexRef = useRef(0);       // rotates through DIVERSITY_LENSES so each batch explores a different area
@@ -1965,7 +2063,7 @@ export default function Home() {
       submitRatingRef.current(p.stars, p.mode);
       setPendingRating(null);
     } else {
-      const autoStars = progressToStars(watchFracRef.current);
+      const autoStars = WATCH_PROGRESS_AUTO_RATING ? progressToStars(watchFracRef.current) : 0;
       if (autoStars > 0) {
         submitRatingRef.current(autoStars, "seen");
       } else {
@@ -2103,6 +2201,87 @@ export default function Home() {
     setChannelPendingDelete(ch);
   }, []);
 
+  const getChannelPromptForSave = useCallback(() => {
+    const id = activeChannelIdRef.current;
+    if (id === "all") return userRequestRef.current.trim();
+    const ch = channelsRef.current.find((c) => c.id === id);
+    return (ch?.freeText ?? "").trim();
+  }, []);
+
+  /** Flush prefetch and reload so the next titles match the current prompt (also re-saves All → settings). */
+  const updateThisChannel = useCallback(() => {
+    if (!activeChannelIdRef.current) return;
+    if (activeChannelIdRef.current === "all") {
+      try {
+        const s = localStorage.getItem(SETTINGS_KEY);
+        const base = s ? (JSON.parse(s) as Record<string, unknown>) : {};
+        localStorage.setItem(
+          SETTINGS_KEY,
+          JSON.stringify({ ...base, userRequest: userRequestRef.current }),
+        );
+      } catch {
+        /* ignore */
+      }
+    } else {
+      try {
+        localStorage.setItem(CHANNELS_KEY, JSON.stringify(channelsRef.current));
+      } catch {
+        /* ignore */
+      }
+    }
+    replenishGenRef.current += 1;
+    replenishGenInFlight.current = 0;
+    prefetchRef.current = [];
+    persistPrefetchQueue();
+    batchYieldRef.current = [];
+    zeroYieldStreakRef.current = 0;
+    void fetchNext({ mediaType, llm }, true);
+  }, [mediaType, llm, fetchNext, persistPrefetchQueue]);
+
+  const createChannelFromHomePrompt = useCallback(() => {
+    const t = getChannelPromptForSave();
+    if (!t) return;
+    let list: Channel[] = [];
+    try {
+      const raw = localStorage.getItem(CHANNELS_KEY);
+      list = raw ? (JSON.parse(raw) as Channel[]).map(normalizeChannel) : [];
+      if (!list.some((c) => c.id === "all")) {
+        list = [ALL_CHANNEL, ...list];
+      }
+    } catch {
+      list = [ALL_CHANNEL];
+    }
+    const data = channelDraftFromPrompt(t);
+    const ch = normalizeChannel({ ...data, id: crypto.randomUUID() });
+    const next = [...list, ch];
+    try {
+      localStorage.setItem(CHANNELS_KEY, JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+    setChannels(next);
+    channelsRef.current = next;
+    localStorage.setItem(ACTIVE_CHANNEL_KEY, ch.id);
+    setActiveChannelId(ch.id);
+    activeChannelIdRef.current = ch.id;
+    savedPrefetchChannelRef.current = ch.id;
+    replenishGenRef.current += 1;
+    replenishGenInFlight.current = 0;
+    loadPrefetchIntoRefForChannel(ch.id);
+    prefetchRef.current = [];
+    persistPrefetchQueue();
+    batchYieldRef.current = [];
+    zeroYieldStreakRef.current = 0;
+    void fetchNext({ mediaType, llm }, true);
+  }, [
+    getChannelPromptForSave,
+    loadPrefetchIntoRefForChannel,
+    persistPrefetchQueue,
+    fetchNext,
+    mediaType,
+    llm,
+  ]);
+
   return (
     <div className="flex min-h-screen w-full flex-col items-center bg-black px-4 py-6 sm:py-10">
       <div className="w-full max-w-3xl space-y-4 sm:space-y-6">
@@ -2115,6 +2294,55 @@ export default function Home() {
           onSelectChannel={selectChannel}
           onRequestDeleteChannel={requestDeleteChannel}
         />
+
+        <div className="rounded-2xl border border-zinc-800/90 bg-zinc-950/80 p-2 sm:p-2.5">
+          <div className="flex flex-row items-center gap-1.5 sm:gap-2">
+            <label htmlFor="channel-what-you-want" className="sr-only">
+              Channel prompt — same as What you want in the channel editor
+            </label>
+            <div className="relative min-w-0 flex-1">
+              <input
+                id="channel-what-you-want"
+                type="text"
+                autoComplete="off"
+                value={channelPromptValue}
+                onChange={(e) => updateChannelPrompt(e.target.value.replace(/\r?\n/g, " "))}
+                placeholder="What you want to watch…"
+                className="h-9 w-full rounded-lg border border-zinc-600 bg-zinc-900 py-0 pl-2.5 pr-8 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 sm:h-10 sm:pl-3 sm:pr-9"
+              />
+              {channelPromptValue.length > 0 && (
+                <button
+                  type="button"
+                  onPointerDown={(e) => e.preventDefault()}
+                  onClick={() => updateChannelPrompt("")}
+                  className="absolute right-1 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded text-base leading-none text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-200 sm:right-1.5 sm:h-7 sm:w-7"
+                  title="Clear"
+                  aria-label="Clear"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={updateThisChannel}
+              disabled={!activeChannelId}
+              title="Refresh picks for this channel with this prompt"
+              className="h-9 shrink-0 rounded-lg border border-zinc-600 bg-zinc-800/90 px-2 text-xs font-semibold text-zinc-100 transition-colors hover:bg-zinc-700 disabled:pointer-events-none disabled:opacity-40 sm:h-10 sm:px-3 sm:text-sm"
+            >
+              Update
+            </button>
+            <button
+              type="button"
+              onClick={createChannelFromHomePrompt}
+              disabled={!channelPromptValue.trim()}
+              title="New channel with this text"
+              className="h-9 shrink-0 rounded-lg bg-indigo-600 px-2 text-xs font-semibold text-white transition-colors hover:bg-indigo-500 disabled:pointer-events-none disabled:opacity-40 sm:h-10 sm:px-3 sm:text-sm"
+            >
+              New channel
+            </button>
+          </div>
+        </div>
 
         {/* Movie card */}
         <div
@@ -2135,7 +2363,7 @@ export default function Home() {
                       onPlaybackError={handleTrailerPlaybackError}
                       resumeFromFraction={trailerResumeByChannel[activeChannelId]?.[canonicalTitleKey(current.title)]}
                     />
-                    {/* Fullscreen overlay controls (enter is below with Share) */}
+                    {/* Fullscreen: overlay Next + exit; page has ratings under video, then title + Fullscreen/Share */}
                     {isTrailerFullscreen && (
                       <>
                         <button
@@ -2166,11 +2394,19 @@ export default function Home() {
                     )}
                   </div>
                   {!isTrailerFullscreen && (
-                    <div className="flex items-center justify-center border-b border-zinc-800/90 bg-zinc-950/95 px-3 py-2.5 sm:py-3 sm:relative max-sm:fixed max-sm:bottom-0 max-sm:left-0 max-sm:right-0 max-sm:z-30 max-sm:border-b-0 max-sm:border-t max-sm:pb-[max(0.75rem,env(safe-area-inset-bottom))] max-sm:pt-2 max-sm:shadow-[0_-8px_32px_rgba(0,0,0,0.55)]">
-                      <PassNextButton onPass={passCurrentCardStable} prominent />
-                    </div>
+                    <MovieRatingBlock
+                      layout="trailerBar"
+                      passCurrentCardStable={passCurrentCardStable}
+                      onRate={handlePendingChange}
+                      movieTitle={current.title}
+                      starKeyPrefix="tr"
+                      watchFrac={watchFrac}
+                      defaultSeen={activeChannelId === "all"}
+                      previousRating={historyRef.current.find((e) => e.title === current.title)?.userRating}
+                      previousMode={historyRef.current.find((e) => e.title === current.title)?.ratingMode}
+                    />
                   )}
-                  <div className="flex flex-col gap-4 p-4 max-sm:pb-24 sm:pb-6 sm:p-6">
+                  <div className="flex flex-col gap-4 p-4 sm:pb-6 sm:p-6">
                     <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                       <div className="min-w-0 w-full sm:flex-1 sm:pr-1">
                         <TrailerMetadata movie={current} />
@@ -2200,17 +2436,6 @@ export default function Home() {
                       </p>
                     )}
 
-                    <MovieRatingBlock
-                      passCurrentCardStable={passCurrentCardStable}
-                      onRate={handlePendingChange}
-                      movieTitle={current.title}
-                      starKeyPrefix="tr"
-                      watchFrac={watchFrac}
-                      defaultSeen={activeChannelId === "all"}
-                      previousRating={historyRef.current.find(e => e.title === current.title)?.userRating}
-                      previousMode={historyRef.current.find(e => e.title === current.title)?.ratingMode}
-                      showNextInRating={false}
-                    />
                     <PrefetchQueuePanel
                       prefetchQueueUi={prefetchQueueUi}
                       channels={channels}
