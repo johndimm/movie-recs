@@ -62,14 +62,39 @@ function getYoutubeDataApiKey(): string | undefined {
 }
 
 /**
- * Optional YouTube Data API check (requires {@link getYoutubeDataApiKey}).
- * Drops trailers that cannot be embedded on a third-party site (uploader disabled embeds) or
- * are age-restricted on YouTube (otherwise the iframe shows “Watch on YouTube” only).
- * On API errors we fail open so a bad key or outage does not strip every trailer.
+ * No API key: YouTube oEmbed returns 404 for many removed / blocked / unembeddable URLs.
+ * Fails open (returns null) on network or unexpected status so a transient failure does not drop all trailers.
+ */
+async function youtubeOembedLooksOk(videoId: string): Promise<boolean | null> {
+  try {
+    const u = new URL("https://www.youtube.com/oembed");
+    u.searchParams.set("url", `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`);
+    u.searchParams.set("format", "json");
+    const res = await fetch(u.toString(), {
+      headers: { "User-Agent": "movie-recs/1.0 (trailer oEmbed check)" },
+    });
+    if (res.status === 404 || res.status === 401 || res.status === 403) return false;
+    if (res.status >= 200 && res.status < 300) return true;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Use oEmbed (no key) to skip obviously-bad videos; optionally YouTube Data API (requires
+ * {@link getYoutubeDataApiKey}) for embed/age gating. On API or oEmbed indeterminate errors we fail
+ * open for that layer so a bad key or outage does not strip every trailer.
  */
 async function youtubeVideoIsEmbeddableForSite(videoId: string): Promise<boolean> {
+  const oembed = await youtubeOembedLooksOk(videoId);
+  if (oembed === false) return false;
+
   const key = getYoutubeDataApiKey();
-  if (!key) return true;
+  if (!key) {
+    // No Data API: oEmbed already rejected (false) above; here true|null => allow.
+    return true;
+  }
   try {
     const url = new URL("https://www.googleapis.com/youtube/v3/videos");
     url.searchParams.set("part", "status,contentDetails");

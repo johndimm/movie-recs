@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useId, memo } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useRef, useId, memo } from "react";
 import Link from "next/link";
 import type { Channel } from "./channels/page";
 import { ALL_CHANNEL, normalizeChannel } from "./channels/page";
@@ -39,7 +39,9 @@ declare global {
           playerVars?: Record<string, unknown>;
           events?: {
             onReady?: (e: { target: YTPlayer }) => void;
-            onStateChange?: (e: { data: number }) => void;
+            onStateChange?: (e: { data: number; target: YTPlayer }) => void;
+            /** 2 invalid param, 5 HTML5, 100 not found/removed, 101/150 embed not allowed */
+            onError?: (e: { data: number; target: YTPlayer }) => void;
           };
         }
       ) => YTPlayer;
@@ -56,6 +58,7 @@ interface YTPlayer {
   setVolume(v: number): void;
   unMute(): void;
   loadVideoById(videoId: string, startSeconds?: number): void;
+  seekTo?(seconds: number, allowSeekAhead: boolean): void;
   destroy(): void;
   getPlayerState?(): number;
   playVideo?(): void;
@@ -257,6 +260,8 @@ const SETTINGS_KEY = "movie-recs-settings";
 const RECONSIDER_KEY = "movie-recs-reconsider";
 const CHANNELS_KEY = "movie-recs-channels";
 const ACTIVE_CHANNEL_KEY = "movie-recs-active-channel";
+/** Per channel + title: last trailer watch position (0–1) when you leave the channel, restored when you return. */
+const TRAILER_RESUME_KEY = "movie-recs-trailer-resume-frac";
 
 function loadSetting<T>(key: string, fallback: T): T {
   try {
@@ -610,16 +615,57 @@ function progressToStars(frac: number): number {
 
 // ── TrailerPlayer ─────────────────────────────────────────────────────────────
 /** One iframe per mount; swap trailers with loadVideoById so rapid card changes don't cancel init (black player). */
-const TrailerPlayer = memo(function TrailerPlayer({ videoId, onProgress }: { videoId: string; onProgress?: (frac: number) => void }) {
+const TRAILER_RESUME_MIN = 0.02;
+
+const TrailerPlayer = memo(function TrailerPlayer({
+  videoId,
+  onProgress,
+  onPlaybackError,
+  resumeFromFraction,
+}: {
+  videoId: string;
+  onProgress?: (frac: number) => void;
+  /** Called when the iframe reports an error (removed video, embed disabled, etc.) — parent should drop trailerKey. */
+  onPlaybackError?: () => void;
+  /** 0–1. When resuming a channel, seek here once after the video is ready (e.g. last watch point before you switched away). */
+  resumeFromFraction?: number;
+}) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTPlayer | null>(null);
   const videoIdRef = useRef(videoId);
   const onProgressRef = useRef(onProgress);
+  const onPlaybackErrorRef = useRef(onPlaybackError);
+  const resumeFromFractionRef = useRef(resumeFromFraction);
+  const resumeDoneKeyRef = useRef<string | null>(null);
+  const errorReportedForVideoIdRef = useRef<string | null>(null);
   useEffect(() => { onProgressRef.current = onProgress; }, [onProgress]);
+  useEffect(() => { onPlaybackErrorRef.current = onPlaybackError; }, [onPlaybackError]);
+  useEffect(() => { resumeFromFractionRef.current = resumeFromFraction; }, [resumeFromFraction]);
 
   useEffect(() => {
     videoIdRef.current = videoId;
+    errorReportedForVideoIdRef.current = null;
+    resumeDoneKeyRef.current = null;
   }, [videoId]);
+
+  const tryApplyResume = (target: YTPlayer) => {
+    const frac = resumeFromFractionRef.current;
+    if (frac === undefined || frac < TRAILER_RESUME_MIN || frac > 0.98) return;
+    const id = videoIdRef.current;
+    const key = `${id}:${frac.toFixed(3)}`;
+    if (resumeDoneKeyRef.current === key) return;
+    try {
+      const d = target.getDuration();
+      if (d > 0 && !Number.isNaN(d)) {
+        const sec = Math.min(Math.max(0, frac * d), Math.max(0, d - 0.5));
+        target.seekTo?.(sec, true);
+        resumeDoneKeyRef.current = key;
+        target.playVideo?.();
+      }
+    } catch {
+      /* ignore */
+    }
+  };
 
   useEffect(() => {
     const mountEl = document.createElement("div");
@@ -653,6 +699,22 @@ const TrailerPlayer = memo(function TrailerPlayer({ videoId, onProgress }: { vid
           ...(origin ? { origin } : {}),
         },
         events: {
+          onStateChange: (e: { data: number; target: YTPlayer }) => {
+            if (cancelled) return;
+            const Y = window.YT;
+            if (!Y?.PlayerState) return;
+            const s = e.data;
+            if (s === Y.PlayerState.PLAYING || s === Y.PlayerState.BUFFERING || s === Y.PlayerState.CUED) {
+              tryApplyResume(e.target);
+            }
+          },
+          onError: () => {
+            if (cancelled) return;
+            const id = videoIdRef.current;
+            if (errorReportedForVideoIdRef.current === id) return;
+            errorReportedForVideoIdRef.current = id;
+            onPlaybackErrorRef.current?.();
+          },
           onReady: (e: { target: YTPlayer }) => {
             if (cancelled) return;
             playerRef.current = e.target;
@@ -663,6 +725,8 @@ const TrailerPlayer = memo(function TrailerPlayer({ videoId, onProgress }: { vid
             } catch {
               /* ignore */
             }
+            // Resume after a new load: state changes may be flaky on some devices.
+            window.setTimeout(() => tryApplyResume(e.target), 500);
             const poll = window.setInterval(() => {
               try {
                 const p = playerRef.current;
@@ -755,8 +819,8 @@ const ShareButton = memo(function ShareButton({ onClick, toast }: { onClick: () 
 /** Trailer layout: title block only — isolated from rating state. */
 const TrailerMetadata = memo(function TrailerMetadata({ movie }: { movie: CurrentMovie }) {
   return (
-    <div>
-      <div className="flex items-center gap-2 flex-wrap">
+    <div className="min-w-0 w-full max-w-full">
+      <div className="flex min-w-0 items-center gap-2 flex-wrap">
         <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
           {movie.type === "tv" ? "TV Series" : "Movie"}
           {movie.year && <span className="ml-1 font-normal">· {movie.year}</span>}
@@ -786,8 +850,8 @@ const PosterMovieTop = memo(function PosterMovieTop({
   onOpenPoster: (url: string) => void;
 }) {
   return (
-    <div className="flex gap-4 sm:items-start">
-      <div className="flex-shrink-0 self-start">
+    <div className="flex min-w-0 gap-4 sm:items-start">
+      <div className="shrink-0 self-start">
         {movie.posterUrl ? (
           <button
             type="button"
@@ -859,6 +923,8 @@ const MovieRatingBlock = memo(function MovieRatingBlock({
   defaultSeen = false,
   previousRating,
   previousMode,
+  /** When false, Next is not shown here (e.g. trailer mode shows it under the video). */
+  showNextInRating = true,
 }: {
   passCurrentCardStable: () => void;
   onRate: (stars: number, mode: "seen" | "unseen") => void;
@@ -870,6 +936,7 @@ const MovieRatingBlock = memo(function MovieRatingBlock({
   /** Pre-existing rating from history — locks stars immediately, no auto-progress. */
   previousRating?: number;
   previousMode?: "seen" | "unseen";
+  showNextInRating?: boolean;
 }) {
   const seenRadioGroupName = useId();
   const hasPrev = previousRating !== undefined && previousRating > 0;
@@ -894,7 +961,11 @@ const MovieRatingBlock = memo(function MovieRatingBlock({
     <div className="rounded-xl bg-zinc-900 border border-zinc-700 px-2 py-2 sm:px-3 sm:py-2.5">
       <div className="flex min-w-0 flex-col gap-3">
         <SeenOrNotRadios name={seenRadioGroupName} value={seenStatus} onChange={onSeenStatusChange} />
-        <div className="flex min-w-0 flex-wrap items-center justify-center gap-x-4 gap-y-3 sm:gap-x-5">
+        <div
+          className={`flex min-w-0 flex-wrap items-center justify-center gap-x-4 gap-y-3 sm:gap-x-5 ${
+            showNextInRating ? "" : "justify-center"
+          }`}
+        >
           <div className="min-w-0 flex shrink">
             {seenStatus === null ? (
               <StarRow
@@ -916,7 +987,7 @@ const MovieRatingBlock = memo(function MovieRatingBlock({
               />
             )}
           </div>
-          <PassNextButton onPass={passCurrentCardStable} prominent />
+          {showNextInRating && <PassNextButton onPass={passCurrentCardStable} prominent />}
         </div>
       </div>
     </div>
@@ -1037,6 +1108,9 @@ export default function Home() {
   const notInterestedRef = useRef<{ title: string; rtScore?: string | null }[]>([]);
   const [tasteSummary, setTasteSummary] = useState<string | null>(null);
   const [current, setCurrent] = useState<CurrentMovie | null>(null);
+  const currentRef = useRef<CurrentMovie | null>(null);
+  currentRef.current = current;
+  const [trailerResumeByChannel, setTrailerResumeByChannel] = useState<Record<string, Record<string, number>>>({});
   const [initialLoading, setInitialLoading] = useState(true);
   /** True while fetchNext is loading the next title (after first card). Not tied to card opacity — avoids collapsing the layout. */
   const [isAdvancingCard, setIsAdvancingCard] = useState(false);
@@ -1131,6 +1205,17 @@ export default function Home() {
     setPrefetchQueueUi([...prefetchRef.current]);
   }, []);
 
+  const handleTrailerPlaybackError = useCallback(() => {
+    const c = currentRef.current;
+    if (!c?.trailerKey) return;
+    const k = canonicalTitleKey(c.title);
+    prefetchRef.current = prefetchRef.current.map((m) =>
+      canonicalTitleKey(m.title) === k ? { ...m, trailerKey: null } : m
+    );
+    persistPrefetchQueue();
+    setCurrent({ ...c, trailerKey: null });
+  }, [persistPrefetchQueue]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") { setLightboxUrl(null); }
@@ -1152,11 +1237,23 @@ export default function Home() {
     return () => document.removeEventListener("fullscreenchange", onChange);
   }, []);
 
-  // Reset watch progress whenever the trailer changes
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = sessionStorage.getItem(TRAILER_RESUME_KEY);
+      if (raw) {
+        setTrailerResumeByChannel(JSON.parse(raw) as Record<string, Record<string, number>>);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  // Reset watch progress when the title or video changes (including when switching back to a channel with the same video id)
   const currentTrailerKey = current?.trailerKey;
   useEffect(() => {
     setWatchFrac(0);
-  }, [currentTrailerKey]);
+  }, [currentTrailerKey, current?.title]);
 
   useEffect(() => {
     try {
@@ -1704,6 +1801,20 @@ export default function Home() {
 
     const prev = savedPrefetchChannelRef.current;
     if (prev !== null && prev !== activeChannelId) {
+      const leaving = currentRef.current;
+      if (leaving?.trailerKey) {
+        const t = canonicalTitleKey(leaving.title);
+        setTrailerResumeByChannel((m) => {
+          const ch = { ...(m[prev] || {}), [t]: watchFracRef.current };
+          const next = { ...m, [prev]: ch };
+          try {
+            sessionStorage.setItem(TRAILER_RESUME_KEY, JSON.stringify(next));
+          } catch {
+            /* ignore */
+          }
+          return next;
+        });
+      }
       replenishGenRef.current += 1;
       replenishGenInFlight.current = 0;
       try {
@@ -2018,7 +2129,12 @@ export default function Home() {
                 /* ── TRAILER LAYOUT ── */
                 <div className="bg-black">
                   <div ref={videoContainerRef} className="relative bg-black">
-                    <TrailerPlayer videoId={current.trailerKey} onProgress={setWatchFrac} />
+                    <TrailerPlayer
+                      videoId={current.trailerKey}
+                      onProgress={setWatchFrac}
+                      onPlaybackError={handleTrailerPlaybackError}
+                      resumeFromFraction={trailerResumeByChannel[activeChannelId]?.[canonicalTitleKey(current.title)]}
+                    />
                     {/* Fullscreen overlay controls (enter is below with Share) */}
                     {isTrailerFullscreen && (
                       <>
@@ -2049,10 +2165,17 @@ export default function Home() {
                       </>
                     )}
                   </div>
-                  <div className="flex flex-col gap-4 p-4 sm:p-6">
-                    <div className="flex items-start justify-between gap-3">
-                      <TrailerMetadata movie={current} />
-                      <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+                  {!isTrailerFullscreen && (
+                    <div className="flex items-center justify-center border-b border-zinc-800/90 bg-zinc-950/95 px-3 py-2.5 sm:py-3 sm:relative max-sm:fixed max-sm:bottom-0 max-sm:left-0 max-sm:right-0 max-sm:z-30 max-sm:border-b-0 max-sm:border-t max-sm:pb-[max(0.75rem,env(safe-area-inset-bottom))] max-sm:pt-2 max-sm:shadow-[0_-8px_32px_rgba(0,0,0,0.55)]">
+                      <PassNextButton onPass={passCurrentCardStable} prominent />
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-4 p-4 max-sm:pb-24 sm:pb-6 sm:p-6">
+                    <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                      <div className="min-w-0 w-full sm:flex-1 sm:pr-1">
+                        <TrailerMetadata movie={current} />
+                      </div>
+                      <div className="flex shrink-0 items-center justify-end gap-1 sm:gap-2 sm:pt-0.5">
                         {!isTrailerFullscreen && (
                           <button
                             type="button"
@@ -2086,6 +2209,7 @@ export default function Home() {
                       defaultSeen={activeChannelId === "all"}
                       previousRating={historyRef.current.find(e => e.title === current.title)?.userRating}
                       previousMode={historyRef.current.find(e => e.title === current.title)?.ratingMode}
+                      showNextInRating={false}
                     />
                     <PrefetchQueuePanel
                       prefetchQueueUi={prefetchQueueUi}
@@ -2099,9 +2223,13 @@ export default function Home() {
               ) : (
                 /* ── POSTER LAYOUT (no trailer) ── */
                 <div className="flex flex-col gap-4 p-4 sm:p-6">
-                  <div className="flex items-start justify-between gap-3">
-                    <PosterMovieTop movie={current} onOpenPoster={openPosterLightbox} />
-                    <ShareButton onClick={handleShare} toast={shareToast} />
+                  <div className="flex min-w-0 items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <PosterMovieTop movie={current} onOpenPoster={openPosterLightbox} />
+                    </div>
+                    <div className="shrink-0 pt-0.5">
+                      <ShareButton onClick={handleShare} toast={shareToast} />
+                    </div>
                   </div>
                   {current.reason && (
                     <p className="text-sm text-zinc-400 leading-relaxed border-l-2 border-zinc-600 pl-3">

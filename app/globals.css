@@ -19,6 +19,14 @@
   }
 }
 
+/* Prevent a horizontal strip of page background (often white in light color-scheme) when
+   a child (e.g. the nav link row) is wider than the viewport. */
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
