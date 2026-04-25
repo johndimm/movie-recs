@@ -1017,11 +1017,14 @@ const PosterMovieTop = memo(function PosterMovieTop({
   onOpenPoster,
   onPersonClick,
   careerPersonName = null,
+  detailsLoading = false,
 }: {
   movie: CurrentMovie;
   onOpenPoster: (url: string) => void;
   onPersonClick: OnPersonClick;
   careerPersonName?: string | null;
+  /** True while a new title’s details are still being fetched (keeps layout stable vs swapping to a short placeholder). */
+  detailsLoading?: boolean;
 }) {
   return (
     <div className="flex min-w-0 w-full flex-col sm:flex-row gap-4 sm:items-start">
@@ -1030,8 +1033,19 @@ const PosterMovieTop = memo(function PosterMovieTop({
           <button
             type="button"
             onClick={() => onOpenPoster(movie.posterUrl!)}
-            className="rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-zoom-in block"
+            className={`relative rounded-xl overflow-hidden shadow-sm transition-shadow block ${
+              detailsLoading
+                ? "cursor-wait"
+                : "cursor-zoom-in hover:shadow-md"
+            }`}
+            disabled={detailsLoading}
+            aria-busy={detailsLoading}
           >
+            {detailsLoading && (
+              <span className="absolute inset-0 z-10 flex items-center justify-center bg-black/50 text-sm font-medium text-zinc-200">
+                Loading…
+              </span>
+            )}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={movie.posterUrl}
@@ -1292,22 +1306,23 @@ const CareerFilmographyPanel = memo(function CareerFilmographyPanel({
   loading: boolean;
 }) {
   const listRef = useRef<HTMLUListElement>(null);
-  /** Scroll the list’s own viewport — center the active title so it isn’t clipped; uses rects (offsetTop breaks inside overflow). */
+  /** Reveal the active row only after metadata loading settles — avoids list scroll + page layout reflow (hero height) compounding. */
   useLayoutEffect(() => {
+    if (loading) return;
     const list = listRef.current;
     if (!list) return;
     const li = list.children[career.index] as HTMLElement | undefined;
     if (!li) return;
     const listRect = list.getBoundingClientRect();
     const liRect = li.getBoundingClientRect();
-    const liCenterY = liRect.top + liRect.height / 2;
-    const listCenterY = listRect.top + listRect.height / 2;
-    const delta = liCenterY - listCenterY;
-    if (Math.abs(delta) < 1) return;
-    const next = list.scrollTop + delta;
-    const maxScroll = Math.max(0, list.scrollHeight - list.clientHeight);
-    list.scrollTop = Math.max(0, Math.min(next, maxScroll));
-  }, [career.index, career.films.length]);
+    const liTop = liRect.top - listRect.top;
+    const liBottom = liRect.bottom - listRect.top;
+    if (liTop < 0) {
+      list.scrollTop += liTop;
+    } else if (liBottom > list.clientHeight) {
+      list.scrollTop += liBottom - list.clientHeight;
+    }
+  }, [career.index, career.films.length, loading]);
 
   return (
     <div className="rounded-xl bg-zinc-900 border border-zinc-700 overflow-hidden">
@@ -1317,7 +1332,7 @@ const CareerFilmographyPanel = memo(function CareerFilmographyPanel({
           <p className="text-lg font-bold leading-snug text-zinc-50 sm:text-xl break-words">
             {career.personName}
           </p>
-          <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-zinc-500">
+          <p className="min-h-[1.25rem] mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-zinc-500">
             <span>{career.role === "director" ? "Director" : "Actor"} · {career.index + 1} of {career.films.length}</span>
             {loading && <span className="text-indigo-400 animate-pulse">Loading…</span>}
           </p>
@@ -1331,7 +1346,10 @@ const CareerFilmographyPanel = memo(function CareerFilmographyPanel({
         </button>
         </div>
       </div>
-      <ul ref={listRef} className="max-h-52 overflow-y-auto divide-y divide-zinc-800">
+      <ul
+        ref={listRef}
+        className="max-h-52 overflow-y-auto divide-y divide-zinc-800 [overflow-anchor:none]"
+      >
         {career.films.map((film, i) => (
           <li key={film.tmdbId}>
             <button
@@ -1503,6 +1521,9 @@ export default function Home() {
   watchFracRef.current = watchFrac;
   const cardRef = useRef<HTMLDivElement>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
+  /** In career+trailers, min height of the top media block while the next title loads (avoids 16:9 video → short placeholder jump). */
+  const careerTrailerBlockRef = useRef<HTMLDivElement>(null);
+  const [careerTrailerBlockStableH, setCareerTrailerBlockStableH] = useState(0);
   const prefetchRef = useRef<CurrentMovie[]>([]);
   const [prefetchQueueUi, setPrefetchQueueUi] = useState<CurrentMovie[]>([]);
   const replenishGenRef = useRef(0);
@@ -1659,6 +1680,26 @@ export default function Home() {
   useEffect(() => {
     setWatchFrac((w) => (w === 0 ? w : 0));
   }, [currentTrailerKey, current?.title]);
+
+  useLayoutEffect(() => {
+    if (!careerMode || displayMode !== "trailers" || careerLoading || isTrailerFullscreen) return;
+    const el = careerTrailerBlockRef.current;
+    if (!el) return;
+    const h = Math.round(el.getBoundingClientRect().height);
+    if (h > 0) setCareerTrailerBlockStableH(h);
+  }, [
+    careerMode,
+    displayMode,
+    careerLoading,
+    isTrailerFullscreen,
+    current?.title,
+    current?.trailerKey,
+    current?.posterUrl,
+  ]);
+
+  useEffect(() => {
+    if (!careerMode) setCareerTrailerBlockStableH(0);
+  }, [careerMode]);
 
   useEffect(() => {
     try {
@@ -2797,7 +2838,15 @@ export default function Home() {
               )}
               {displayMode === "trailers" ? (
                 /* ── TRAILER LAYOUT (always in “trailers” mode — never swap in a full poster page while a trailer may load) ── */
-                <div className="bg-black">
+                <div
+                  ref={careerTrailerBlockRef}
+                  className="bg-black"
+                  style={
+                    careerMode && careerLoading && careerTrailerBlockStableH > 0
+                      ? { minHeight: careerTrailerBlockStableH }
+                      : undefined
+                  }
+                >
                   {current.trailerKey ? (
                     <div ref={videoContainerRef} className="relative bg-black">
                       <TrailerPlayer
@@ -2842,7 +2891,7 @@ export default function Home() {
                         </>
                       )}
                     </div>
-                  ) : current.posterUrl && !current.trailerKey && !careerLoading ? (
+                  ) : current.posterUrl && !current.trailerKey ? (
                     <div className="border-b border-zinc-800/80 bg-zinc-950">
                       <div className="flex min-w-0 items-start justify-between gap-3 p-4 sm:p-6">
                         <div className="min-w-0 flex-1">
@@ -2851,17 +2900,12 @@ export default function Home() {
                             onOpenPoster={openPosterLightbox}
                             onPersonClick={enterCareerMode}
                             careerPersonName={careerMode?.personName ?? null}
+                            detailsLoading={careerLoading}
                           />
                         </div>
                         <div className="shrink-0 pt-0.5">
                           <ShareButton onClick={handleShare} toast={shareToast} />
                         </div>
-                      </div>
-                    </div>
-                  ) : current.posterUrl && !current.trailerKey && careerLoading ? (
-                    <div ref={videoContainerRef} className="relative bg-black">
-                      <div className="flex aspect-video w-full items-center justify-center bg-zinc-950 text-sm text-zinc-500">
-                        Loading trailer…
                       </div>
                     </div>
                   ) : (
@@ -2971,11 +3015,12 @@ export default function Home() {
                   <div className="flex min-w-0 items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <PosterMovieTop
-                      movie={current}
-                      onOpenPoster={openPosterLightbox}
-                      onPersonClick={enterCareerMode}
-                      careerPersonName={careerMode?.personName ?? null}
-                    />
+                        movie={current}
+                        onOpenPoster={openPosterLightbox}
+                        onPersonClick={enterCareerMode}
+                        careerPersonName={careerMode?.personName ?? null}
+                        detailsLoading={careerLoading}
+                      />
                     </div>
                     <div className="shrink-0 pt-0.5">
                       <ShareButton onClick={handleShare} toast={shareToast} />
