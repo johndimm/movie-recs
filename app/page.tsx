@@ -291,6 +291,8 @@ const StarRow = memo(function StarRow({
   label,
   onRate,
   compact = false,
+  /** Smaller controls when Prev/Next share the row (mobile) — keeps stars from overlapping */
+  careerNavTight = false,
 }: {
   filled: number;
   color: "red" | "blue";
@@ -298,6 +300,7 @@ const StarRow = memo(function StarRow({
   onRate: (stars: number) => void;
   /** Tighter label + stars for single-line toolbar layout */
   compact?: boolean;
+  careerNavTight?: boolean;
 }) {
   const [hover, setHover] = useState(0);
   /** Value from last click — keeps stars lit after pointer leaves (hover clears on mouseleave). */
@@ -309,12 +312,24 @@ const StarRow = memo(function StarRow({
   const active = hover || filled || committed;
   const filledColor = color === "red" ? "text-red-500" : "text-blue-500";
 
+  const starSizeClass =
+    compact && careerNavTight
+      ? "text-3xl sm:text-4xl"
+      : compact
+        ? "text-5xl sm:text-6xl"
+        : "text-3xl";
+  const labelClass =
+    compact && careerNavTight
+      ? "text-left text-xs w-14 sm:w-16 sm:text-sm"
+      : compact
+        ? "text-left text-sm w-16 sm:w-20 sm:text-base"
+        : "text-right text-sm w-28";
   return (
     <div
       className={`flex min-w-0 flex-wrap items-center ${compact ? "justify-center gap-x-2 gap-y-1 sm:gap-x-3 sm:gap-y-0" : "gap-3"}`}
     >
       <span
-        className={`font-medium text-zinc-200 shrink-0 leading-snug ${compact ? "text-left text-sm w-16 sm:w-20 sm:text-base" : "text-right text-sm w-28"}`}
+        className={`font-medium text-zinc-200 shrink-0 leading-snug ${labelClass}`}
       >
         {label}
       </span>
@@ -331,7 +346,7 @@ const StarRow = memo(function StarRow({
               setCommitted(v);
               onRate(v);
             }}
-            className={`relative leading-none select-none ${compact ? "text-5xl sm:text-6xl" : "text-3xl"}`}
+            className={`relative leading-none select-none ${starSizeClass}`}
             style={{ touchAction: "manipulation" }}
           >
             <span className="text-zinc-600">★</span>
@@ -399,8 +414,12 @@ const PassNextButton = memo(function PassNextButton({
     </svg>
   );
   const label = isPrev ? "Prev" : "Next";
-  const nextTitle = isPrev ? (disabled ? "First title in this list" : "Previous title") : "Go to the next title";
-  const nextAria = isPrev ? (disabled ? "No previous title" : "Previous title") : "Next title";
+  const nextTitle = isPrev
+    ? (disabled ? "First title in this list" : "Previous title")
+    : (disabled ? "No more titles in this list" : "Go to the next title");
+  const nextAria = isPrev
+    ? (disabled ? "No previous title" : "Previous title")
+    : (disabled ? "No next title" : "Next title");
   return (
     <button
       type="button"
@@ -944,7 +963,7 @@ const TrailerMetadata = memo(function TrailerMetadata({
         </span>
         {movie.rtScore && <RTBadge score={movie.rtScore} />}
       </div>
-      <h2 className="text-2xl font-bold text-white mt-1 leading-tight">
+      <h2 className="text-2xl font-bold text-white mt-1 leading-tight w-full min-w-0 break-words">
         {!movie.trailerKey ? (
           <a
             href={youtubeSearchUrlForMovie(movie.title, movie.type, movie.year)}
@@ -985,7 +1004,9 @@ const TrailerMetadata = memo(function TrailerMetadata({
           ))}
         </p>
       )}
-      {movie.plot && <p className="mt-2 text-sm text-zinc-300 leading-relaxed">{movie.plot}</p>}
+      {movie.plot && (
+        <p className="mt-2 text-sm text-zinc-300 leading-relaxed w-full min-w-0 break-words">{movie.plot}</p>
+      )}
     </div>
   );
 });
@@ -1003,9 +1024,9 @@ const PosterMovieTop = memo(function PosterMovieTop({
   careerPersonName?: string | null;
 }) {
   return (
-    <div className="flex min-w-0 gap-4 sm:items-start">
+    <div className="flex min-w-0 w-full flex-col sm:flex-row gap-4 sm:items-start">
       {movie.posterUrl && !movie.trailerKey && (
-        <div className="shrink-0 self-start">
+        <div className="w-full sm:w-auto shrink-0 self-center sm:self-start flex justify-center sm:justify-start">
           <button
             type="button"
             onClick={() => onOpenPoster(movie.posterUrl!)}
@@ -1016,20 +1037,20 @@ const PosterMovieTop = memo(function PosterMovieTop({
               src={movie.posterUrl}
               alt={`${movie.title} poster`}
               referrerPolicy="no-referrer"
-              className="w-28 sm:w-48 h-[10.5rem] sm:h-auto object-cover object-center sm:object-top"
+              className="w-32 sm:w-48 h-[12rem] sm:h-auto object-cover object-center sm:object-top"
             />
           </button>
         </div>
       )}
       {!movie.posterUrl && (
-        <div className="shrink-0 self-start w-28 sm:w-48 h-[10.5rem] sm:h-[18rem] rounded-xl bg-zinc-100 border border-zinc-200 flex flex-col items-center justify-center gap-1 text-zinc-400 text-xs px-2 text-center">
+        <div className="w-full sm:w-48 sm:shrink-0 h-[10.5rem] sm:h-[18rem] self-center sm:self-start max-w-xs mx-auto sm:max-w-none sm:mx-0 rounded-xl bg-zinc-100 border border-zinc-200 flex flex-col items-center justify-center gap-1 text-zinc-400 text-xs px-2 text-center">
           <span className="text-2xl" aria-hidden>
             🎬
           </span>
           <span>No poster</span>
         </div>
       )}
-      <div className="flex-1 min-w-0">
+      <div className="w-full min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
             {movie.type === "tv" ? "TV Series" : "Movie"}
@@ -1037,7 +1058,7 @@ const PosterMovieTop = memo(function PosterMovieTop({
           </span>
           {movie.rtScore && <RTBadge score={movie.rtScore} />}
         </div>
-        <h2 className="text-xl sm:text-2xl font-bold text-white mt-0.5 leading-tight">
+        <h2 className="text-xl sm:text-2xl font-bold text-white mt-0.5 leading-tight w-full min-w-0 break-words">
           {!movie.trailerKey ? (
             <a
               href={youtubeSearchUrlForMovie(movie.title, movie.type, movie.year)}
@@ -1103,6 +1124,7 @@ const MovieRatingBlock = memo(function MovieRatingBlock({
   /** Under video vs poster: same inner controls; wrapper only (strip vs rounded card). */
   layout = "card",
   careerPrevNav = null,
+  careerNextDisabled = false,
 }: {
   passCurrentCardStable: () => void;
   onRate: (stars: number, mode: "seen" | "unseen") => void;
@@ -1118,6 +1140,8 @@ const MovieRatingBlock = memo(function MovieRatingBlock({
   layout?: "card" | "trailerBar";
   /** Career mode: show Prev; disabled at first film to keep 3-col layout. */
   careerPrevNav?: { onPass: () => void; disabled: boolean } | null;
+  /** Career mode: disable Next on last film in filmography (passCurrentCard is a no-op there). */
+  careerNextDisabled?: boolean;
 }) {
   const seenRadioGroupName = useId();
   const hasPrev = previousRating !== undefined && previousRating > 0;
@@ -1125,7 +1149,11 @@ const MovieRatingBlock = memo(function MovieRatingBlock({
   const [seenStatus, setSeenStatus] = useState<"unseen" | null>(() => initialSeen);
   const [userLocked, setUserLocked] = useState(() => hasPrev);
   const [lockedValue, setLockedValue] = useState(() => hasPrev ? previousRating! : 0);
+  /** Only re-sync "seen" / lock state when the **title** changes — not on unrelated parent re-renders. */
+  const lastResetMovieTitleRef = useRef<string | undefined>(undefined);
   useEffect(() => {
+    if (lastResetMovieTitleRef.current === movieTitle) return;
+    lastResetMovieTitleRef.current = movieTitle;
     const prev = previousRating !== undefined && previousRating > 0;
     setSeenStatus(prev ? (previousMode === "unseen" ? "unseen" : null) : (defaultSeen ? null : "unseen"));
     setUserLocked(prev);
@@ -1138,10 +1166,12 @@ const MovieRatingBlock = memo(function MovieRatingBlock({
   const autoFilled = WATCH_PROGRESS_AUTO_RATING ? progressToStars(watchFrac) : 0;
   const displayFilled = userLocked ? lockedValue : autoFilled;
 
+  const navPairTight = Boolean(careerPrevNav && showNextInRating);
   const starBlock = seenStatus === null ? (
     <StarRow
       key={`${starKeyPrefix}-seen-${movieTitle}`}
       compact
+      careerNavTight={navPairTight}
       filled={displayFilled}
       color="red"
       label="Rating"
@@ -1151,6 +1181,7 @@ const MovieRatingBlock = memo(function MovieRatingBlock({
     <StarRow
       key={`${starKeyPrefix}-unseen-${movieTitle}`}
       compact
+      careerNavTight={navPairTight}
       filled={displayFilled}
       color="blue"
       label="Interest"
@@ -1158,30 +1189,42 @@ const MovieRatingBlock = memo(function MovieRatingBlock({
     />
   );
 
-  const navPair = Boolean(careerPrevNav && showNextInRating);
+  const navPair = navPairTight;
 
   const navRow = (
     <div
       className={
         navPair
-          ? "grid w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 sm:gap-x-3"
+          ? "grid w-full min-w-0 grid-cols-2 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center gap-x-2 gap-y-2 sm:gap-y-0 sm:gap-x-3"
           : `flex min-w-0 flex-wrap items-center justify-center gap-x-4 gap-y-3 sm:gap-x-5 ${
               showNextInRating ? "" : "justify-center"
             }`
       }
     >
       {careerPrevNav && (
-        <PassNextButton
-          onPass={careerPrevNav.onPass}
-          disabled={careerPrevNav.disabled}
-          prominent
-          direction="prev"
-        />
+        <div className="shrink-0 max-sm:col-start-1 max-sm:row-start-1 sm:col-start-1 sm:row-start-1 self-center">
+          <PassNextButton
+            onPass={careerPrevNav.onPass}
+            disabled={careerPrevNav.disabled}
+            prominent
+            direction="prev"
+          />
+        </div>
       )}
-      <div className={navPair ? "min-w-0 flex justify-center" : "min-w-0 flex shrink"}>
+      <div
+        className={
+          navPair
+            ? "min-w-0 w-full max-sm:col-span-2 max-sm:row-start-2 sm:col-start-2 sm:row-start-1 flex justify-center"
+            : "min-w-0 flex shrink"
+        }
+      >
         {starBlock}
       </div>
-      {showNextInRating && <PassNextButton onPass={passCurrentCardStable} prominent />}
+      {showNextInRating && (
+        <div className="shrink-0 max-sm:col-start-2 max-sm:row-start-1 sm:col-start-3 self-center">
+          <PassNextButton onPass={passCurrentCardStable} prominent disabled={careerNextDisabled} />
+        </div>
+      )}
     </div>
   );
 
@@ -1249,37 +1292,40 @@ const CareerFilmographyPanel = memo(function CareerFilmographyPanel({
   loading: boolean;
 }) {
   const listRef = useRef<HTMLUListElement>(null);
-  /** Scroll only the list container — `scrollIntoView` on items can scroll the page and feel jumpy. */
+  /** Scroll the list’s own viewport — center the active title so it isn’t clipped; uses rects (offsetTop breaks inside overflow). */
   useLayoutEffect(() => {
     const list = listRef.current;
     if (!list) return;
-    const el = list.children[career.index] as HTMLElement | undefined;
-    if (!el) return;
-    const elTop = el.offsetTop;
-    const elBottom = elTop + el.offsetHeight;
-    const viewTop = list.scrollTop;
-    const viewBottom = viewTop + list.clientHeight;
-    if (elTop < viewTop) list.scrollTop = elTop;
-    else if (elBottom > viewBottom) list.scrollTop = elBottom - list.clientHeight;
-  }, [career.index]);
+    const li = list.children[career.index] as HTMLElement | undefined;
+    if (!li) return;
+    const listRect = list.getBoundingClientRect();
+    const liRect = li.getBoundingClientRect();
+    const liCenterY = liRect.top + liRect.height / 2;
+    const listCenterY = listRect.top + listRect.height / 2;
+    const delta = liCenterY - listCenterY;
+    if (Math.abs(delta) < 1) return;
+    const next = list.scrollTop + delta;
+    const maxScroll = Math.max(0, list.scrollHeight - list.clientHeight);
+    list.scrollTop = Math.max(0, Math.min(next, maxScroll));
+  }, [career.index, career.films.length]);
 
   return (
     <div className="rounded-xl bg-zinc-900 border border-zinc-700 overflow-hidden">
-        <div className="px-3 py-2 border-b border-zinc-700 bg-zinc-800/60">
-        <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-xs font-semibold text-zinc-300 truncate">
+        <div className="px-3 py-2.5 border-b border-zinc-700 bg-zinc-800/60 sm:px-4 sm:py-3">
+        <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-lg font-bold leading-snug text-zinc-50 sm:text-xl break-words">
             {career.personName}
-          </span>
-          <span className="text-xs text-zinc-500">
-            {career.role === "director" ? "Director" : "Actor"} · {career.index + 1} of {career.films.length}
-          </span>
-          {loading && <span className="text-xs text-indigo-400 animate-pulse">Loading…</span>}
+          </p>
+          <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-zinc-500">
+            <span>{career.role === "director" ? "Director" : "Actor"} · {career.index + 1} of {career.films.length}</span>
+            {loading && <span className="text-indigo-400 animate-pulse">Loading…</span>}
+          </p>
         </div>
         <button
           type="button"
           onClick={onExit}
-          className="text-xs text-zinc-500 hover:text-white transition-colors shrink-0 ml-2"
+          className="shrink-0 text-xs text-zinc-500 hover:text-white transition-colors"
         >
           Exit career
         </button>
@@ -2503,6 +2549,11 @@ export default function Home() {
     return { onPass: handleCareerPrev, disabled: careerMode.index === 0 };
   }, [careerMode, careerMode?.index, handleCareerPrev]);
 
+  const careerAtLastFilm = useMemo(
+    () => Boolean(careerMode && careerMode.films.length > 0 && careerMode.index === careerMode.films.length - 1),
+    [careerMode],
+  );
+
   const enterCareerMode = useCallback(async (name: string, role: "actor" | "director") => {
     setCareerLoading((s) => (s ? s : true));
     try {
@@ -2724,21 +2775,21 @@ export default function Home() {
             <div>
               {careerMode && (
                 <div
-                  className="flex items-center justify-between gap-2 border-b border-indigo-500/35 bg-indigo-950/45 px-3 py-2 sm:px-4"
+                  className="flex flex-col gap-2 border-b border-indigo-500/35 bg-indigo-950/45 px-3 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-3 sm:px-4 sm:py-3.5"
                   title="LLM pick queue is paused. Only the filmography list below is used until you exit."
                 >
-                  <p className="min-w-0 text-sm text-indigo-100">
-                    <span className="font-semibold">Career: </span>
-                    <span className="text-indigo-50">{careerMode.personName}</span>
-                    <span className="text-indigo-300/90">
-                      {" "}
-                      · {careerMode.role === "director" ? "Director" : "Actor"} · {careerMode.index + 1} of {careerMode.films.length}
-                    </span>
-                  </p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-2xl font-bold leading-tight tracking-tight text-indigo-50 sm:text-3xl break-words">
+                      {careerMode.personName}
+                    </p>
+                    <p className="mt-1 text-sm text-indigo-300/90">
+                      {careerMode.role === "director" ? "Director" : "Actor"} filmography · {careerMode.index + 1} of {careerMode.films.length}
+                    </p>
+                  </div>
                   <button
                     type="button"
                     onClick={exitCareerMode}
-                    className="shrink-0 rounded-lg border border-indigo-500/50 bg-indigo-900/50 px-2.5 py-1.5 text-xs font-semibold text-indigo-100 transition-colors hover:bg-indigo-800/80"
+                    className="shrink-0 self-end rounded-lg border border-indigo-500/50 bg-indigo-900/50 px-2.5 py-1.5 text-xs font-semibold text-indigo-100 transition-colors hover:bg-indigo-800/80 sm:self-center"
                   >
                     Exit career
                   </button>
@@ -2760,10 +2811,16 @@ export default function Home() {
                         <>
                           <button
                             type="button"
+                            disabled={careerAtLastFilm}
                             onPointerDown={(e) => e.preventDefault()}
                             onClick={passCurrentCardStable}
-                            className="fixed top-5 right-5 z-50 inline-flex items-center gap-2 rounded-xl border-2 border-indigo-200/90 bg-indigo-600 px-6 py-3 text-base font-semibold text-white shadow-lg shadow-indigo-950/40 hover:bg-indigo-500 hover:border-white/90 transition-all select-none"
-                            aria-label="Next title"
+                            className={`fixed top-5 right-5 z-50 inline-flex items-center gap-2 rounded-xl border-2 px-6 py-3 text-base font-semibold shadow-lg transition-all select-none ${
+                              careerAtLastFilm
+                                ? "cursor-not-allowed border-zinc-600 bg-zinc-800 text-zinc-500 shadow-none opacity-60"
+                                : "border-indigo-200/90 bg-indigo-600 text-white shadow-indigo-950/40 hover:bg-indigo-500 hover:border-white/90"
+                            }`}
+                            title={careerAtLastFilm ? "No more titles in this list" : "Go to the next title"}
+                            aria-label={careerAtLastFilm ? "No next title" : "Next title"}
                           >
                             Next
                             <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
@@ -2826,6 +2883,7 @@ export default function Home() {
                       previousRating={historyRef.current.find((e) => e.title === current.title)?.userRating}
                       previousMode={historyRef.current.find((e) => e.title === current.title)?.ratingMode}
                       careerPrevNav={careerPrevNav}
+                      careerNextDisabled={careerAtLastFilm}
                     />
                   )}
                   <div className="flex flex-col gap-4 p-4 sm:pb-6 sm:p-6">
@@ -2887,12 +2945,12 @@ export default function Home() {
                     )}
                   </div>
                   {current.trailerKey && current.posterUrl && !isTrailerFullscreen && (
-                    <div className="flex justify-center border-t border-zinc-800 bg-zinc-950 px-3 pb-4 pt-3 sm:px-6 sm:pb-5 sm:pt-3">
+                    <div className="flex w-full min-w-0 justify-center border-t border-zinc-800 bg-zinc-950 px-3 pb-4 pt-3 sm:px-6 sm:pb-5 sm:pt-3">
                       <button
                         type="button"
                         onPointerDown={(e) => e.preventDefault()}
                         onClick={() => openPosterLightbox(current.posterUrl!)}
-                        className="w-full max-w-44 cursor-zoom-in overflow-hidden rounded-lg border border-zinc-800/90 shadow-sm transition-shadow hover:border-zinc-600 sm:max-w-52"
+                        className="w-1/2 min-w-0 max-w-full cursor-zoom-in overflow-hidden rounded-lg border border-zinc-800/90 shadow-sm transition-shadow hover:border-zinc-600"
                         title="View poster"
                         aria-label={`View ${current.title} poster full size`}
                       >
@@ -2901,7 +2959,7 @@ export default function Home() {
                           src={current.posterUrl}
                           alt={`${current.title} poster`}
                           referrerPolicy="no-referrer"
-                          className="mx-auto block h-auto w-full max-h-56 object-contain object-top sm:max-h-64"
+                          className="mx-auto block h-auto w-full max-h-72 object-contain object-top sm:max-h-80"
                         />
                       </button>
                     </div>
@@ -2938,6 +2996,7 @@ export default function Home() {
                     previousRating={historyRef.current.find(e => e.title === current.title)?.userRating}
                     previousMode={historyRef.current.find(e => e.title === current.title)?.ratingMode}
                     careerPrevNav={careerPrevNav}
+                    careerNextDisabled={careerAtLastFilm}
                   />
                   {careerMode ? (
                     <CareerFilmographyPanel
