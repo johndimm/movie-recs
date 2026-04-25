@@ -42,8 +42,7 @@ import {
 } from "../../lib/ratingScale";
 
 /**
- * Items per LLM response — 5 items ≈ 750 output tokens ≈ ~10–15s on DeepSeek.
- * Smaller + parallel beats larger + sequential for keeping the prefetch queue full.
+ * Items per LLM response. Client may request up to MAX_BATCH; larger responses need more output budget below.
  */
 const DEFAULT_BATCH = 5;
 const MAX_BATCH = 8;
@@ -54,8 +53,8 @@ const MAX_LOW_RT_WANT_LINES = 28;
 const MAX_HIGH_RT_SKIP_LINES = 28;
 const LOW_RT_THRESHOLD = 60; // want-to-watch: RT below this is a strong signal
 const HIGH_RT_THRESHOLD = 70; // not interested: RT at/above this is a strong signal
-/** 5 items × ~200 tokens each + overhead. */
-const LLM_OUTPUT_MAX_TOKENS = 1500;
+/** Scales with batch size (8 titles × short JSON + reasons). */
+const LLM_OUTPUT_MAX_TOKENS = 2200;
 
 function getYoutubeDataApiKey(): string | undefined {
   return process.env.YOUTUBE_API_KEY || process.env.YOUTUBE_DATA_API_KEY;

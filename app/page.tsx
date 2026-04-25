@@ -199,16 +199,17 @@ export interface WatchlistEntry {
   addedAt: string;
 }
 
-/** How many titles the LLM returns per single POST — 5 items ≈ 750 output tokens ≈ 10–15s on DeepSeek. */
-const LLM_BATCH_SIZE = 5;
-/** Max concurrent LLM fetches. With daisy-chaining, this many batches run continuously until HIGH_WATER_MARK is reached. */
+/**
+ * Titles per LLM POST. Server max is 8; 7 is a good balance of throughput vs latency.
+ * (At 5, the visible queue could barely exceed one batch before capping—felt too short for niche channels.)
+ */
+const LLM_BATCH_SIZE = 7;
+/** Max concurrent LLM fetches. With daisy-chaining, this many batches run until HIGH_WATER_MARK. */
 const MAX_REPLENISH_IN_FLIGHT = 3;
 /**
- * Stop daisy-chaining replenishes once the queue has this many items.
- * Lower = new ratings affect upcoming picks sooner (fewer “stale” cards buffered).
- * Higher = less risk of an empty queue if the LLM is slow. ~6 ≈ 1–2 batches ahead.
+ * Max prefetch depth before daisy-chaining pauses. ~3 full batches of LLM_BATCH_SIZE.
  */
-const HIGH_WATER_MARK = 6;
+const HIGH_WATER_MARK = 21;
 
 /**
  * Rotating lenses that force the LLM to explore different corners of cinema on each batch.
@@ -347,19 +348,31 @@ const StarRow = memo(function StarRow({
   );
 });
 
+const chevronPathNext =
+  "M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z";
+const chevronPathPrev =
+  "M17 10a.75.75 0 01-.75.75H6.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L6.612 9.25H16.25A.75.75 0 0117 10z";
+
 const PassNextButton = memo(function PassNextButton({
   onPass,
   compact = false,
   prominent = false,
   /** Trailer strip: next to star row — larger than compact, emerald (not indigo poster Next) */
   muted = false,
+  /** Poster / career: match Prev/Next as mirrored pair (icon on outer side). */
+  direction = "next",
+  disabled = false,
 }: {
   onPass: () => void;
   compact?: boolean;
   /** Larger, hero-style — use when Next is the primary control above the rating row */
   prominent?: boolean;
   muted?: boolean;
+  direction?: "next" | "prev";
+  /** Kept enabled for layout; no-op at start of list (e.g. career first film). */
+  disabled?: boolean;
 }) {
+  const isPrev = direction === "prev";
   const sizing = prominent
     ? "gap-2 rounded-xl px-8 py-3.5 text-base font-semibold shadow-lg sm:px-10 sm:py-4 sm:text-lg"
     : compact
@@ -379,19 +392,38 @@ const PassNextButton = memo(function PassNextButton({
     : muted
       ? "border-2 border-emerald-300/50 bg-emerald-600 text-white shadow-lg shadow-emerald-950/30 hover:border-emerald-200/80 hover:bg-emerald-500 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
       : "border-2 border-indigo-200/90 bg-indigo-600 text-white shadow-lg shadow-indigo-950/40 hover:border-white/90 hover:bg-indigo-500 hover:shadow-xl active:scale-[0.98] active:brightness-95 focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900";
+  const iconColor = muted ? "text-zinc-200" : "text-white";
+  const icon = (
+    <svg className={`${iconColor} ${iconClass}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+      <path fillRule="evenodd" d={isPrev ? chevronPathPrev : chevronPathNext} clipRule="evenodd" />
+    </svg>
+  );
+  const label = isPrev ? "Prev" : "Next";
+  const nextTitle = isPrev ? (disabled ? "First title in this list" : "Previous title") : "Go to the next title";
+  const nextAria = isPrev ? (disabled ? "No previous title" : "Previous title") : "Next title";
   return (
     <button
       type="button"
+      disabled={disabled}
       onPointerDown={(e) => e.preventDefault()}
       onClick={onPass}
-      className={`inline-flex items-center shrink-0 touch-manipulation transition-all select-none ${surface} focus-visible:outline-none ${sizing}`}
-      title="Go to the next title"
-      aria-label="Next title"
+      className={`inline-flex items-center justify-center shrink-0 touch-manipulation transition-all select-none ${surface} focus-visible:outline-none ${sizing} ${
+        disabled ? "cursor-not-allowed opacity-40" : ""
+      }`}
+      title={nextTitle}
+      aria-label={nextAria}
     >
-      Next
-      <svg className={`text-white ${iconClass}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden>
-        <path fillRule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clipRule="evenodd" />
-      </svg>
+      {isPrev ? (
+        <>
+          {icon}
+          {label}
+        </>
+      ) : (
+        <>
+          {label}
+          {icon}
+        </>
+      )}
     </button>
   );
 });
@@ -859,8 +891,50 @@ const ShareButton = memo(function ShareButton({ onClick, toast }: { onClick: () 
   );
 });
 
+type OnPersonClick = (name: string, role: "actor" | "director") => void;
+
+function personNamesMatch(careerName: string, creditName: string): boolean {
+  return careerName.trim().toLowerCase() === creditName.trim().toLowerCase();
+}
+
+function PersonLink({
+  name,
+  role,
+  onClick,
+  careerHighlight = false,
+}: {
+  name: string;
+  role: "actor" | "director";
+  onClick: OnPersonClick;
+  /** Career mode: this credit matches the person whose filmography is open. */
+  careerHighlight?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onClick(name, role)}
+      className={
+        careerHighlight
+          ? "text-left font-semibold text-indigo-200 ring-1 ring-indigo-400/50 rounded-sm px-1 -my-0.5 bg-indigo-950/55 hover:bg-indigo-900/60 hover:text-indigo-100 transition-colors"
+          : "hover:text-indigo-300 hover:underline underline-offset-2 transition-colors text-left"
+      }
+    >
+      {name}
+    </button>
+  );
+}
+
 /** Trailer layout: title block only — isolated from rating state. */
-const TrailerMetadata = memo(function TrailerMetadata({ movie }: { movie: CurrentMovie }) {
+const TrailerMetadata = memo(function TrailerMetadata({
+  movie,
+  onPersonClick,
+  careerPersonName = null,
+}: {
+  movie: CurrentMovie;
+  onPersonClick: OnPersonClick;
+  /** When set (career mode), that person’s name is highlighted in the credit lines. */
+  careerPersonName?: string | null;
+}) {
   return (
     <div className="min-w-0 w-full max-w-full">
       <div className="flex min-w-0 items-center gap-2 flex-wrap">
@@ -870,14 +944,46 @@ const TrailerMetadata = memo(function TrailerMetadata({ movie }: { movie: Curren
         </span>
         {movie.rtScore && <RTBadge score={movie.rtScore} />}
       </div>
-      <h2 className="text-2xl font-bold text-white mt-1 leading-tight">{movie.title}</h2>
+      <h2 className="text-2xl font-bold text-white mt-1 leading-tight">
+        {!movie.trailerKey ? (
+          <a
+            href={youtubeSearchUrlForMovie(movie.title, movie.type, movie.year)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline decoration-zinc-600 decoration-2 underline-offset-2 hover:text-indigo-400 hover:decoration-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 rounded-sm"
+            aria-label={`Search YouTube for ${movie.title} trailer`}
+          >
+            {movie.title}
+          </a>
+        ) : (
+          movie.title
+        )}
+      </h2>
       {movie.director && (
         <p className="mt-1 text-sm text-zinc-300">
-          <span className="text-zinc-400">{movie.type === "tv" ? "Created by" : "Dir."}</span> {movie.director}
+          <span className="text-zinc-400">{movie.type === "tv" ? "Created by" : "Dir."}</span>{" "}
+          <PersonLink
+            name={movie.director}
+            role="director"
+            onClick={onPersonClick}
+            careerHighlight={!!careerPersonName && personNamesMatch(careerPersonName, movie.director)}
+          />
         </p>
       )}
       {movie.actors.length > 0 && (
-        <p className="mt-0.5 text-sm text-zinc-300">{movie.actors.join(" · ")}</p>
+        <p className="mt-0.5 text-sm text-zinc-300">
+          {movie.actors.map((a, i) => (
+            <span key={a}>
+              {i > 0 && " · "}
+              <PersonLink
+                name={a}
+                role="actor"
+                onClick={onPersonClick}
+                careerHighlight={!!careerPersonName && personNamesMatch(careerPersonName, a)}
+              />
+            </span>
+          ))}
+        </p>
       )}
       {movie.plot && <p className="mt-2 text-sm text-zinc-300 leading-relaxed">{movie.plot}</p>}
     </div>
@@ -888,14 +994,18 @@ const TrailerMetadata = memo(function TrailerMetadata({ movie }: { movie: Curren
 const PosterMovieTop = memo(function PosterMovieTop({
   movie,
   onOpenPoster,
+  onPersonClick,
+  careerPersonName = null,
 }: {
   movie: CurrentMovie;
   onOpenPoster: (url: string) => void;
+  onPersonClick: OnPersonClick;
+  careerPersonName?: string | null;
 }) {
   return (
     <div className="flex min-w-0 gap-4 sm:items-start">
-      <div className="shrink-0 self-start">
-        {movie.posterUrl ? (
+      {movie.posterUrl && !movie.trailerKey && (
+        <div className="shrink-0 self-start">
           <button
             type="button"
             onClick={() => onOpenPoster(movie.posterUrl!)}
@@ -909,15 +1019,16 @@ const PosterMovieTop = memo(function PosterMovieTop({
               className="w-28 sm:w-48 h-[10.5rem] sm:h-auto object-cover object-center sm:object-top"
             />
           </button>
-        ) : (
-          <div className="w-28 sm:w-48 h-[10.5rem] sm:h-[18rem] rounded-xl bg-zinc-100 border border-zinc-200 flex flex-col items-center justify-center gap-1 text-zinc-400 text-xs px-2 text-center">
-            <span className="text-2xl" aria-hidden>
-              🎬
-            </span>
-            <span>No poster</span>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
+      {!movie.posterUrl && (
+        <div className="shrink-0 self-start w-28 sm:w-48 h-[10.5rem] sm:h-[18rem] rounded-xl bg-zinc-100 border border-zinc-200 flex flex-col items-center justify-center gap-1 text-zinc-400 text-xs px-2 text-center">
+          <span className="text-2xl" aria-hidden>
+            🎬
+          </span>
+          <span>No poster</span>
+        </div>
+      )}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
@@ -943,11 +1054,29 @@ const PosterMovieTop = memo(function PosterMovieTop({
         </h2>
         {movie.director && (
           <p className="mt-1 text-sm text-zinc-300">
-            <span className="text-zinc-400">{movie.type === "tv" ? "Created by" : "Dir."}</span> {movie.director}
+            <span className="text-zinc-400">{movie.type === "tv" ? "Created by" : "Dir."}</span>{" "}
+            <PersonLink
+              name={movie.director}
+              role="director"
+              onClick={onPersonClick}
+              careerHighlight={!!careerPersonName && personNamesMatch(careerPersonName, movie.director)}
+            />
           </p>
         )}
         {movie.actors.length > 0 && (
-          <p className="mt-0.5 text-sm text-zinc-300">{movie.actors.join(" · ")}</p>
+          <p className="mt-0.5 text-sm text-zinc-300">
+            {movie.actors.map((a, i) => (
+              <span key={a}>
+                {i > 0 && " · "}
+                <PersonLink
+                  name={a}
+                  role="actor"
+                  onClick={onPersonClick}
+                  careerHighlight={!!careerPersonName && personNamesMatch(careerPersonName, a)}
+                />
+              </span>
+            ))}
+          </p>
         )}
         {movie.plot && (
           <p className="mt-2 text-sm text-zinc-300 leading-relaxed line-clamp-3 sm:line-clamp-none">{movie.plot}</p>
@@ -970,10 +1099,10 @@ const MovieRatingBlock = memo(function MovieRatingBlock({
   defaultSeen = false,
   previousRating,
   previousMode,
-  /** When false, Next is not shown in the card row (ignored when layout is trailerBar). */
   showNextInRating = true,
-  /** Under video, above title: Seen/Not, stars, Next (emerald strip) in one bar. */
+  /** Under video vs poster: same inner controls; wrapper only (strip vs rounded card). */
   layout = "card",
+  careerPrevNav = null,
 }: {
   passCurrentCardStable: () => void;
   onRate: (stars: number, mode: "seen" | "unseen") => void;
@@ -987,6 +1116,8 @@ const MovieRatingBlock = memo(function MovieRatingBlock({
   previousMode?: "seen" | "unseen";
   showNextInRating?: boolean;
   layout?: "card" | "trailerBar";
+  /** Career mode: show Prev; disabled at first film to keep 3-col layout. */
+  careerPrevNav?: { onPass: () => void; disabled: boolean } | null;
 }) {
   const seenRadioGroupName = useId();
   const hasPrev = previousRating !== undefined && previousRating > 0;
@@ -1027,33 +1158,157 @@ const MovieRatingBlock = memo(function MovieRatingBlock({
     />
   );
 
+  const navPair = Boolean(careerPrevNav && showNextInRating);
+
+  const navRow = (
+    <div
+      className={
+        navPair
+          ? "grid w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 sm:gap-x-3"
+          : `flex min-w-0 flex-wrap items-center justify-center gap-x-4 gap-y-3 sm:gap-x-5 ${
+              showNextInRating ? "" : "justify-center"
+            }`
+      }
+    >
+      {careerPrevNav && (
+        <PassNextButton
+          onPass={careerPrevNav.onPass}
+          disabled={careerPrevNav.disabled}
+          prominent
+          direction="prev"
+        />
+      )}
+      <div className={navPair ? "min-w-0 flex justify-center" : "min-w-0 flex shrink"}>
+        {starBlock}
+      </div>
+      {showNextInRating && <PassNextButton onPass={passCurrentCardStable} prominent />}
+    </div>
+  );
+
+  const ratingBody = (
+    <div className="flex min-w-0 flex-col gap-3">
+      <SeenOrNotRadios name={seenRadioGroupName} value={seenStatus} onChange={onSeenStatusChange} />
+      {navRow}
+    </div>
+  );
+
   if (layout === "trailerBar") {
     return (
       <div className={TRAILER_BAR_OUTER}>
-        <div className="mx-auto flex min-w-0 max-w-3xl flex-col gap-2">
-          <SeenOrNotRadios name={seenRadioGroupName} value={seenStatus} onChange={onSeenStatusChange} />
-          <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 sm:gap-x-4">
-            <div className="min-w-0 flex flex-1 justify-center">{starBlock}</div>
-            <PassNextButton onPass={passCurrentCardStable} muted />
-          </div>
-        </div>
+        <div className="mx-auto w-full min-w-0 max-w-3xl px-2 sm:px-3">{ratingBody}</div>
       </div>
     );
   }
 
   return (
     <div className="rounded-xl bg-zinc-900 border border-zinc-700 px-2 py-2 sm:px-3 sm:py-2.5">
-      <div className="flex min-w-0 flex-col gap-3">
-        <SeenOrNotRadios name={seenRadioGroupName} value={seenStatus} onChange={onSeenStatusChange} />
-        <div
-          className={`flex min-w-0 flex-wrap items-center justify-center gap-x-4 gap-y-3 sm:gap-x-5 ${
-            showNextInRating ? "" : "justify-center"
-          }`}
+      {ratingBody}
+    </div>
+  );
+});
+
+interface CareerFilm { tmdbId: number; title: string; year: number | null; type: "movie" | "tv"; posterUrl: string | null; }
+interface CareerMode { personName: string; role: "actor" | "director"; films: CareerFilm[]; index: number; }
+
+function isSameFilmAsCurrent(prev: CurrentMovie | null, film: CareerFilm): boolean {
+  if (!prev) return false;
+  return (
+    prev.title.toLowerCase().trim() === film.title.toLowerCase().trim() &&
+    prev.type === film.type &&
+    (prev.year ?? null) === (film.year ?? null)
+  );
+}
+
+function currentMovieEquals(a: CurrentMovie, b: CurrentMovie): boolean {
+  if (a === b) return true;
+  return (
+    a.title === b.title &&
+    a.type === b.type &&
+    a.year === b.year &&
+    a.director === b.director &&
+    a.predictedRating === b.predictedRating &&
+    a.plot === b.plot &&
+    a.posterUrl === b.posterUrl &&
+    a.trailerKey === b.trailerKey &&
+    a.rtScore === b.rtScore &&
+    a.reason === b.reason &&
+    a.actors.length === b.actors.length &&
+    a.actors.every((s, i) => s === b.actors[i])
+  );
+}
+
+const CareerFilmographyPanel = memo(function CareerFilmographyPanel({
+  career,
+  onSelect,
+  onExit,
+  loading,
+}: {
+  career: CareerMode;
+  onSelect: (index: number) => void;
+  onExit: () => void;
+  loading: boolean;
+}) {
+  const listRef = useRef<HTMLUListElement>(null);
+  /** Scroll only the list container — `scrollIntoView` on items can scroll the page and feel jumpy. */
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const el = list.children[career.index] as HTMLElement | undefined;
+    if (!el) return;
+    const elTop = el.offsetTop;
+    const elBottom = elTop + el.offsetHeight;
+    const viewTop = list.scrollTop;
+    const viewBottom = viewTop + list.clientHeight;
+    if (elTop < viewTop) list.scrollTop = elTop;
+    else if (elBottom > viewBottom) list.scrollTop = elBottom - list.clientHeight;
+  }, [career.index]);
+
+  return (
+    <div className="rounded-xl bg-zinc-900 border border-zinc-700 overflow-hidden">
+        <div className="px-3 py-2 border-b border-zinc-700 bg-zinc-800/60">
+        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-xs font-semibold text-zinc-300 truncate">
+            {career.personName}
+          </span>
+          <span className="text-xs text-zinc-500">
+            {career.role === "director" ? "Director" : "Actor"} · {career.index + 1} of {career.films.length}
+          </span>
+          {loading && <span className="text-xs text-indigo-400 animate-pulse">Loading…</span>}
+        </div>
+        <button
+          type="button"
+          onClick={onExit}
+          className="text-xs text-zinc-500 hover:text-white transition-colors shrink-0 ml-2"
         >
-          <div className="min-w-0 flex shrink">{starBlock}</div>
-          {showNextInRating && <PassNextButton onPass={passCurrentCardStable} prominent />}
+          Exit career
+        </button>
         </div>
       </div>
+      <ul ref={listRef} className="max-h-52 overflow-y-auto divide-y divide-zinc-800">
+        {career.films.map((film, i) => (
+          <li key={film.tmdbId}>
+            <button
+              type="button"
+              onClick={() => onSelect(i)}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors ${
+                i === career.index
+                  ? "bg-indigo-900/60 text-white"
+                  : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+              }`}
+            >
+              {film.posterUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={film.posterUrl} alt="" referrerPolicy="no-referrer" className="w-6 h-9 rounded object-cover shrink-0" />
+              ) : (
+                <div className="w-6 h-9 rounded bg-zinc-700 shrink-0" />
+              )}
+              <span className="text-xs font-medium truncate flex-1">{film.title}</span>
+              <span className="text-xs text-zinc-500 shrink-0">{film.year}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 });
@@ -1184,6 +1439,8 @@ export default function Home() {
   pendingRatingRef.current = pendingRating;
   /** Delayed advance after star rating — cleared if user uses Next or queue before it fires. */
   const advanceAfterRatingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Home hydration (localStorage + first fetchNext) must run once; `fetchNext` in deps was re-firing the effect and popping an extra title each time its identity changed. */
+  const homeHydrationEffectRanRef = useRef(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [mediaType, setMediaType] = useState<"both" | "movie" | "tv">(() => loadSetting("mediaType", "both" as const));
   const [displayMode, setDisplayMode] = useState<"trailers" | "posters">(() => loadSetting("displayMode", "trailers" as const));
@@ -1191,6 +1448,10 @@ export default function Home() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [isTrailerFullscreen, setIsTrailerFullscreen] = useState(false);
   const [shareToast, setShareToast] = useState<"copying" | "copied" | null>(null);
+  const [careerMode, setCareerMode] = useState<CareerMode | null>(null);
+  const [careerLoading, setCareerLoading] = useState(false);
+  const careerModeRef = useRef<CareerMode | null>(null);
+  careerModeRef.current = careerMode;
   const [watchFrac, setWatchFrac] = useState(0);
   const watchFracRef = useRef(0);
   watchFracRef.current = watchFrac;
@@ -1350,7 +1611,7 @@ export default function Home() {
   // Reset watch progress when the title or video changes (including when switching back to a channel with the same video id)
   const currentTrailerKey = current?.trailerKey;
   useEffect(() => {
-    setWatchFrac(0);
+    setWatchFrac((w) => (w === 0 ? w : 0));
   }, [currentTrailerKey, current?.title]);
 
   useEffect(() => {
@@ -1503,6 +1764,8 @@ export default function Home() {
     opts: { mediaType: string; llm: string },
     extraRetrySkips: string[] = []
   ): Promise<Set<string>> => {
+    /** Career mode walks a fixed TMDB filmography; do not mix in channel LLM picks. */
+    if (careerModeRef.current) return new Set();
     if (replenishGenInFlight.current >= MAX_REPLENISH_IN_FLIGHT) return new Set();
     replenishOptsRef.current = opts;
 
@@ -1633,6 +1896,9 @@ export default function Home() {
     }
   }, [replenish, persistPrefetchQueue]);
 
+  const fetchNextRef = useRef(fetchNext);
+  fetchNextRef.current = fetchNext;
+
   const clearAdvanceAfterRating = useCallback(() => {
     const t = advanceAfterRatingTimeoutRef.current;
     if (t != null) {
@@ -1695,6 +1961,9 @@ export default function Home() {
   );
 
   useEffect(() => {
+    if (homeHydrationEffectRanRef.current) return;
+    homeHydrationEffectRanRef.current = true;
+
     const stored = localStorage.getItem(STORAGE_KEY);
     const hist: RatingEntry[] = stored ? (JSON.parse(stored) as RatingEntry[]).map(migrateRatingEntry) : [];
     const storedSkipped = localStorage.getItem(SKIPPED_KEY);
@@ -1815,16 +2084,16 @@ export default function Home() {
         } catch {}
       }
 
-      fetchNext({ mediaType, llm }, true);
+      fetchNextRef.current({ mediaType, llm }, true);
     })();
-    // Mount-only hydrate; mediaType / llm / replenish changes are handled by other effects.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchNext, loadPrefetchIntoRefForChannel, persistPrefetchQueue]);
+    // Mount once: this effect also called fetchNext(…, true) at the end. Including fetchNext
+    // in the dependency array re-ran the whole effect when fetchNext was recreated, popping an extra title.
+  }, []) /* eslint-disable-line react-hooks/exhaustive-deps -- explicit single hydration + initial pick */;
 
 
   // Reset pending rating when a new card loads
   useEffect(() => {
-    setPendingRating(null);
+    setPendingRating((p) => (p == null ? p : null));
   }, [current?.title]);
 
   // Submit pending rating on unmount (Next.js client-side navigation) or page unload
@@ -1848,6 +2117,7 @@ export default function Home() {
       isFirstCard.current = false;
       return;
     }
+    if (careerModeRef.current) return;
     if (window.innerWidth >= 640) return;
     const el = cardRef.current;
     if (!el) return;
@@ -2042,7 +2312,7 @@ export default function Home() {
     // Update taste profile after 1st rating, then every 5 (1, 5, 10, 15 …)
     const n = newHistory.length;
     if (n === 1 || n % 5 === 0) updateTasteSummary(newHistory, llm);
-    replenish({ mediaType, llm });
+    if (!careerModeRef.current) replenish({ mediaType, llm });
   };
 
   /** Single entry point for all star clicks. Red = seen (goes to history). Blue = unseen (4-5 → watchlist, 1-3 → not-interested). */
@@ -2061,7 +2331,7 @@ export default function Home() {
     const p = pendingRatingRef.current;
     if (p) {
       submitRatingRef.current(p.stars, p.mode);
-      setPendingRating(null);
+      setPendingRating((x) => (x == null ? x : null));
     } else {
       const autoStars = WATCH_PROGRESS_AUTO_RATING ? progressToStars(watchFracRef.current) : 0;
       if (autoStars > 0) {
@@ -2073,8 +2343,13 @@ export default function Home() {
         passedRef.current = newPassed;
       }
     }
-    zeroYieldStreakRef.current = 0;
-    fetchNext({ mediaType, llm });
+    const cm = careerModeRef.current;
+    if (cm) {
+      if (cm.index < cm.films.length - 1) void careerNavigate(cm.index + 1);
+    } else {
+      zeroYieldStreakRef.current = 0;
+      fetchNext({ mediaType, llm });
+    }
   };
 
   const recordNotSeen = (kind: "want" | "skip", interestStars: number) => {
@@ -2154,7 +2429,7 @@ export default function Home() {
 
     watchlistRef.current = newWatchlist;
     zeroYieldStreakRef.current = 0; // new exclusion may unblock the LLM
-    replenish({ mediaType, llm });
+    if (!careerModeRef.current) replenish({ mediaType, llm });
   };
 
   const submitRatingRef = useRef(submitRating);
@@ -2172,6 +2447,100 @@ export default function Home() {
   const openPosterLightbox = useCallback((url: string) => {
     setLightboxUrl(url);
   }, []);
+
+  const careerNavigate = useCallback(async (index: number, films?: CareerFilm[]) => {
+    const cm = careerModeRef.current;
+    const filmList = films ?? cm?.films ?? [];
+    if (!filmList[index]) return;
+    const film = filmList[index];
+    setCareerMode((prev) => {
+      if (!prev) return null;
+      if (prev.index === index) return prev;
+      return { ...prev, index };
+    });
+    // Same title as the card already showing (e.g. opened an actor for this movie) — keep trailer so the player does not stop/restart.
+    setCurrent((prev) => {
+      if (isSameFilmAsCurrent(prev, film)) {
+        const posterUrl = film.posterUrl ?? prev!.posterUrl;
+        if (prev!.posterUrl === posterUrl) return prev;
+        return { ...prev!, posterUrl };
+      }
+      return {
+        ...(prev ?? { title: film.title, type: film.type, year: film.year, director: null, predictedRating: 3, actors: [], plot: "", rtScore: null, reason: null, trailerKey: null }),
+        title: film.title, type: film.type, year: film.year, posterUrl: film.posterUrl, trailerKey: null,
+      };
+    });
+    setCareerLoading((s) => (s ? s : true));
+    try {
+      const res = await fetch(`/api/career/movie?tmdbId=${film.tmdbId}&type=${film.type}`);
+      if (res.ok) {
+        const full = await res.json() as CurrentMovie;
+        setCurrent((p) => {
+          if (p && isSameFilmAsCurrent(p, film)) {
+            const merged: CurrentMovie = { ...full, trailerKey: full.trailerKey ?? p.trailerKey };
+            return currentMovieEquals(merged, p) ? p : merged;
+          }
+          if (p && currentMovieEquals(full, p)) return p;
+          return full;
+        });
+      }
+    } catch { /* ignore */ } finally {
+      setCareerLoading((s) => (s ? false : s));
+    }
+  }, []);
+
+  const handleCareerPrev = useCallback(() => {
+    const cm = careerModeRef.current;
+    if (cm) void careerNavigate(cm.index - 1);
+  }, [careerNavigate]);
+
+  const handleCareerListSelect = useCallback((i: number) => {
+    void careerNavigate(i);
+  }, [careerNavigate]);
+
+  const careerPrevNav = useMemo((): { onPass: () => void; disabled: boolean } | null => {
+    if (!careerMode) return null;
+    return { onPass: handleCareerPrev, disabled: careerMode.index === 0 };
+  }, [careerMode, careerMode?.index, handleCareerPrev]);
+
+  const enterCareerMode = useCallback(async (name: string, role: "actor" | "director") => {
+    setCareerLoading((s) => (s ? s : true));
+    try {
+      const res = await fetch(`/api/career?name=${encodeURIComponent(name)}&role=${role}`);
+      if (!res.ok) return;
+      const data = await res.json() as { personName: string; films: CareerFilm[] };
+      if (!data.films?.length) return;
+      const currentTitle = current?.title ?? "";
+      const startIndex = data.films.findIndex(
+        (f) => f.title.toLowerCase() === currentTitle.toLowerCase()
+      );
+      const index = startIndex >= 0 ? startIndex : 0;
+      const cm: CareerMode = { personName: data.personName, role, films: data.films, index };
+      // Drop in-flight LLM queue so it cannot mix with filmography picks.
+      replenishGenRef.current += 1;
+      replenishGenInFlight.current = 0;
+      prefetchRef.current = [];
+      batchYieldRef.current = [];
+      zeroYieldStreakRef.current = 0;
+      persistPrefetchQueue();
+      setCareerMode(cm);
+      careerModeRef.current = cm;
+      await careerNavigate(index, data.films);
+    } catch { /* ignore */ } finally {
+      setCareerLoading((s) => (s ? false : s));
+    }
+  }, [current?.title, careerNavigate, persistPrefetchQueue]);
+
+  const exitCareerMode = useCallback(() => {
+    setCareerMode(null);
+    careerModeRef.current = null;
+    const o = replenishOptsRef.current;
+    zeroYieldStreakRef.current = 0;
+    void replenish({ mediaType: o.mediaType, llm: o.llm });
+    if (prefetchRef.current.length === 0) {
+      void fetchNext({ mediaType: o.mediaType, llm: o.llm });
+    }
+  }, [replenish, fetchNext]);
 
   const handleShare = useCallback(async () => {
     if (!current) return;
@@ -2353,46 +2722,98 @@ export default function Home() {
             <MovieCardSkeleton mode={displayMode} />
           ) : current ? (
             <div>
-              {current.trailerKey && displayMode === "trailers" ? (
-                /* ── TRAILER LAYOUT ── */
+              {careerMode && (
+                <div
+                  className="flex items-center justify-between gap-2 border-b border-indigo-500/35 bg-indigo-950/45 px-3 py-2 sm:px-4"
+                  title="LLM pick queue is paused. Only the filmography list below is used until you exit."
+                >
+                  <p className="min-w-0 text-sm text-indigo-100">
+                    <span className="font-semibold">Career: </span>
+                    <span className="text-indigo-50">{careerMode.personName}</span>
+                    <span className="text-indigo-300/90">
+                      {" "}
+                      · {careerMode.role === "director" ? "Director" : "Actor"} · {careerMode.index + 1} of {careerMode.films.length}
+                    </span>
+                  </p>
+                  <button
+                    type="button"
+                    onClick={exitCareerMode}
+                    className="shrink-0 rounded-lg border border-indigo-500/50 bg-indigo-900/50 px-2.5 py-1.5 text-xs font-semibold text-indigo-100 transition-colors hover:bg-indigo-800/80"
+                  >
+                    Exit career
+                  </button>
+                </div>
+              )}
+              {displayMode === "trailers" ? (
+                /* ── TRAILER LAYOUT (always in “trailers” mode — never swap in a full poster page while a trailer may load) ── */
                 <div className="bg-black">
-                  <div ref={videoContainerRef} className="relative bg-black">
-                    <TrailerPlayer
-                      videoId={current.trailerKey}
-                      onProgress={setWatchFrac}
-                      onPlaybackError={handleTrailerPlaybackError}
-                      resumeFromFraction={trailerResumeByChannel[activeChannelId]?.[canonicalTitleKey(current.title)]}
-                    />
-                    {/* Fullscreen: overlay Next + exit; page has ratings under video, then title + Fullscreen/Share */}
-                    {isTrailerFullscreen && (
-                      <>
-                        <button
-                          type="button"
-                          onPointerDown={(e) => e.preventDefault()}
-                          onClick={passCurrentCardStable}
-                          className="fixed top-5 right-5 z-50 inline-flex items-center gap-2 rounded-xl border-2 border-indigo-200/90 bg-indigo-600 px-6 py-3 text-base font-semibold text-white shadow-lg shadow-indigo-950/40 hover:bg-indigo-500 hover:border-white/90 transition-all select-none"
-                          aria-label="Next title"
-                        >
-                          Next
-                          <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
-                            <path fillRule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clipRule="evenodd" />
-                          </svg>
-                        </button>
-                        <button
-                          type="button"
-                          onPointerDown={(e) => e.preventDefault()}
-                          onClick={() => document.exitFullscreen?.()}
-                          className="fixed top-5 left-5 z-50 rounded-xl bg-black/50 p-2.5 text-white/70 hover:bg-black/80 hover:text-white transition-colors select-none"
-                          title="Exit fullscreen"
-                          aria-label="Exit fullscreen"
-                        >
-                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9L4 4m0 0v4m0-4h4M15 9l5-5m0 0v4m0-4h-4M9 15l-5 5m0 0v-4m0 4h4M15 15l5 5m0 0v-4m0 4h-4" />
-                          </svg>
-                        </button>
-                      </>
-                    )}
-                  </div>
+                  {current.trailerKey ? (
+                    <div ref={videoContainerRef} className="relative bg-black">
+                      <TrailerPlayer
+                        videoId={current.trailerKey}
+                        onProgress={setWatchFrac}
+                        onPlaybackError={handleTrailerPlaybackError}
+                        resumeFromFraction={trailerResumeByChannel[activeChannelId]?.[canonicalTitleKey(current.title)]}
+                      />
+                      {/* Fullscreen: overlay Next + exit */}
+                      {isTrailerFullscreen && (
+                        <>
+                          <button
+                            type="button"
+                            onPointerDown={(e) => e.preventDefault()}
+                            onClick={passCurrentCardStable}
+                            className="fixed top-5 right-5 z-50 inline-flex items-center gap-2 rounded-xl border-2 border-indigo-200/90 bg-indigo-600 px-6 py-3 text-base font-semibold text-white shadow-lg shadow-indigo-950/40 hover:bg-indigo-500 hover:border-white/90 transition-all select-none"
+                            aria-label="Next title"
+                          >
+                            Next
+                            <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+                              <path fillRule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            onPointerDown={(e) => e.preventDefault()}
+                            onClick={() => document.exitFullscreen?.()}
+                            className="fixed top-5 left-5 z-50 rounded-xl bg-black/50 p-2.5 text-white/70 hover:bg-black/80 hover:text-white transition-colors select-none"
+                            title="Exit fullscreen"
+                            aria-label="Exit fullscreen"
+                          >
+                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9L4 4m0 0v4m0-4h4M15 9l5-5m0 0v4m0-4h-4M9 15l-5 5m0 0v-4m0 4h4M15 15l5 5m0 0v-4m0 4h-4" />
+                            </svg>
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  ) : current.posterUrl && !current.trailerKey && !careerLoading ? (
+                    <div className="border-b border-zinc-800/80 bg-zinc-950">
+                      <div className="flex min-w-0 items-start justify-between gap-3 p-4 sm:p-6">
+                        <div className="min-w-0 flex-1">
+                          <PosterMovieTop
+                            movie={current}
+                            onOpenPoster={openPosterLightbox}
+                            onPersonClick={enterCareerMode}
+                            careerPersonName={careerMode?.personName ?? null}
+                          />
+                        </div>
+                        <div className="shrink-0 pt-0.5">
+                          <ShareButton onClick={handleShare} toast={shareToast} />
+                        </div>
+                      </div>
+                    </div>
+                  ) : current.posterUrl && !current.trailerKey && careerLoading ? (
+                    <div ref={videoContainerRef} className="relative bg-black">
+                      <div className="flex aspect-video w-full items-center justify-center bg-zinc-950 text-sm text-zinc-500">
+                        Loading trailer…
+                      </div>
+                    </div>
+                  ) : (
+                    <div ref={videoContainerRef} className="relative bg-black">
+                      <div className="flex aspect-video w-full items-center justify-center bg-zinc-950 text-sm text-zinc-500">
+                        {careerLoading ? "Loading trailer…" : null}
+                      </div>
+                    </div>
+                  )}
                   {!isTrailerFullscreen && (
                     <MovieRatingBlock
                       layout="trailerBar"
@@ -2404,53 +2825,99 @@ export default function Home() {
                       defaultSeen={activeChannelId === "all"}
                       previousRating={historyRef.current.find((e) => e.title === current.title)?.userRating}
                       previousMode={historyRef.current.find((e) => e.title === current.title)?.ratingMode}
+                      careerPrevNav={careerPrevNav}
                     />
                   )}
                   <div className="flex flex-col gap-4 p-4 sm:pb-6 sm:p-6">
-                    <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
-                      <div className="min-w-0 w-full sm:flex-1 sm:pr-1">
-                        <TrailerMetadata movie={current} />
+                    {current.trailerKey && (
+                      <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                        <div className="min-w-0 w-full sm:flex-1 sm:pr-1">
+                          <TrailerMetadata
+                            movie={current}
+                            onPersonClick={enterCareerMode}
+                            careerPersonName={careerMode?.personName ?? null}
+                          />
+                        </div>
+                        <div className="flex shrink-0 items-center justify-end gap-1 sm:gap-2 sm:pt-0.5">
+                          {!isTrailerFullscreen && (
+                            <button
+                              type="button"
+                              onPointerDown={(e) => e.preventDefault()}
+                              onClick={() => videoContainerRef.current?.requestFullscreen?.()}
+                              className="shrink-0 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+                              title="Enter fullscreen — Next button available in fullscreen"
+                              aria-label="Enter fullscreen"
+                            >
+                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                              </svg>
+                              Fullscreen
+                            </button>
+                          )}
+                          <ShareButton onClick={handleShare} toast={shareToast} />
+                        </div>
                       </div>
-                      <div className="flex shrink-0 items-center justify-end gap-1 sm:gap-2 sm:pt-0.5">
-                        {!isTrailerFullscreen && (
-                          <button
-                            type="button"
-                            onPointerDown={(e) => e.preventDefault()}
-                            onClick={() => videoContainerRef.current?.requestFullscreen?.()}
-                            className="shrink-0 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
-                            title="Enter fullscreen — Next button available in fullscreen"
-                            aria-label="Enter fullscreen"
-                          >
-                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                            </svg>
-                            Fullscreen
-                          </button>
-                        )}
+                    )}
+                    {!current.trailerKey && !current.posterUrl && (
+                      <div className="flex justify-end">
                         <ShareButton onClick={handleShare} toast={shareToast} />
                       </div>
-                    </div>
+                    )}
                     {current.reason && (
                       <p className="text-sm text-zinc-400 leading-relaxed border-l-2 border-zinc-600 pl-3">
                         {current.reason}
                       </p>
                     )}
 
-                    <PrefetchQueuePanel
-                      prefetchQueueUi={prefetchQueueUi}
-                      channels={channels}
-                      activeChannelId={activeChannelId}
-                      onPlayAtIndex={playPrefetchAtIndex}
-                      onRemoveAtIndex={removeFromPrefetchQueue}
-                    />
+                    {careerMode ? (
+                      <CareerFilmographyPanel
+                        career={careerMode}
+                        onSelect={handleCareerListSelect}
+                        onExit={exitCareerMode}
+                        loading={careerLoading}
+                      />
+                    ) : (
+                      <PrefetchQueuePanel
+                        prefetchQueueUi={prefetchQueueUi}
+                        channels={channels}
+                        activeChannelId={activeChannelId}
+                        onPlayAtIndex={playPrefetchAtIndex}
+                        onRemoveAtIndex={removeFromPrefetchQueue}
+                      />
+                    )}
                   </div>
+                  {current.trailerKey && current.posterUrl && !isTrailerFullscreen && (
+                    <div className="flex justify-center border-t border-zinc-800 bg-zinc-950 px-3 pb-4 pt-3 sm:px-6 sm:pb-5 sm:pt-3">
+                      <button
+                        type="button"
+                        onPointerDown={(e) => e.preventDefault()}
+                        onClick={() => openPosterLightbox(current.posterUrl!)}
+                        className="w-full max-w-44 cursor-zoom-in overflow-hidden rounded-lg border border-zinc-800/90 shadow-sm transition-shadow hover:border-zinc-600 sm:max-w-52"
+                        title="View poster"
+                        aria-label={`View ${current.title} poster full size`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={current.posterUrl}
+                          alt={`${current.title} poster`}
+                          referrerPolicy="no-referrer"
+                          className="mx-auto block h-auto w-full max-h-56 object-contain object-top sm:max-h-64"
+                        />
+                      </button>
+                    </div>
+                  )}
                 </div>
               ) : (
-                /* ── POSTER LAYOUT (no trailer) ── */
+                /* ── POSTER MODE (user chose “posters” in settings — large poster + metadata) ── */
                 <div className="flex flex-col gap-4 p-4 sm:p-6">
                   <div className="flex min-w-0 items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <PosterMovieTop movie={current} onOpenPoster={openPosterLightbox} />
+                      <PosterMovieTop
+                      movie={current}
+                      onOpenPoster={openPosterLightbox}
+                      onPersonClick={enterCareerMode}
+                      careerPersonName={careerMode?.personName ?? null}
+                    />
                     </div>
                     <div className="shrink-0 pt-0.5">
                       <ShareButton onClick={handleShare} toast={shareToast} />
@@ -2470,14 +2937,24 @@ export default function Home() {
                     defaultSeen={activeChannelId === "all"}
                     previousRating={historyRef.current.find(e => e.title === current.title)?.userRating}
                     previousMode={historyRef.current.find(e => e.title === current.title)?.ratingMode}
+                    careerPrevNav={careerPrevNav}
                   />
-                  <PrefetchQueuePanel
-                    prefetchQueueUi={prefetchQueueUi}
-                    channels={channels}
-                    activeChannelId={activeChannelId}
-                    onPlayAtIndex={playPrefetchAtIndex}
-                    onRemoveAtIndex={removeFromPrefetchQueue}
-                  />
+                  {careerMode ? (
+                    <CareerFilmographyPanel
+                      career={careerMode}
+                      onSelect={handleCareerListSelect}
+                      onExit={exitCareerMode}
+                      loading={careerLoading}
+                    />
+                  ) : (
+                    <PrefetchQueuePanel
+                      prefetchQueueUi={prefetchQueueUi}
+                      channels={channels}
+                      activeChannelId={activeChannelId}
+                      onPlayAtIndex={playPrefetchAtIndex}
+                      onRemoveAtIndex={removeFromPrefetchQueue}
+                    />
+                  )}
                 </div>
               )}
             </div>
